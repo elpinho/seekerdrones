@@ -22,6 +22,7 @@ public class ModLanguageProvider extends LanguageProvider {
         addEntityType(ModEntityTypes.DRONE, "Drone");
 
         add("tooltip.seekerdrones.drone.unassigned", "Unassigned");
+        add("tooltip.seekerdrones.drone.owner", "Owner: %s");
         add("tooltip.seekerdrones.drone.energy", "Energy: %s / %s FE");
         add("tooltip.seekerdrones.drone.health", "Health: %s / %s");
         add("tooltip.seekerdrones.drone.upgrades", "Upgrades:");

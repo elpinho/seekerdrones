@@ -363,7 +363,7 @@ public class DroneGameTests {
         DroneConfig config = new DroneConfig(targets, 6, Optional.of(GlobalPos.of(Level.OVERWORLD, new BlockPos(10, 70, 10))), Optional.of(12), "Sentry", DyeColor.RED);
         Map<UpgradeType, Integer> upgrades = Map.of(UpgradeType.ENERGY, 1, UpgradeType.HEALTH, 2);
         // Base max energy 100_000 + 1*100_000 = 200_000; base max health 20 + 2*10 = 40. Both values below max.
-        return new DroneData(droneId, Optional.of(UUID.randomUUID()), Optional.of(UUID.randomUUID()), 123_456, 15.0F, upgrades, config);
+        return new DroneData(droneId, Optional.of(UUID.randomUUID()), Optional.of(UUID.randomUUID()), "Steve", 123_456, 15.0F, upgrades, config);
     }
 
     /** Sample data linked to a real Operator Group owned by {@code player}, so the M2 permission check lets them interact. */

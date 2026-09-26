@@ -78,6 +78,7 @@
   "subtitles.seekerdrones.drone_siren": "Drone siren blares",
   "tooltip.seekerdrones.drone.energy": "Energy: %s / %s FE",
   "tooltip.seekerdrones.drone.health": "Health: %s / %s",
+  "tooltip.seekerdrones.drone.owner": "Owner: %s",
   "tooltip.seekerdrones.drone.targets": "Targets: %s",
   "tooltip.seekerdrones.drone.unassigned": "Unassigned",
   "tooltip.seekerdrones.drone.upgrade_entry": "%s x%s",

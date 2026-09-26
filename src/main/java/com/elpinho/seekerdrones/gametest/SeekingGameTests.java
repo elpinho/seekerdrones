@@ -488,7 +488,7 @@ public class SeekingGameTests {
     }
 
     private static DroneData dataWithUpgrades(DroneData data, Map<UpgradeType, Integer> upgrades) {
-        return new DroneData(data.droneId(), data.groupId(), data.ownerId(), data.energy(), data.health(), upgrades, data.config());
+        return new DroneData(data.droneId(), data.groupId(), data.ownerId(), data.ownerName(), data.energy(), data.health(), upgrades, data.config());
     }
 
     /** A stationary bait zombie: no AI, no gravity, invulnerable (so daylight or stray hits don't remove it). */

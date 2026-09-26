@@ -2,7 +2,6 @@ package com.elpinho.seekerdrones.drone;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
@@ -93,9 +92,10 @@ public class DroneItem extends Item {
         if (!data.hasDroneId()) {
             data = data.withDroneId(DroneIds.generate(level.getRandom()));
         }
-        // The first player to hand-deploy a drone becomes its owner for good (section 6.3).
-        if (data.ownerId().isEmpty()) {
-            data = data.withOwnerId(Optional.of(player.getUUID()));
+        // The first player to hand-deploy a drone becomes its owner for good (section 6.3). The owner redeploying it
+        // refreshes the stored name, in case they renamed.
+        if (data.ownerId().isEmpty() || data.ownerId().get().equals(player.getUUID())) {
+            data = data.withOwner(player.getUUID(), player.getGameProfile().getName());
         }
         drone.setDroneData(data);
         double throwSpeed = ServerConfig.get(ServerConfig.DRONE_DEPLOY_THROW_SPEED);
@@ -111,6 +111,10 @@ public class DroneItem extends Item {
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         DroneData data = getData(stack);
         tooltip.add(identity(data));
+        data.ownerId().ifPresent(ownerId -> {
+            String name = data.ownerName().isEmpty() ? ownerId.toString() : data.ownerName();
+            tooltip.add(Component.translatable("tooltip.seekerdrones.drone.owner", name).withStyle(ChatFormatting.GRAY));
+        });
         tooltip.add(Component.translatable("tooltip.seekerdrones.drone.energy", data.energy(), DroneStats.maxEnergy(data))
                 .withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable("tooltip.seekerdrones.drone.health", formatHealth(data.health()), formatHealth(DroneStats.maxHealth(data)))

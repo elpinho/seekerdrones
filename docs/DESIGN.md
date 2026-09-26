@@ -37,7 +37,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 - The **Drone item** carries all drone state in a custom data component (`seekerdrones:drone_data`, see section 8.2).
 - The **Drone entity** is the deployed, flying form. Converting between item and entity is lossless: energy, health, upgrades, config, operator group, persistent drone ID, label and color are all preserved.
-- **Item tooltip:** the first line is `<label> - <drone ID>` (or just the drone ID if there is no label), drawn in the drone's color using the dye's text color (`DyeColor.getTextColor`) so dark colors stay readable. There is no separate color line. Below it the tooltip lists energy, health, installed upgrades (if any) and the number of target entries.
+- **Item tooltip:** the first line is `<label> - <drone ID>` (or just the drone ID if there is no label), drawn in the drone's color using the dye's text color (`DyeColor.getTextColor`) so dark colors stay readable. There is no separate color line. The second line is `Owner: <name>` if the drone has an owner (section 6.3), shown even when the drone has a group. Below it the tooltip lists energy, health, installed upgrades (if any) and the number of target entries.
 
 ### 2.2 Deploying
 
@@ -336,6 +336,7 @@ The component is a record with a `Codec` and a `StreamCodec`, holding:
 - `droneId` (string): the persistent, readable ID from section 2.8. It survives item/entity conversion and is also meant for future features such as a map or the Camera upgrade.
 - `groupId` (optional UUID): the Operator Group. Empty on drones that weren't built by a Factory (e.g. creative/`/give`). See section 6.2 and 6.3 for how permission checks treat a drone without a group or with an unknown group.
 - `ownerId` (optional UUID): the player who first hand-deployed the drone (section 6.3). Only used while the drone has no group.
+- `ownerName` (string, empty if unknown): the owner's name, saved when ownership is set and refreshed when the owner redeploys the drone. It's only for the tooltip, because clients can't resolve offline players' names.
 - `energy` (int). Max energy is derived from the upgrades and config, not stored.
 - `health` (float). Max health is derived.
 - `upgrades` (map of upgrade type to count).
