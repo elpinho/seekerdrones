@@ -1,0 +1,382 @@
+# Seeker Drones — Design Document
+
+| | |
+|---|---|
+| Mod ID | `seekerdrones` |
+| Display name | Seeker Drones |
+| Java package | `com.elpinho.seekerdrones` |
+| Minecraft | 1.21.1 |
+| Loader | NeoForge (21.1.x), Java 21 |
+
+> **Scope rule:** Everything in sections 1–10 is **v1 (MVP)** scope. Section 11 (**Future / Out of Scope**) lists ideas that are agreed on but **must not be implemented yet**. Do not build them, stub them, or design v1 code around speculative needs for them unless the user explicitly asks.
+>
+> All numbers in this document are **placeholder defaults**. Every tunable value must be exposed in the server config (see section 9).
+
+---
+
+## 1. Overview
+
+Seeker Drones adds autonomous flying drones that hunt a configured kind of entity. When a drone spots a target, it chases it. Depending on its upgrades, it then follows, alerts or explodes.
+
+Drones are **mid-game** items and fully upgraded drones are **late-game** items. The mod is built around an automatable pipeline:
+
+```
+Drone Factory ──> Drone Programming Station ───> Drone Deploying Station ──> (drone in world)
+ (build drone)     (apply upgrades + config)      (auto-deploy)                  │
+                                                                                 ▼
+                                                             Drone Charging Station (recharge)
+```
+
+Every step accepts automation (pipes, hoppers, conveyors). None of the machines require a player to be present.
+
+---
+
+## 2. The Drone
+
+### 2.1 Item vs. entity
+
+- The **Drone item** carries all drone state in a custom data component (`seekerdrones:drone_data`, see section 8.2).
+- The **Drone entity** is the deployed, flying form. Converting between item and entity is lossless: energy, health, upgrades, config, operator group, persistent drone ID, label and color are all preserved.
+
+### 2.2 Deploying
+
+| Method | Who | Behavior |
+|---|---|---|
+| **Shift + right-click** with the drone item (hand-deploy) | Operators of the drone's group only | Spawns in front of the player and **inherits the player's velocity**. The velocity decays by drag each tick until the drone comes to rest and hovers. If it spots a target while drifting, it starts chasing immediately. |
+| **Drone Deploying Station** | Anyone / automation (no permission check) | Spawns above the station **with no velocity** and hovers. |
+
+### 2.3 Picking up
+
+- **Shift + right-click** a drone entity with an empty hand. Operators of the drone's group only.
+- The drone becomes an item with all its data and goes into the player's inventory, or drops at their feet if the inventory is full.
+
+### 2.4 Drone GUI
+
+- Operators can open a read-only status screen by right-clicking a drone entity.
+- It shows the drone ID, label, energy, health, installed upgrades, target configuration, current state (idle / patrolling / chasing / following / returning to charge / charging) and patrol center.
+- The drone's configuration is **not** editable here. Configuration is done in the Drone Programming Station.
+
+### 2.5 Health and destruction
+
+- Drones have HP. Base HP is configurable and **Health upgrades** increase it.
+- Players, mobs and projectiles can damage drones.
+- When HP reaches 0, the drone is **destroyed and lost**. It plays a small explosion effect (particles and sound only, with no damage and no block breaking) and disappears. It leaves no drop, and its upgrades are lost. This applies whether or not it has Explosive upgrades.
+- An Explosive drone that **reaches its target** explodes and is **consumed**, leaving no drop. It is a suicide drone.
+
+### 2.6 Base configuration (always present, not tied to an upgrade)
+
+| Setting | Description |
+|---|---|
+| **Targets** | A list of entries. Each entry is an **entity type ID** (e.g. `minecraft:zombie`), an **entity tag** (e.g. `#minecraft:raiders`) or, with Player Seek only, a **player name**. See section 2.7 for how many entries are allowed. |
+| **Follow distance** | How far a non-Explosive drone keeps from its target while following it (blocks). |
+| **Label** | Optional short text label for identification. It is shown in the drone GUI, in Transmitter messages and as the drone's nameplate. Set by the Programming Station. |
+| **Color** | One of the 16 dye colors, which tints part of the drone's model and item. Set by the Programming Station. |
+
+### 2.7 Target slots
+
+- A base drone can have **1** target entry. Each **Multi-target upgrade** adds more slots: `allowedTargets = 1 + multiTargetCount × perUpgrade`, where `perUpgrade` defaults to 1.
+- In the Programming Station, the target list the player can edit is sized by the **programmed** Multi-target count, not the count currently installed on the drone. This lets a player configure a drone before it is fully upgraded.
+- **Runtime fail-safe:** a flying drone only uses the first `allowedTargets` entries, based on the Multi-target upgrades it **actually** has. It also ignores player-name entries unless it has Player Seek. Entries beyond that are kept in the data but ignored.
+
+### 2.8 Drone ID
+
+- Every drone gets a **persistent, random but readable ID** when the Factory builds it, e.g. `K7F3-Q9MX`.
+- The ID is 8 random uppercase letters and digits (A–Z, 0–9), shown with a dash in the middle.
+- It never changes, is kept through every item/entity conversion, and is shown in the drone GUI, the item tooltip and Transmitter messages.
+
+---
+
+## 3. Drone Behavior (AI)
+
+### 3.1 States
+
+```
+          ┌──────────── target lost ─────────────┐
+          ▼                                      │
+ IDLE / PATROLLING ── target spotted ──> CHASING ──> (Explosive) EXPLODE → removed
+          │                                 │
+          │                                 └──> (non-Explosive) FOLLOWING ── target lost ──┐
+          │                                                                                 │
+          └──── energy below return threshold (see 5.2) ─────────> RETURNING ──> CHARGING ──┘
+                                                                      │               (resumes
+                                                     no reachable station /           patrol)
+                                                     energy hits 0 ──> drops as item
+```
+
+- **IDLE (hover):** A drone without a Patrol upgrade hovers where it is and scans for targets. This is a stationary sentry.
+- **PATROLLING:** A drone with at least one Patrol upgrade flies in a circle around its **patrol center** and scans for targets.
+- **CHASING:** The drone flies toward the target, getting faster the closer it gets (section 3.4).
+- **FOLLOWING** (non-Explosive only): Once within follow distance, the drone keeps that distance and tracks the target.
+- **EXPLODE** (Explosive only): Once within the trigger distance, the drone explodes and is removed.
+- **RETURNING / CHARGING:** See section 5.
+
+### 3.2 Patrol center
+
+The patrol center is chosen in this order:
+1. The position configured on the Patrol upgrade in the Programming Station. It must be in the same dimension as the drone.
+2. Otherwise, where a hand-deployed drone came to rest.
+3. Otherwise, the Deploying Station's position.
+
+The patrol radius scales with the number of Patrol upgrades: `patrolRadius = base + perUpgrade × (count − 1)`.
+
+### 3.3 Detection
+
+- **Sight range** is how far away a drone can first spot a target. It is low by default and increased by **Sight upgrades**.
+- A valid target matches one of the drone's **allowed** target entries (section 2.7). Players can only be targeted with the **Player Seek upgrade** (section 4). **Operators of the drone's own group are never targeted.** Spectators and creative-mode players are ignored.
+- **Line of sight is required** unless the drone has the **X-ray upgrade**. Without X-ray, the drone must have a clear ray to the target's eyes (block collision raycast). A drone with X-ray skips the raycast entirely and detects targets through walls within its sight range.
+- If several valid targets are visible, the drone picks the **nearest**.
+
+**Performance (required — there may be dozens of drones):**
+- Drones scan for targets every N ticks (default 10), not every tick. Scans are **staggered** using `(tickCount + entityId) % N`, so drones spread the work over different ticks.
+- The scan is cheap filtering first, raycast last:
+  1. Get candidates with an AABB entity query sized to the sight range.
+  2. Filter by target match, then by squared distance to the drone's sight *sphere*.
+  3. Sort by distance and raycast **nearest-first**, stopping at the first visible candidate.
+  4. Cap the raycasts per scan (default 4).
+- While chasing or following, the drone re-checks line of sight at the same staggered interval, not every tick. X-ray drones skip this check.
+
+### 3.4 Chase speed
+
+- The drone accelerates as the distance to the target shrinks, and its speed is always capped.
+- Suggested curve: `speed = min(maxSpeed, cruiseSpeed × e^(k × (1 − d / sightRange)))`, where `d` is the current distance. `cruiseSpeed`, `maxSpeed` and `k` are configurable.
+- `maxSpeed` must stay low enough to avoid clipping through blocks and outrunning chunk loading. The suggested hard ceiling is about 1.5 blocks per tick.
+- Drones fly using flying-mob navigation (vanilla `FlyingPathNavigation`). They go around obstacles and never pass through blocks.
+
+### 3.5 Losing the target
+
+The drone loses its target when any of these happen:
+- The target dies, despawns or changes dimension.
+- The target moves beyond the **pursuit range** (`sightRange × pursuitMultiplier`, default 2×).
+- Line of sight is lost continuously for longer than the **lost-sight timeout** (default 5 s). This never happens to X-ray drones.
+
+After losing the target, a drone with a Patrol upgrade goes back to patrolling. A drone without one stops and hovers where it is.
+
+### 3.6 Chunk loading
+
+- **Drones only operate in loaded chunks.** A drone in an unloaded chunk freezes like any vanilla entity and resumes when the chunk loads again.
+- There is **no** chunk loading in v1, not even behind a config option.
+
+---
+
+## 4. Upgrades
+
+- Upgrades are craftable items with expensive recipes. The materials are still to be decided (TBD), and the recipes are plain data-driven crafting recipes.
+- Each drone has a **total upgrade slot limit** and a **per-type cap**. Both are configurable.
+- Upgrades are installed and removed only in the **Drone Programming Station**. Removal gives a **full refund** of the upgrade item.
+
+| Upgrade | Stacks | Default cap | Effect | Per-upgrade config (set in Programming Station) |
+|---|---|---|---|---|
+| **Patrol** | Yes | 4 | Enables patrolling. Each extra upgrade increases the patrol radius. | Patrol center (x, y, z) |
+| **Sight** | Yes | 4 | Increases sight (detection) range. | — |
+| **Explosive** | Yes | 4 | The drone explodes on reaching its target and is consumed. Explosion power scales with the count. | — |
+| **Siren** | Yes | 3 | Plays a siren sound when a target is spotted. More upgrades increase the audible radius (sound volume > 1.0). | — |
+| **Transmitter** | No | 1 | Sends a chat message to **all online operators** of the drone's group when a target is spotted, including the drone ID, label, target type and coordinates. The message is rate-limited per drone. | — |
+| **Energy** | Yes | 4 | Increases max energy (FE). | — |
+| **Health** | Yes | 4 | Increases max HP. | — |
+| **Player Seek** | No | 1 | Allows player names as target entries. Player-name entries use target slots like any other entry. Operators of the drone's group are still exempt. | — (names go in the Targets list) |
+| **Multi-target** | Yes | 3 | Each upgrade adds target slots (section 2.7). | — |
+| **X-ray** | No | 1 | Detection and tracking ignore line of sight, so targets are found through walls (section 3.3). | — |
+
+- The default **total slot limit** is 8.
+- The Siren fires once per target acquisition and repeats every N seconds (configurable) while the target is being chased or followed.
+- Transmitter messages sent while operators are offline are **not** queued in v1.
+
+---
+
+## 5. Energy
+
+### 5.1 Consumption
+
+- Drones store **FE**. The drain is applied every N ticks (default 20) to keep it cheap:
+  - **Distance cost:** FE per block flown, which gives the drone its "range".
+  - **Hover cost:** a small FE per tick while airborne.
+- Energy upgrades increase max FE.
+
+### 5.2 Returning to charge
+
+- The **return threshold** is dynamic: the energy needed to reach the nearest usable Charging Station, which is `distance × FE-per-block × safetyMargin` (default 1.25).
+- The drone looks for stations within a fixed radius (default 500 blocks) using the station registry (section 8.3), not a block scan.
+- A **usable** station is owned by a player who is the owner or an operator of the drone's group, and is in the same dimension.
+- Once the threshold is reached, returning overrides every other state, including chasing, **except** for a drone with an **Explosive** upgrade that is currently chasing. That drone keeps chasing, since it will be consumed anyway. If an Explosive drone loses its target while below the threshold, it returns to charge as normal.
+- If no usable station is in range, the drone carries on normally until its energy hits 0. It then **drops as an item** with its data intact.
+
+### 5.3 Charging queue
+
+- Each Charging Station charges **one drone at a time**.
+- If the chosen station is busy, the drone checks for another free usable station within 10 blocks of it and goes there. If there is none, it waits by hovering very close to the busy station.
+- When charging finishes, the drone returns to its patrol center and resumes patrolling, or hovers if it has no Patrol upgrade. A drone without a Patrol upgrade returns to where it was when it left.
+
+---
+
+## 6. Drone Operators
+
+Drone Operators control who can interact with drones.
+
+### 6.1 Operator Groups
+
+- Each **Drone Factory** owns one **Operator Group**. The group is stored in world saved data (section 8.3) under a unique group ID.
+- The **group owner** is the player who first placed the Factory. The owner is always an operator.
+- Only the **group owner** can edit the operator list, from the Factory GUI. Operators are added by player name, which is resolved to a UUID, and stored by UUID.
+- Every drone built by a Factory records that Factory's **group ID**. Permissions are checked against the group's **current** membership, so changes to the list apply at once to all existing drones, including revoking access.
+- Breaking the Factory **does not delete the group**. The Factory item keeps the group ID in a data component, so placing it again reconnects to the same group.
+- Ownership transfer is out of scope for v1.
+
+### 6.2 Operator permissions
+
+| Action | Requires operator? |
+|---|---|
+| Pick up a drone (Shift + right-click) | Yes |
+| Hand-deploy a drone | Yes |
+| Open the drone status GUI | Yes |
+| Receive Transmitter notifications | Yes (all online operators) |
+| Exempt from being targeted by Player Seek | Yes |
+| Insert/extract drones in machines (manually or by automation) | **No**. Machines never check permissions, so automation keeps working. |
+| Drone may charge at a Charging Station | The station's placer must be the owner or an operator of the drone's group |
+
+The Programming, Deploying and Charging Stations have no access control in v1. Charging Stations only record their placer's UUID, which is used for the usability rule above.
+
+---
+
+## 7. Machines
+
+All machines accept energy through the NeoForge `IEnergyStorage` capability, items through `IItemHandler`, and (where relevant) fluids through `IFluidHandler`, on every side.
+
+### 7.1 Drone Factory
+
+- v1 is a **single block**.
+- It consumes **items + fluid + FE** over a processing time to build one Drone.
+- Recipes use a custom, data-driven recipe type `seekerdrones:drone_assembly`, which defines item ingredients, a fluid ingredient and amount, total FE and processing time. The materials and the fluid are TBD.
+- The output drone is **fully charged** at base capacity, has no upgrades and has default config. It is linked to this Factory's Operator Group and gets a new persistent drone ID.
+- The GUI has input slots, a fluid tank, an energy bar, progress, an output slot and an **Operator list** tab (owner only).
+
+### 7.2 Drone Programming Station
+
+- **Slots:** one drone slot, an upgrade input inventory, and a refund output buffer for removed upgrades.
+- **Program:** the station stores a desired configuration:
+  - the target count for each upgrade type,
+  - per-upgrade config (patrol center),
+  - base config: the targets list (sized by the programmed Multi-target count, section 2.7), follow distance, **Label**, and **Color** (a button that cycles through the 16 dye colors on each click).
+- **Operation:** with a drone in the slot, the station works toward the program one step at a time:
+  - It installs a missing upgrade from the input inventory, paying FE.
+  - It writes the configured settings (targets, follow distance, patrol center, label, color) onto the drone.
+  - If required upgrades are missing from the input inventory, it waits.
+- **Manual removal (v1):** a player can remove installed upgrades one at a time from the GUI. Removed upgrades go into the refund buffer (a full refund), and removal costs no FE. The station does **not** automatically remove upgrades beyond the program in v1. A drone with more upgrades than the program asks for doesn't match, so it is never auto-output, and the GUI shows a warning.
+- **Refund buffer output:** the refund buffer can be set to push into an adjacent inventory on one configured face. It can also always be extracted through the item capability.
+- **FE cost per upgrade installed:**
+  - The base cost is `baseCost[type] × n`, where `n` is the index of the upgrade being installed within its type (1st, 2nd…). The scaling is configurable.
+  - Installing an **Energy** upgrade also costs the FE capacity that the upgrade adds. That FE goes into the drone, so the new capacity arrives full.
+  - Removing an Energy upgrade lowers capacity, and any charge above the new capacity is lost.
+- **Output mode:**
+  - **Manual** (default): the drone stays in the slot and a player takes it out.
+  - **Auto-output when complete:** once the drone matches the program exactly, the station pushes it into an adjacent inventory on configured faces. Until then it is never output.
+- A drone that would exceed the slot or per-type caps under the program is invalid, and the GUI must prevent saving that program.
+
+### 7.3 Drone Deploying Station
+
+- It has one drone input slot and an **auto-deploy** toggle.
+- With auto-deploy on, a drone inserted by a player or automation is deployed above the station, stationary, if the space is clear. With auto-deploy off, a GUI button deploys it manually.
+- It deploys drones as they are and does not charge them.
+- It **uses FE per deploy** (a configurable amount) and won't deploy without enough stored FE.
+
+### 7.4 Drone Charging Station
+
+- It accepts FE and charges one docked drone at a time at a configurable FE/tick rate.
+- It records its placer's UUID and registers itself in the station registry on placement. It unregisters when broken.
+- Drone docking and queuing follow section 5.3.
+
+---
+
+## 8. Technical Notes
+
+### 8.1 Registration
+
+- Use NeoForge `DeferredRegister` for blocks, items, block entities, entity types, menus, recipe types and serializers, data component types, sounds and creative tabs.
+- Capabilities are registered through `RegisterCapabilitiesEvent`.
+
+### 8.2 Drone data component (`seekerdrones:drone_data`)
+
+The component is a record with a `Codec` and a `StreamCodec`, holding:
+- `droneId` (string): the persistent, readable ID from section 2.8. It survives item/entity conversion and is also meant for future features such as a map or the Camera upgrade.
+- `groupId` (UUID): the Operator Group.
+- `energy` (int). Max energy is derived from the upgrades and config, not stored.
+- `health` (float). Max health is derived.
+- `upgrades` (map of upgrade type to count).
+- `config`: targets, follow distance, patrol center (optional), label, color.
+
+The drone entity saves the same data in its entity NBT. Only the fields the client needs (e.g. status for the GUI and renderer) are synced.
+
+### 8.3 Saved data
+
+- **Operator Groups:** global `SavedData` stored on the overworld, mapping group ID to owner UUID and the operator UUID set.
+- **Charging Station registry:** a `SavedData` per dimension, mapping block position to owner UUID. The nearest-station search iterates this registry instead of scanning blocks.
+
+### 8.4 Performance guidelines
+
+- Target scans are staggered, AABB-first and raycast-last (section 3.3).
+- Energy drain is batched every N ticks.
+- The station search goes through the registry and should be cached briefly (don't query it every tick).
+- Entity sync to clients is kept minimal.
+
+---
+
+## 9. Configuration (server config)
+
+All values below are placeholders.
+
+| Key | Default | Notes |
+|---|---|---|
+| `drone.baseMaxEnergy` | 100 000 FE | |
+| `drone.energyPerBlock` | 20 FE | Distance cost |
+| `drone.hoverEnergyPerTick` | 1 FE | |
+| `drone.energyDrainInterval` | 20 ticks | |
+| `drone.returnSafetyMargin` | 1.25 | |
+| `drone.chargingSearchRadius` | 500 blocks | |
+| `drone.chargingAlternateRadius` | 10 blocks | Alternate free station search |
+| `drone.baseMaxHealth` | 20 | |
+| `drone.baseSightRange` | 8 blocks | |
+| `drone.pursuitMultiplier` | 2.0 | |
+| `drone.lostSightTimeout` | 100 ticks | |
+| `drone.scanInterval` | 10 ticks | |
+| `drone.maxRaycastsPerScan` | 4 | |
+| `drone.cruiseSpeed` | 0.4 blocks/tick | |
+| `drone.maxSpeed` | 1.2 blocks/tick | Hard ceiling of about 1.5 |
+| `drone.chaseAccelerationK` | 2.0 | |
+| `drone.defaultFollowDistance` | 4 blocks | |
+| `drone.explosionTriggerDistance` | 1.5 blocks | |
+| `upgrades.totalSlots` | 8 | |
+| `upgrades.<type>.maxCount` | see section 4 | |
+| `upgrades.patrol.baseRadius` / `perUpgrade` | 16 / 16 blocks | |
+| `upgrades.sight.perUpgrade` | 8 blocks | |
+| `upgrades.explosive.basePower` / `perUpgrade` | 2.0 / 1.0 | TNT = 4.0 |
+| `upgrades.siren.baseVolume` / `perUpgrade` / `repeatInterval` | 2.0 / 2.0 / 100 ticks | |
+| `upgrades.transmitter.cooldown` | 200 ticks | |
+| `upgrades.energy.perUpgrade` | 100 000 FE | |
+| `upgrades.health.perUpgrade` | 10 | |
+| `upgrades.multiTarget.perUpgrade` | 1 | Extra target slots per upgrade |
+| `programmingStation.baseCost.<type>` | 10 000 FE | Multiplied by index `n` |
+| `chargingStation.chargeRate` | 1 000 FE/tick | |
+| `deployingStation.energyPerDeploy` | 5 000 FE | |
+
+---
+
+## 10. Implementation Order
+
+See [`ROADMAP.md`](ROADMAP.md) for milestones M0–M8 (v1) and the post-v1 outlook.
+
+---
+
+## 11. Future / Out of Scope — DO NOT IMPLEMENT YET
+
+These are agreed ideas for later versions. **Do not implement, stub or scaffold them** unless the user explicitly asks.
+
+- **Drone Factory 3×3×3 multiblock** with a central build animation (replaces the single block).
+- **Camera upgrade:** view through a drone's POV (operators only).
+- **Drone dashboard:** remote screen with drone POV and a **map of drone positions**.
+- **Transmitter notification queue:** deliver notifications to operators who were offline, when they log in.
+- **Server-safety configs:** explosion block damage toggle / respect for `mobGriefing`, global toggle for targeting players, max drones per player.
+- **Chunk loading** by drones (in any form, including behind a config).
+- **Target Tagger** item to mark one specific entity as a target.
+- **Operator Group ownership transfer.**
+- **Automatic upgrade removal** by the Programming Station program (removing upgrades beyond the programmed counts). v1 only supports manual removal.
+- Charging Stations that charge more than one drone at a time.
+- Final upgrade/factory recipes and materials (TBD, balancing pass).

@@ -1,0 +1,32 @@
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+
+# other
+eclipse
+run
+runs
+run-data
+
+repo
+
+# Claude Code session artifacts
+.claude/
+
+# Data generation cache (not meaningful across machines; generated output itself is committed)
+src/generated/resources/.cache/
