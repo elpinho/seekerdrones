@@ -25,7 +25,7 @@ Each milestone ends in something playable or testable. The drone and its AI come
 
 ### M2 — Operators
 - Operator Group saved data, with permission checks on pickup, hand-deploy and GUI.
-- A temporary debug command to create or assign groups until the Factory exists (M6).
+- A debug command (`/seekerdrones group`, permission level 2) to create, edit and assign groups. It stays after the Factory exists (M6).
 - **Done when:** non-operators are blocked from direct interaction with drones.
 
 ### M3 — Seeking AI
@@ -50,7 +50,7 @@ Each milestone ends in something playable or testable. The drone and its AI come
 - Single-block machine taking items, fluid and FE, with the `seekerdrones:drone_assembly` recipe type.
 - Output drones are fully charged, get a new drone ID and are linked to the Factory's Operator Group.
 - The GUI has an Operator list tab (owner only), and the Factory item keeps its group ID when broken.
-- The M2 debug group command is removed.
+- The M2 debug group command stays as an admin/testing tool.
 - **Done when:** a Factory builds drones in survival and operator list changes apply to existing drones.
 
 ### M7 — Drone Programming Station

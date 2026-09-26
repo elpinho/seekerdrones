@@ -2,6 +2,7 @@ package com.elpinho.seekerdrones;
 
 import org.slf4j.Logger;
 
+import com.elpinho.seekerdrones.command.GroupCommand;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
 import com.elpinho.seekerdrones.network.ModNetwork;
@@ -20,6 +21,8 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 @Mod(SeekerDrones.MODID)
 public class SeekerDrones {
@@ -43,6 +46,8 @@ public class SeekerDrones {
         modEventBus.addListener(ModEntityTypes::registerAttributes);
         modEventBus.addListener(ModNetwork::registerPayloads);
         modEventBus.addListener(SeekerDronesDataGenerators::gatherData);
+
+        NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> GroupCommand.register(event.getDispatcher()));
 
         LOGGER.info("Seeker Drones initializing");
     }

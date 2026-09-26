@@ -61,6 +61,10 @@ public record DroneData(String droneId, Optional<UUID> groupId, int energy, floa
         return new DroneData(droneId, groupId, energy, health, upgrades, config);
     }
 
+    public DroneData withGroupId(Optional<UUID> groupId) {
+        return new DroneData(droneId, groupId, energy, health, upgrades, config);
+    }
+
     public DroneData withEnergy(int energy) {
         return new DroneData(droneId, groupId, energy, health, upgrades, config);
     }

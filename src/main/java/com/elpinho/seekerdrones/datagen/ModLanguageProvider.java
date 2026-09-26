@@ -58,5 +58,22 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.drone_status.none", "None");
         add("screen.seekerdrones.drone_status.not_set", "Not set");
         add("screen.seekerdrones.drone_status.not_deployed", "Not deployed");
+
+        add("message.seekerdrones.not_operator", "You are not an operator of this drone");
+
+        add("commands.seekerdrones.group.unknown", "Unknown operator group %s");
+        add("commands.seekerdrones.group.not_holding_drone", "You must hold a drone item in your main hand");
+        add("commands.seekerdrones.group.no_drones", "No drones matched");
+        add("commands.seekerdrones.group.single_owner", "The owner must be exactly one player");
+        add("commands.seekerdrones.group.created", "Created operator group %s owned by %s");
+        add("commands.seekerdrones.group.list.empty", "There are no operator groups");
+        add("commands.seekerdrones.group.list.header", "%s operator group(s):");
+        add("commands.seekerdrones.group.list.entry", "%s - owner %s, %s operator(s)");
+        add("commands.seekerdrones.group.info", "Group %s - owner: %s, operators: %s");
+        add("commands.seekerdrones.group.added", "Added %s operator(s) to group %s");
+        add("commands.seekerdrones.group.removed", "Removed %s operator(s) from group %s");
+        add("commands.seekerdrones.group.cannot_remove_owner", "%s is the group owner and can't be removed");
+        add("commands.seekerdrones.group.assigned", "Assigned %s drone(s) to group %s");
+        add("commands.seekerdrones.group.cleared", "Removed the operator group from %s drone(s)");
     }
 }

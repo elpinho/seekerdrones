@@ -55,14 +55,18 @@ public class DroneItem extends Item {
             return InteractionResultHolder.success(stack);
         }
         DroneData data = getData(stack);
+        if (!DronePermissions.canInteract(player, data)) {
+            DronePermissions.sendDenied(player);
+            return InteractionResultHolder.fail(stack);
+        }
         if (!player.isSecondaryUseActive()) {
             // Plain right-click: show the stored drone's status (section 2.4).
-            if (DronePermissions.canInteract(player, data) && player instanceof ServerPlayer serverPlayer) {
+            if (player instanceof ServerPlayer serverPlayer) {
                 PacketDistributor.sendToPlayer(serverPlayer, DroneStatusPayload.ofItem(data));
             }
             return InteractionResultHolder.consume(stack);
         }
-        if (!DronePermissions.canInteract(player, data) || !deploy(level, player, data)) {
+        if (!deploy(level, player, data)) {
             return InteractionResultHolder.fail(stack);
         }
         stack.consume(1, player);

@@ -239,6 +239,12 @@ Drone Operators control who can interact with drones.
 | Insert/extract drones in machines (manually or by automation) | **No**. Machines never check permissions, so automation keeps working. |
 | Drone may charge at a Charging Station | The station's placer must be the owner or an operator of the drone's group |
 
+Edge cases for the direct-interaction checks (pick up, hand-deploy, status GUI):
+- A drone with **no group ID** (creative tab, `/give`) is unowned: **anyone** may interact with it.
+- A drone whose group ID **doesn't exist** in saved data (foreign or wiped data) has no operators: **nobody** may interact with it, except via the bypass below.
+- **Server operators** (permission level ≥ 2) bypass the group check for these three actions only. The bypass does **not** make them exempt from Player Seek and does **not** make them receive Transmitter messages. Those stay group-only.
+- A blocked player gets an action-bar message saying they are not an operator of this drone.
+
 The Programming, Deploying and Charging Stations have no access control in v1. Charging Stations only record their placer's UUID, which is used for the usability rule above.
 
 ---
@@ -303,7 +309,7 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 
 The component is a record with a `Codec` and a `StreamCodec`, holding:
 - `droneId` (string): the persistent, readable ID from section 2.8. It survives item/entity conversion and is also meant for future features such as a map or the Camera upgrade.
-- `groupId` (optional UUID): the Operator Group. Empty on drones that weren't built by a Factory (e.g. creative/`/give`). How M2 permission checks treat a drone without a group is decided in M2.
+- `groupId` (optional UUID): the Operator Group. Empty on drones that weren't built by a Factory (e.g. creative/`/give`). See section 6.2 for how permission checks treat a drone without a group or with an unknown group.
 - `energy` (int). Max energy is derived from the upgrades and config, not stored.
 - `health` (float). Max health is derived.
 - `upgrades` (map of upgrade type to count).

@@ -201,7 +201,8 @@ public class DroneEntity extends PathfinderMob {
             return InteractionResult.SUCCESS;
         }
         if (!DronePermissions.canInteract(player, getDroneData())) {
-            return InteractionResult.PASS;
+            DronePermissions.sendDenied(player);
+            return InteractionResult.CONSUME;
         }
         if (pickUp) {
             pickUp(player);

@@ -17,6 +17,7 @@ import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.drone.UpgradeType;
+import com.elpinho.seekerdrones.operator.OperatorGroups;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
 import com.elpinho.seekerdrones.registry.ModItems;
 
@@ -58,10 +59,9 @@ public class DroneGameTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void pickupPreservesDroneDataLosslessly(GameTestHelper helper) {
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
-        DroneData data = sampleDroneData("LOSS-0001");
-        drone.setDroneData(data);
-
         Player player = spawnSneakingPlayer(helper, 4, 1, 4);
+        DroneData data = sampleDroneDataOwnedBy(helper, player, "LOSS-0001");
+        drone.setDroneData(data);
         player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
 
         drone.interact(player, InteractionHand.MAIN_HAND);
@@ -96,7 +96,7 @@ public class DroneGameTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void handDeployPreservesExistingData(GameTestHelper helper) {
         Player player = spawnSneakingPlayer(helper, 4, 1, 4);
-        DroneData original = sampleDroneData("ABCD-1234");
+        DroneData original = sampleDroneDataOwnedBy(helper, player, "ABCD-1234");
         ItemStack stack = DroneItem.createStack(original);
         player.setItemInHand(InteractionHand.MAIN_HAND, stack);
 
@@ -297,6 +297,12 @@ public class DroneGameTests {
         Map<UpgradeType, Integer> upgrades = Map.of(UpgradeType.ENERGY, 1, UpgradeType.HEALTH, 2);
         // Base max energy 100_000 + 1*100_000 = 200_000; base max health 20 + 2*10 = 40. Both values below max.
         return new DroneData(droneId, Optional.of(UUID.randomUUID()), 123_456, 15.0F, upgrades, config);
+    }
+
+    /** Sample data linked to a real Operator Group owned by {@code player}, so the M2 permission check lets them interact. */
+    private static DroneData sampleDroneDataOwnedBy(GameTestHelper helper, Player player, String droneId) {
+        UUID groupId = OperatorGroups.get(helper.getLevel().getServer()).createGroup(player.getUUID());
+        return sampleDroneData(droneId).withGroupId(Optional.of(groupId));
     }
 
     private static Player spawnSneakingPlayer(GameTestHelper helper, double x, double y, double z) {
