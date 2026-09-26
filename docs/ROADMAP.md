@@ -4,7 +4,7 @@ This roadmap is broad on purpose. The behavior spec is in [`DESIGN.md`](DESIGN.m
 
 > **Scope rule:** Milestones **M0–M8** make up **v1**. The **Post-v1** section is only an outlook. **Do not implement anything from it** unless the user explicitly asks (see DESIGN.md §11).
 
-Each milestone ends in something playable or testable. The drone and its AI come before the machines so gameplay can be tested and tuned early, using temporary debug commands in place of the machines. The Factory comes before the Programming Station because the Programming Station needs drones as input.
+Each milestone ends in something playable or testable. The drone and its AI come before the machines so gameplay can be tested and tuned early, using debug commands in place of the machines. The debug commands (`/seekerdrones ...`, permission level 2) are never removed: they stay as admin/testing tools after the machines exist. The Factory comes before the Programming Station because the Programming Station needs drones as input.
 
 ---
 
@@ -40,7 +40,7 @@ Each milestone ends in something playable or testable. The drone and its AI come
 - All upgrade items (placeholder recipes): Patrol, Sight, Explosive, Siren, Transmitter, Energy, Health, Player Seek, Multi-target, X-ray.
 - The remaining upgrade effects: Patrol, Explosive, Siren and Transmitter. Sight, X-ray, Player Seek and Multi-target already work from M3.
 - Total slot limit and per-type caps.
-- A temporary debug command to apply upgrades until the Programming Station exists (M7).
+- A debug command (`/seekerdrones upgrade`, permission level 2) to install and remove upgrades on a held drone or on drone entities, respecting the caps. It stays after the Programming Station exists (M7) as an admin/testing tool.
 - **Done when:** every upgrade's effect can be tested in game.
 
 ### M5 — Energy and charging
@@ -61,7 +61,7 @@ Each milestone ends in something playable or testable. The drone and its AI come
 - Upgrades installed one step at a time with FE costs, including the Energy upgrade's extra fill.
 - Manual upgrade removal into the refund buffer, which can push out on a configured face.
 - Auto-output once the drone matches the program.
-- The M4 debug upgrade command is removed, or kept for creative-mode testing only.
+- The M4 debug upgrade command stays as an admin/testing tool.
 - **Done when:** a drone fed in by automation comes out programmed and upgraded exactly as configured.
 
 ### M8 — Deploying Station and full pipeline

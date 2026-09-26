@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.registry;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.drone.UpgradeType;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -22,6 +23,9 @@ public class ModCreativeTabs {
                     .icon(() -> new ItemStack(ModItems.DRONE.get()))
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.DRONE.get());
+                        for (UpgradeType type : UpgradeType.values()) {
+                            output.accept(ModItems.upgrade(type).get());
+                        }
                     })
                     .build());
 }

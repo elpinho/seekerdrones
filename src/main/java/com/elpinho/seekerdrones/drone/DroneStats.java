@@ -1,5 +1,7 @@
 package com.elpinho.seekerdrones.drone;
 
+import java.util.Map;
+
 import com.elpinho.seekerdrones.config.ServerConfig;
 
 /**
@@ -46,6 +48,64 @@ public final class DroneStats {
 
     public static boolean hasXray(DroneData data) {
         return data.upgradeCount(UpgradeType.XRAY) > 0;
+    }
+
+    /** Upgrade slots used, across all types. */
+    public static int totalUpgrades(Map<UpgradeType, Integer> upgrades) {
+        return upgrades.values().stream().mapToInt(Integer::intValue).sum();
+    }
+
+    /** Whether the upgrade counts fit the per-type caps and the total slot limit (section 4). */
+    public static boolean withinUpgradeLimits(Map<UpgradeType, Integer> upgrades) {
+        for (Map.Entry<UpgradeType, Integer> entry : upgrades.entrySet()) {
+            if (entry.getValue() > entry.getKey().maxCount()) {
+                return false;
+            }
+        }
+        return totalUpgrades(upgrades) <= ServerConfig.get(ServerConfig.UPGRADES_TOTAL_SLOTS);
+    }
+
+    public static boolean isPatrolling(DroneData data) {
+        return data.upgradeCount(UpgradeType.PATROL) > 0;
+    }
+
+    /** The largest patrol radius the Patrol upgrades allow (section 3.2): {@code base + perUpgrade × (count − 1)}. */
+    public static int maxPatrolRadius(DroneData data) {
+        int count = data.upgradeCount(UpgradeType.PATROL);
+        long max = ServerConfig.get(ServerConfig.UPGRADES_PATROL_BASE_RADIUS)
+                + (long) ServerConfig.get(ServerConfig.UPGRADES_PATROL_PER_UPGRADE_RADIUS) * Math.max(0, count - 1);
+        return (int) Math.min(max, Integer.MAX_VALUE);
+    }
+
+    /** The radius the drone patrols at: its configured radius capped at the max, or the max if none is set. */
+    public static int patrolRadius(DroneData data) {
+        int max = maxPatrolRadius(data);
+        return data.config().patrolRadius().map(radius -> Math.min(radius, max)).orElse(max);
+    }
+
+    public static boolean isExplosive(DroneData data) {
+        return data.upgradeCount(UpgradeType.EXPLOSIVE) > 0;
+    }
+
+    /** Section 3.1: {@code basePower + perUpgrade × (count − 1)}. */
+    public static float explosionPower(DroneData data) {
+        int count = data.upgradeCount(UpgradeType.EXPLOSIVE);
+        return (float) (ServerConfig.get(ServerConfig.UPGRADES_EXPLOSIVE_BASE_POWER)
+                + ServerConfig.get(ServerConfig.UPGRADES_EXPLOSIVE_PER_UPGRADE) * Math.max(0, count - 1));
+    }
+
+    /** Section 4: {@code baseVolume + perUpgrade × (count − 1)}, or 0 without a Siren upgrade. */
+    public static float sirenVolume(DroneData data) {
+        int count = data.upgradeCount(UpgradeType.SIREN);
+        if (count <= 0) {
+            return 0;
+        }
+        return (float) (ServerConfig.get(ServerConfig.UPGRADES_SIREN_BASE_VOLUME)
+                + ServerConfig.get(ServerConfig.UPGRADES_SIREN_PER_UPGRADE) * (count - 1));
+    }
+
+    public static boolean hasTransmitter(DroneData data) {
+        return data.upgradeCount(UpgradeType.TRANSMITTER) > 0;
     }
 
     /**

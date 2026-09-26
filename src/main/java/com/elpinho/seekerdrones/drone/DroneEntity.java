@@ -2,22 +2,25 @@ package com.elpinho.seekerdrones.drone;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
+import com.elpinho.seekerdrones.registry.ModSounds;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
-import net.minecraft.nbt.NbtUtils;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -47,6 +50,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.fluids.FluidType;
@@ -69,6 +73,15 @@ public class DroneEntity extends PathfinderMob {
     /** The follow range the path finder's node budget was sized for (vanilla's default follow range). */
     private static final float BASE_FOLLOW_RANGE = 16.0F;
 
+    /** At least this many patrol waypoints, however small the circle (section 3.2). */
+    private static final int MIN_PATROL_WAYPOINTS = 8;
+    /** How close (blocks) the drone must get to a patrol waypoint before heading for the next one. */
+    private static final double WAYPOINT_REACH_DISTANCE = 1.0;
+    /** Extra ticks on top of twice the straight flight time before a patrol waypoint is given up. */
+    private static final int WAYPOINT_GRACE_TICKS = 60;
+    /** {@link #patrolWaypoint} value: no waypoint is usable, so the drone hovers at the patrol center. */
+    private static final int NO_FREE_WAYPOINT = -2;
+
     /** Server-side drone state. Health lives in the entity itself and is copied back by {@link #snapshotData()}. */
     @Nullable
     private DroneData droneData;
@@ -78,7 +91,7 @@ public class DroneEntity extends PathfinderMob {
     private boolean drifting;
     /** Where a hand-deployed drone came to rest (patrol center fallback, section 3.2). */
     @Nullable
-    private BlockPos restPosition;
+    private GlobalPos restPosition;
 
     // --- AI (server only) ---
     /** The entity being chased or followed. */
@@ -98,6 +111,18 @@ public class DroneEntity extends PathfinderMob {
     /** The goal of the current navigation path, or null if not path finding. */
     @Nullable
     private Vec3 pathGoal;
+
+    // --- Upgrades (server only, not saved) ---
+    /** The patrol waypoint being flown to, -1 to pick the nearest one, or {@link #NO_FREE_WAYPOINT}. */
+    private int patrolWaypoint = -1;
+    /** The tick after which the current patrol waypoint is given up. */
+    private int waypointDeadline;
+    /** Patrol waypoints skipped in a row because no path reached them. */
+    private int unreachableWaypoints;
+    /** The tick at which the siren repeats while a target is held. */
+    private int nextSirenTick;
+    /** Game time of the last Transmitter message, or -1 if none was sent yet. */
+    private long lastTransmitTime = -1;
 
     public DroneEntity(EntityType<? extends DroneEntity> type, Level level) {
         super(type, level);
@@ -193,7 +218,7 @@ public class DroneEntity extends PathfinderMob {
 
     @Nullable
     public BlockPos getRestPosition() {
-        return restPosition;
+        return restPosition != null ? restPosition.pos() : null;
     }
 
     /** Called on hand-deploy: the drone drifts with its current velocity until drag brings it to rest. */
@@ -236,7 +261,7 @@ public class DroneEntity extends PathfinderMob {
             velocity = Vec3.ZERO;
             if (drifting) {
                 drifting = false;
-                restPosition = blockPosition();
+                restPosition = currentPosition();
             }
         }
         setDeltaMovement(velocity);
@@ -273,6 +298,9 @@ public class DroneEntity extends PathfinderMob {
             if (staggered) {
                 scanForTarget(data);
             }
+            if (target == null && !drifting) {
+                patrolOrHover(data, staggered);
+            }
         } else if (isTargetLost(data, staggered)) {
             loseTarget();
         } else {
@@ -288,6 +316,8 @@ public class DroneEntity extends PathfinderMob {
             target = found;
             lostSightSince = -1;
             recheckDirectPath = true;
+            // Not a new acquisition: no Transmitter message, and the siren keeps its repeat interval.
+            nextSirenTick = tickCount + ServerConfig.get(ServerConfig.UPGRADES_SIREN_REPEAT_INTERVAL);
         } else if (staggered) {
             pendingTargetId = null;
             setState(DroneState.IDLE);
@@ -332,9 +362,13 @@ public class DroneEntity extends PathfinderMob {
         // it spotted the target becomes its rest position (patrol center fallback, section 3.2).
         if (drifting) {
             drifting = false;
-            restPosition = blockPosition();
+            restPosition = currentPosition();
         }
+        patrolWaypoint = -1;
         setState(DroneState.CHASING);
+        DroneData data = getDroneData();
+        playSiren(data);
+        transmit(data, entity);
     }
 
     /** Block collision raycast from the drone's eyes to the entity's eyes. */
@@ -367,16 +401,30 @@ public class DroneEntity extends PathfinderMob {
         return false;
     }
 
-    /** Drops the target and hovers in place. Drift drag brings the drone to a stop. */
+    /**
+     * Drops the target. A Patrol drone goes back to patrolling on the next tick, any other drone hovers in place and
+     * drift drag brings it to a stop (section 3.5).
+     */
     private void loseTarget() {
         target = null;
         lostSightSince = -1;
-        pathGoal = null;
-        navigation.stop();
+        stopNavigating();
         setState(DroneState.IDLE);
     }
 
+    private void stopNavigating() {
+        pathGoal = null;
+        navigation.stop();
+    }
+
     private void pursue(DroneData data, boolean staggered) {
+        if (tickCount >= nextSirenTick) {
+            playSiren(data);
+        }
+        if (DroneStats.isExplosive(data)) {
+            pursueExplosive(data, staggered);
+            return;
+        }
         Vec3 goal = followPosition(data);
         double speed = DroneStats.chaseSpeed(distanceTo(target), DroneStats.sightRange(data));
         double goalDistanceSqr = distanceToSqr(goal);
@@ -389,7 +437,7 @@ public class DroneEntity extends PathfinderMob {
         } else if (state != DroneState.CHASING && goalDistanceSqr > exit * exit) {
             setState(DroneState.CHASING);
         }
-        steerTowards(goal, speed, staggered);
+        steerTowards(goal, speed, staggered, true);
         getLookControl().setLookAt(target);
     }
 
@@ -409,28 +457,209 @@ public class DroneEntity extends PathfinderMob {
         return new Vec3(target.getX() + offset.x, y, target.getZ() + offset.z);
     }
 
+    // --- Explosive (section 3.1) ---
+
+    /** Explosive drones never follow: they fly straight at the target's center and explode once close enough. */
+    private void pursueExplosive(DroneData data, boolean staggered) {
+        Vec3 targetCenter = target.getBoundingBox().getCenter();
+        double halfHeight = getBbHeight() / 2;
+        double trigger = ServerConfig.get(ServerConfig.DRONE_EXPLOSION_TRIGGER_DISTANCE);
+        if (position().add(0, halfHeight, 0).distanceToSqr(targetCenter) <= trigger * trigger) {
+            explode(data);
+            return;
+        }
+        if (getState() != DroneState.CHASING) {
+            setState(DroneState.CHASING);
+        }
+        double speed = DroneStats.chaseSpeed(distanceTo(target), DroneStats.sightRange(data));
+        steerTowards(targetCenter.subtract(0, halfHeight, 0), speed, staggered, true);
+        getLookControl().setLookAt(target);
+    }
+
+    /** The drone is consumed: no drop, and the explosion never breaks blocks in v1. */
+    private void explode(DroneData data) {
+        level().explode(this, getX(), getY(0.5), getZ(), DroneStats.explosionPower(data), Level.ExplosionInteraction.NONE);
+        discard();
+    }
+
+    // --- Siren and Transmitter (section 4) ---
+
+    /** Plays the siren if the drone has one and schedules the next repeat. */
+    private void playSiren(DroneData data) {
+        float volume = DroneStats.sirenVolume(data);
+        if (volume <= 0) {
+            return;
+        }
+        level().playSound(null, getX(), getY(), getZ(), ModSounds.DRONE_SIREN.get(), SoundSource.NEUTRAL, volume, 1.0F);
+        nextSirenTick = tickCount + ServerConfig.get(ServerConfig.UPGRADES_SIREN_REPEAT_INTERVAL);
+    }
+
+    /** Tells all online operators of the drone (group, else owner) about a newly spotted target, at most once per cooldown. */
+    private void transmit(DroneData data, Entity spotted) {
+        if (!DroneStats.hasTransmitter(data)) {
+            return;
+        }
+        long now = level().getGameTime();
+        if (lastTransmitTime >= 0 && now - lastTransmitTime < ServerConfig.get(ServerConfig.UPGRADES_TRANSMITTER_COOLDOWN)) {
+            return;
+        }
+        lastTransmitTime = now;
+        MinecraftServer server = level().getServer();
+        if (server == null) {
+            return;
+        }
+        Component name = spotted instanceof Player player ? player.getName() : spotted.getType().getDescription();
+        BlockPos pos = spotted.blockPosition();
+        Component message = Component.translatable("message.seekerdrones.transmitter", DroneItem.identity(data), name,
+                pos.getX(), pos.getY(), pos.getZ());
+        for (ServerPlayer operator : DronePermissions.onlineOperators(server, data)) {
+            operator.sendSystemMessage(message);
+        }
+    }
+
+    // --- Patrol (section 3.2) ---
+
+    private GlobalPos currentPosition() {
+        return GlobalPos.of(level().dimension(), blockPosition());
+    }
+
+    /**
+     * The patrol center this drone uses right now (section 3.2): the configured one, else the rest position, as long
+     * as it is in the drone's dimension. Null if there is none yet.
+     */
+    @Nullable
+    public GlobalPos getPatrolCenter() {
+        DroneData data = getDroneData();
+        Optional<GlobalPos> configured = data.config().patrolCenter();
+        if (configured.isPresent() && configured.get().dimension() == level().dimension()) {
+            return configured.get();
+        }
+        if (restPosition != null && restPosition.dimension() == level().dimension()) {
+            return restPosition;
+        }
+        return null;
+    }
+
+    /** With no target: a Patrol drone flies its circle, any other drone hovers where it is. */
+    private void patrolOrHover(DroneData data, boolean staggered) {
+        if (!DroneStats.isPatrolling(data)) {
+            if (getState() == DroneState.PATROLLING) {
+                // The Patrol upgrades were removed mid-patrol.
+                stopNavigating();
+                patrolWaypoint = -1;
+                setState(DroneState.IDLE);
+            }
+            return;
+        }
+        GlobalPos center = getPatrolCenter();
+        if (center == null) {
+            // Fallback 4: e.g. a summoned drone. Wherever it is now becomes its rest position.
+            restPosition = currentPosition();
+            center = restPosition;
+        }
+        if (getState() != DroneState.PATROLLING) {
+            setState(DroneState.PATROLLING);
+            patrolWaypoint = -1;
+        }
+        Vec3 centerPos = Vec3.atBottomCenterOf(center.pos());
+        double radius = DroneStats.patrolRadius(data);
+        int count = patrolWaypointCount(radius);
+        if (patrolWaypoint < 0 || patrolWaypoint >= count) {
+            if (!staggered && patrolWaypoint == NO_FREE_WAYPOINT) {
+                // Every waypoint was skipped: hover at the center and look again on the next staggered tick.
+                steerTowards(centerPos, ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED), false, false);
+                return;
+            }
+            selectWaypoint(nearestWaypoint(centerPos, count), centerPos, radius, count);
+        }
+        if (patrolWaypoint == NO_FREE_WAYPOINT) {
+            steerTowards(centerPos, ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED), staggered, false);
+            return;
+        }
+        Vec3 goal = waypoint(centerPos, radius, count, patrolWaypoint);
+        boolean reached = distanceToSqr(goal) <= WAYPOINT_REACH_DISTANCE * WAYPOINT_REACH_DISTANCE;
+        boolean timedOut = tickCount > waypointDeadline;
+        double speed = ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED);
+        boolean reachable = steerTowards(goal, speed, staggered, false);
+        if (reached) {
+            unreachableWaypoints = 0;
+        } else if (!reachable || timedOut) {
+            // Each unreachable waypoint costs a path search, so stop trying once a full lap has failed.
+            if (++unreachableWaypoints >= count) {
+                unreachableWaypoints = 0;
+                patrolWaypoint = NO_FREE_WAYPOINT;
+                return;
+            }
+        } else {
+            return;
+        }
+        selectWaypoint((patrolWaypoint + 1) % count, centerPos, radius, count);
+    }
+
+    private static int patrolWaypointCount(double radius) {
+        double spacing = ServerConfig.get(ServerConfig.UPGRADES_PATROL_WAYPOINT_SPACING);
+        return Math.max(MIN_PATROL_WAYPOINTS, (int) Math.ceil(2 * Math.PI * radius / spacing));
+    }
+
+    /** Waypoint positions go counter-clockwise seen from above (east, then north). */
+    private static Vec3 waypoint(Vec3 center, double radius, int count, int index) {
+        double angle = 2 * Math.PI * index / count;
+        return new Vec3(center.x + radius * Math.cos(angle), center.y, center.z - radius * Math.sin(angle));
+    }
+
+    private int nearestWaypoint(Vec3 center, int count) {
+        double angle = Math.atan2(-(getZ() - center.z), getX() - center.x);
+        return Math.floorMod((int) Math.round(angle / (2 * Math.PI) * count), count);
+    }
+
+    /**
+     * Picks the first usable waypoint from {@code start} on, skipping spots that are obstructed or in unloaded chunks.
+     * Sets {@link #NO_FREE_WAYPOINT} if none is usable.
+     */
+    private void selectWaypoint(int start, Vec3 center, double radius, int count) {
+        double speed = ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED);
+        for (int i = 0; i < count; i++) {
+            int index = (start + i) % count;
+            Vec3 goal = waypoint(center, radius, count, index);
+            if (level().hasChunkAt(BlockPos.containing(goal)) && level().noCollision(this, getDimensions(getPose()).makeBoundingBox(goal))) {
+                patrolWaypoint = index;
+                recheckDirectPath = true;
+                // Give up on a waypoint that takes far longer than a straight flight would, e.g. when stuck.
+                waypointDeadline = tickCount + (int) (2 * Math.sqrt(distanceToSqr(goal)) / speed) + WAYPOINT_GRACE_TICKS;
+                return;
+            }
+        }
+        patrolWaypoint = NO_FREE_WAYPOINT;
+    }
+
     /**
      * Flies straight at the goal while the line to it is clear, otherwise follows a path. The straight line is
-     * checked on the staggered tick, or at once after bumping into something. Paths are recomputed on the staggered
-     * tick or when the goal has moved more than {@code drone.repathDistance}.
+     * checked on the staggered tick, or at once after bumping into something. Paths are recomputed when the goal has
+     * moved more than {@code drone.repathDistance}, and on the staggered tick: always for a moving goal (a target),
+     * but for a fixed goal (a patrol waypoint) only once the current path has ended, since recomputing it wouldn't
+     * change anything and path finding is the most expensive part of a drone's tick.
+     *
+     * @return false if a path was computed this tick and it can't reach the goal
      */
-    private void steerTowards(Vec3 goal, double speed, boolean staggered) {
+    private boolean steerTowards(Vec3 goal, double speed, boolean staggered, boolean movingGoal) {
         if (staggered || recheckDirectPath || (directPathClear && (horizontalCollision || verticalCollision))) {
             directPathClear = isClearPath(goal);
             recheckDirectPath = false;
         }
         if (directPathClear) {
             if (pathGoal != null) {
-                navigation.stop();
-                pathGoal = null;
+                stopNavigating();
             }
             moveControl.setWantedPosition(goal.x, goal.y, goal.z, speed);
-        } else if (staggered || pathGoal == null || pathGoal.distanceToSqr(goal) > Mth.square(ServerConfig.get(ServerConfig.DRONE_REPATH_DISTANCE))) {
-            navigation.moveTo(goal.x, goal.y, goal.z, speed);
+        } else if ((staggered && (movingGoal || navigation.isDone())) || pathGoal == null || pathGoal.distanceToSqr(goal) > Mth.square(ServerConfig.get(ServerConfig.DRONE_REPATH_DISTANCE))) {
+            boolean started = navigation.moveTo(goal.x, goal.y, goal.z, speed);
             pathGoal = goal;
+            Path path = navigation.getPath();
+            return started && path != null && path.canReach();
         } else {
             navigation.setSpeedModifier(speed);
         }
+        return true;
     }
 
     /** Whether the drone's center can fly in a straight line to the goal (a position for the drone's feet). */
@@ -576,7 +805,7 @@ public class DroneEntity extends PathfinderMob {
         DroneData.CODEC.encodeStart(NbtOps.INSTANCE, snapshotData()).result().ifPresent(data -> tag.put(TAG_DRONE_DATA, data));
         tag.putBoolean(TAG_DRIFTING, drifting);
         if (restPosition != null) {
-            tag.put(TAG_REST_POSITION, NbtUtils.writeBlockPos(restPosition));
+            GlobalPos.CODEC.encodeStart(NbtOps.INSTANCE, restPosition).result().ifPresent(pos -> tag.put(TAG_REST_POSITION, pos));
         }
         UUID targetId = target != null ? target.getUUID() : pendingTargetId;
         if (targetId != null) {
@@ -592,7 +821,9 @@ public class DroneEntity extends PathfinderMob {
             DroneData.CODEC.parse(NbtOps.INSTANCE, tag.get(TAG_DRONE_DATA)).result().ifPresent(this::setDroneData);
         }
         drifting = tag.getBoolean(TAG_DRIFTING);
-        restPosition = NbtUtils.readBlockPos(tag, TAG_REST_POSITION).orElse(null);
+        restPosition = tag.contains(TAG_REST_POSITION)
+                ? GlobalPos.CODEC.parse(NbtOps.INSTANCE, tag.get(TAG_REST_POSITION)).result().orElse(null)
+                : null;
         // The target is looked up lazily on the first AI tick; see resolvePendingTarget().
         target = null;
         DroneState state = DroneState.bySerializedName(tag.getString(TAG_STATE));

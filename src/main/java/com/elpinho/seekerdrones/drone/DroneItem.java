@@ -2,6 +2,7 @@ package com.elpinho.seekerdrones.drone;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
@@ -91,6 +92,10 @@ public class DroneItem extends Item {
 
         if (!data.hasDroneId()) {
             data = data.withDroneId(DroneIds.generate(level.getRandom()));
+        }
+        // The first player to hand-deploy a drone becomes its owner for good (section 6.3).
+        if (data.ownerId().isEmpty()) {
+            data = data.withOwnerId(Optional.of(player.getUUID()));
         }
         drone.setDroneData(data);
         double throwSpeed = ServerConfig.get(ServerConfig.DRONE_DEPLOY_THROW_SPEED);

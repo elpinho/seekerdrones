@@ -176,6 +176,17 @@ function Set-DroneTargets {
     Invoke-Rcon "seekerdrones config target add entity minecraft:husk @e[type=seekerdrones:drone]" | Out-Null
 }
 
+function Set-DronePatrol {
+    Invoke-Rcon "seekerdrones upgrade set patrol 1 @e[type=seekerdrones:drone]" | Out-Null
+}
+
+# Five 7-high walls across the middle of the area.
+function Build-Walls {
+    foreach ($x in @(-12, -6, 0, 6, 12)) {
+        Invoke-Rcon "fill $x $groundY -13 $x $($groundY + 6) 12 stone" | Out-Null
+    }
+}
+
 # A walled 32x32 pen so the husks can't wander out of the drones' pursuit range.
 function Build-Pen([int]$height) {
     Invoke-Rcon "fill -17 $groundY -17 16 $($groundY + $height - 1) 16 stone hollow" | Out-Null
@@ -197,9 +208,7 @@ function Setup-OpenHusks {
 # The pen split by 7-high walls, so the straight line to the follow position is often blocked.
 function Setup-ObstacleHusks {
     Build-Pen 2
-    foreach ($x in @(-12, -6, 0, 6, 12)) {
-        Invoke-Rcon "fill $x $groundY -13 $x $($groundY + 6) 12 stone" | Out-Null
-    }
+    Build-Walls
     Summon-Grid "minecraft:husk" $Targets 4 $groundY
 }
 
@@ -263,6 +272,25 @@ $allScenarios = [ordered]@{
             Setup-ObstacleHusks
             Summon-Grid "seekerdrones:drone" $Drones 3 ($groundY + 3)
             Set-DroneTargets
+        }
+    }
+    "patrol-open" = @{
+        Description = "$Drones drones patrolling (1 Patrol upgrade, 16-block radius) over open ground, targeting husks with none nearby."
+        Baseline = "empty"
+        Setup = {
+            Summon-Grid "seekerdrones:drone" $Drones 3 ($groundY + 3)
+            Set-DroneTargets
+            Set-DronePatrol
+        }
+    }
+    "patrol-obstacles" = @{
+        Description = "$Drones drones patrolling (1 Patrol upgrade, 16-block radius) through 7-high walls, so waypoints often need paths or get skipped."
+        Baseline = "empty"
+        Setup = {
+            Build-Walls
+            Summon-Grid "seekerdrones:drone" $Drones 3 ($groundY + 3)
+            Set-DroneTargets
+            Set-DronePatrol
         }
     }
 }

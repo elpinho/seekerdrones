@@ -118,7 +118,7 @@ public final class TargetMatcher {
                 return false;
             }
             MinecraftServer server = drone.getServer();
-            return server == null || !DronePermissions.isGroupOperator(server, data, player.getUUID());
+            return server == null || !DronePermissions.isOperator(server, data, player.getUUID());
         }
         return matchesType(type);
     }

@@ -3,6 +3,7 @@ package com.elpinho.seekerdrones.command;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.IntFunction;
 
 import com.elpinho.seekerdrones.drone.DroneData;
@@ -29,6 +30,8 @@ import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.EntityArgument;
 import net.minecraft.commands.arguments.ResourceArgument;
 import net.minecraft.commands.arguments.ResourceLocationArgument;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
+import net.minecraft.core.GlobalPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -38,9 +41,9 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Debug command for a drone's targets and follow distance (DESIGN.md section 2.6), acting on the held drone item or
- * on drone entities. Requires permission level 2. Kept after M7 as an admin/testing tool alongside the Programming
- * Station.
+ * Debug command for a drone's targets, follow distance (DESIGN.md section 2.6), patrol center and patrol radius
+ * (section 3.2), acting on the held drone item or on drone entities. Requires permission level 2. Kept after M7 as an
+ * admin/testing tool alongside the Programming Station.
  */
 public final class ConfigCommand {
     private static final String KEY = "commands.seekerdrones.config.";
@@ -63,13 +66,13 @@ public final class ConfigCommand {
 
     /** An edit applied to each drone's data. Throwing leaves every drone unchanged. */
     @FunctionalInterface
-    private interface Edit {
+    interface Edit {
         DroneData apply(DroneData data) throws CommandSyntaxException;
     }
 
     /** The executor for an edit, given the drone entities to act on, or null for the held drone. */
     @FunctionalInterface
-    private interface EditRunner {
+    interface EditRunner {
         int run(CommandContext<CommandSourceStack> ctx, Collection<DroneEntity> drones) throws CommandSyntaxException;
     }
 
@@ -96,11 +99,22 @@ public final class ConfigCommand {
                         .then(onDrones(Commands.literal("list"), ConfigCommand::listTargets)))
                 .then(Commands.literal("followdistance")
                         .then(onDrones(Commands.argument("distance", IntegerArgumentType.integer(1, MAX_FOLLOW_DISTANCE)),
-                                (ctx, drones) -> setFollowDistance(ctx, drones, IntegerArgumentType.getInteger(ctx, "distance")))));
+                                (ctx, drones) -> setFollowDistance(ctx, drones, IntegerArgumentType.getInteger(ctx, "distance")))))
+                .then(Commands.literal("patrolcenter")
+                        .then(Commands.literal("set")
+                                .then(onDrones(Commands.argument("pos", BlockPosArgument.blockPos()),
+                                        (ctx, drones) -> setPatrolCenter(ctx, drones, Optional.of(GlobalPos.of(ctx.getSource().getLevel().dimension(),
+                                                BlockPosArgument.getBlockPos(ctx, "pos")))))))
+                        .then(onDrones(Commands.literal("clear"), (ctx, drones) -> setPatrolCenter(ctx, drones, Optional.empty()))))
+                .then(Commands.literal("patrolradius")
+                        .then(Commands.literal("set")
+                                .then(onDrones(Commands.argument("radius", IntegerArgumentType.integer(1)),
+                                        (ctx, drones) -> setPatrolRadius(ctx, drones, Optional.of(IntegerArgumentType.getInteger(ctx, "radius"))))))
+                        .then(onDrones(Commands.literal("clear"), (ctx, drones) -> setPatrolRadius(ctx, drones, Optional.empty()))));
     }
 
     /** Runs {@code runner} on the held drone, or on the drones picked by an optional trailing selector. */
-    private static <T extends ArgumentBuilder<CommandSourceStack, T>> T onDrones(T node, EditRunner runner) {
+    static <T extends ArgumentBuilder<CommandSourceStack, T>> T onDrones(T node, EditRunner runner) {
         return node
                 .executes(ctx -> runner.run(ctx, null))
                 .then(Commands.argument("drones", EntityArgument.entities())
@@ -156,11 +170,31 @@ public final class ConfigCommand {
                 count -> Component.translatable(KEY + "followdistance.set", count, distance));
     }
 
+    /** Sets the configured patrol center (section 3.2) in the command's dimension, or clears it. */
+    private static int setPatrolCenter(CommandContext<CommandSourceStack> ctx, Collection<DroneEntity> drones, Optional<GlobalPos> center) throws CommandSyntaxException {
+        return apply(ctx.getSource(), drones, data -> data.withConfig(data.config().withPatrolCenter(center)),
+                count -> center
+                        .map(c -> Component.translatable(KEY + "patrolcenter.set", count, c.pos().getX(), c.pos().getY(), c.pos().getZ(),
+                                c.dimension().location().toString()))
+                        .orElseGet(() -> Component.translatable(KEY + "patrolcenter.cleared", count)));
+    }
+
+    /**
+     * Sets the wanted patrol radius, or clears it so the drone patrols at the largest radius its Patrol upgrades allow
+     * (section 3.2). A radius above that max is kept but capped at runtime.
+     */
+    private static int setPatrolRadius(CommandContext<CommandSourceStack> ctx, Collection<DroneEntity> drones, Optional<Integer> radius) throws CommandSyntaxException {
+        return apply(ctx.getSource(), drones, data -> data.withConfig(data.config().withPatrolRadius(radius)),
+                count -> radius
+                        .map(r -> Component.translatable(KEY + "patrolradius.set", count, r))
+                        .orElseGet(() -> Component.translatable(KEY + "patrolradius.cleared", count)));
+    }
+
     /**
      * Applies the edit to the held drone or to every drone entity. All edits are computed first, so a failure on
      * any drone changes nothing. Entities go through setDroneData so their target matcher is rebuilt.
      */
-    private static int apply(CommandSourceStack source, Collection<DroneEntity> drones, Edit edit, IntFunction<Component> message) throws CommandSyntaxException {
+    static int apply(CommandSourceStack source, Collection<DroneEntity> drones, Edit edit, IntFunction<Component> message) throws CommandSyntaxException {
         if (drones == null) {
             ItemStack stack = SeekerDronesCommand.heldDrone(source);
             stack.set(ModDataComponents.DRONE_DATA, edit.apply(DroneItem.getData(stack)));

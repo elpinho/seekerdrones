@@ -33,7 +33,8 @@ public final class SeekerDronesCommand {
         dispatcher.register(Commands.literal("seekerdrones")
                 .requires(source -> source.hasPermission(2))
                 .then(GroupCommand.build())
-                .then(ConfigCommand.build(buildContext)));
+                .then(ConfigCommand.build(buildContext))
+                .then(UpgradeCommand.build()));
     }
 
     /** The drone item in the executing player's main hand. */

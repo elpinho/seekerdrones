@@ -44,6 +44,8 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue UPGRADES_PATROL_MAX_COUNT;
     public static final ModConfigSpec.IntValue UPGRADES_PATROL_BASE_RADIUS;
     public static final ModConfigSpec.IntValue UPGRADES_PATROL_PER_UPGRADE_RADIUS;
+    public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_SPEED;
+    public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_WAYPOINT_SPACING;
 
     public static final ModConfigSpec.IntValue UPGRADES_SIGHT_MAX_COUNT;
     public static final ModConfigSpec.IntValue UPGRADES_SIGHT_PER_UPGRADE;
@@ -185,12 +187,14 @@ public class ServerConfig {
         BUILDER.push("upgrades");
         UPGRADES_TOTAL_SLOTS = BUILDER
                 .comment("Total upgrade slot limit per drone, across all upgrade types.")
-                .defineInRange("totalSlots", 8, 1, 64);
+                .defineInRange("totalSlots", 24, 1, 64);
 
         BUILDER.push("patrol");
         UPGRADES_PATROL_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 4, 0, 64);
         UPGRADES_PATROL_BASE_RADIUS = BUILDER.comment("Patrol radius (blocks) with one Patrol upgrade.").defineInRange("baseRadius", 16, 1, Integer.MAX_VALUE);
         UPGRADES_PATROL_PER_UPGRADE_RADIUS = BUILDER.comment("Extra patrol radius (blocks) per additional Patrol upgrade.").defineInRange("perUpgrade", 16, 0, Integer.MAX_VALUE);
+        UPGRADES_PATROL_SPEED = BUILDER.comment("Patrol flight speed (blocks/tick).").defineInRange("speed", 0.25, 0.01, 1.5);
+        UPGRADES_PATROL_WAYPOINT_SPACING = BUILDER.comment("Distance (blocks) between patrol waypoints along the circle. There are always at least 8 waypoints.").defineInRange("waypointSpacing", 8.0, 1.0, 256.0);
         BUILDER.pop();
 
         BUILDER.push("sight");

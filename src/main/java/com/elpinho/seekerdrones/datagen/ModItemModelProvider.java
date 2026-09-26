@@ -1,6 +1,8 @@
 package com.elpinho.seekerdrones.datagen;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.drone.UpgradeItem;
+import com.elpinho.seekerdrones.drone.UpgradeType;
 
 import net.minecraft.data.PackOutput;
 import net.minecraft.resources.ResourceLocation;
@@ -18,5 +20,9 @@ public class ModItemModelProvider extends ItemModelProvider {
         withExistingParent("drone", ResourceLocation.withDefaultNamespace("item/generated"))
                 .texture("layer0", modLoc("item/drone"))
                 .texture("layer1", modLoc("item/drone_tint"));
+
+        for (UpgradeType type : UpgradeType.values()) {
+            basicItem(modLoc(UpgradeItem.itemName(type)));
+        }
     }
 }

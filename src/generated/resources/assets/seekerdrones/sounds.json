@@ -1,0 +1,11 @@
+{
+  "drone_siren": {
+    "sounds": [
+      "event/raid/raidhorn_01",
+      "event/raid/raidhorn_02",
+      "event/raid/raidhorn_03",
+      "event/raid/raidhorn_04"
+    ],
+    "subtitle": "subtitles.seekerdrones.drone_siren"
+  }
+}

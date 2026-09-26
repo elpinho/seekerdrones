@@ -16,6 +16,7 @@ public class SeekerDronesDataGenerators {
         generator.addProvider(event.includeClient(), new ModLanguageProvider(output));
         generator.addProvider(event.includeClient(), new ModItemModelProvider(output, existingFileHelper));
         generator.addProvider(event.includeClient(), new ModBlockStateProvider(output, existingFileHelper));
+        generator.addProvider(event.includeClient(), new ModSoundDefinitionsProvider(output, existingFileHelper));
         generator.addProvider(event.includeServer(), new ModLootTableProvider(output, event.getLookupProvider()));
         generator.addProvider(event.includeServer(), new ModRecipeProvider(output, event.getLookupProvider()));
     }

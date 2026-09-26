@@ -39,6 +39,32 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.MULTI_TARGET.getTranslationKey(), "Multi-target");
         add(UpgradeType.XRAY.getTranslationKey(), "X-ray");
 
+        addItem(ModItems.upgrade(UpgradeType.PATROL), "Patrol Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.SIGHT), "Sight Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.EXPLOSIVE), "Explosive Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.SIREN), "Siren Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.TRANSMITTER), "Transmitter Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.ENERGY), "Energy Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.HEALTH), "Health Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.PLAYER_SEEK), "Player Seek Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.MULTI_TARGET), "Multi-target Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.XRAY), "X-ray Upgrade");
+
+        add(UpgradeType.PATROL.getTranslationKey() + ".description", "Patrols in a circle around its patrol center. More upgrades widen the circle.");
+        add(UpgradeType.SIGHT.getTranslationKey() + ".description", "Increases the range at which targets are spotted.");
+        add(UpgradeType.EXPLOSIVE.getTranslationKey() + ".description", "Explodes on reaching its target. More upgrades make a bigger explosion.");
+        add(UpgradeType.SIREN.getTranslationKey() + ".description", "Sounds a siren when a target is spotted. More upgrades make it louder.");
+        add(UpgradeType.TRANSMITTER.getTranslationKey() + ".description", "Tells the drone's online operators when a target is spotted.");
+        add(UpgradeType.ENERGY.getTranslationKey() + ".description", "Increases max energy.");
+        add(UpgradeType.HEALTH.getTranslationKey() + ".description", "Increases max health.");
+        add(UpgradeType.PLAYER_SEEK.getTranslationKey() + ".description", "Allows players as targets. The drone's operators are never targeted.");
+        add(UpgradeType.MULTI_TARGET.getTranslationKey() + ".description", "Adds target slots.");
+        add(UpgradeType.XRAY.getTranslationKey() + ".description", "Spots and tracks targets through walls.");
+        add("tooltip.seekerdrones.upgrade.max_count", "Max per drone: %s");
+
+        add("subtitles.seekerdrones.drone_siren", "Drone siren blares");
+        add("message.seekerdrones.transmitter", "[%s] spotted %s at %s, %s, %s");
+
         add(DroneState.IDLE.getTranslationKey(), "Idle");
         add(DroneState.PATROLLING.getTranslationKey(), "Patrolling");
         add(DroneState.CHASING.getTranslationKey(), "Chasing");
@@ -92,5 +118,20 @@ public class ModLanguageProvider extends LanguageProvider {
         add("commands.seekerdrones.config.target.kind.tag", "Tag");
         add("commands.seekerdrones.config.target.kind.player_name", "Player");
         add("commands.seekerdrones.config.followdistance.set", "Set the follow distance of %s drone(s) to %s");
+        add("commands.seekerdrones.config.patrolcenter.set", "Set the patrol center of %s drone(s) to %s, %s, %s in %s");
+        add("commands.seekerdrones.config.patrolcenter.cleared", "Cleared the patrol center of %s drone(s)");
+        add("commands.seekerdrones.config.patrolradius.set", "Set the patrol radius of %s drone(s) to %s (capped by their Patrol upgrades)");
+        add("commands.seekerdrones.config.patrolradius.cleared", "%s drone(s) now patrol at the largest radius their Patrol upgrades allow");
+        add("screen.seekerdrones.drone_status.patrol_radius", "Patrol radius:");
+        add("screen.seekerdrones.drone_status.patrol_radius_value", "%s (max %s)");
+
+        add("commands.seekerdrones.upgrade.unknown_type", "Unknown upgrade type %s");
+        add("commands.seekerdrones.upgrade.over_type_cap", "A drone can have at most %2$s %1$s upgrade(s)");
+        add("commands.seekerdrones.upgrade.over_total_slots", "That would use %s upgrade slots, but a drone has %s");
+        add("commands.seekerdrones.upgrade.set", "Set %s upgrades to %s on %s drone(s)");
+        add("commands.seekerdrones.upgrade.cleared", "Removed all upgrades from %s drone(s)");
+        add("commands.seekerdrones.upgrade.list.header", "%s - %s / %s upgrade slots used:");
+        add("commands.seekerdrones.upgrade.list.empty", "  No upgrades");
+        add("commands.seekerdrones.upgrade.list.entry", "  %s x%s (max %s)");
     }
 }

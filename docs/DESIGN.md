@@ -43,18 +43,18 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 | Method | Who | Behavior |
 |---|---|---|
-| **Shift + right-click** with the drone item (hand-deploy) | Operators of the drone's group only | Spawns in front of the player (`drone.deploySpawnDistance`) and **inherits the player's velocity**, plus a small throw impulse along the look direction (`drone.deployThrowSpeed`). Deploying fails if the spawn spot is obstructed. The velocity is multiplied by `drone.deployDrag` each tick until it drops below `drone.deployRestSpeed`, then the drone comes to rest and hovers. Its rest position is recorded (patrol center fallback, section 3.2). If it spots a target while drifting, it starts chasing immediately, and the position where it spotted the target is recorded as its rest position instead. |
+| **Shift + right-click** with the drone item (hand-deploy) | Operators of the drone only (section 6.3; anyone for an unowned drone) | Spawns in front of the player (`drone.deploySpawnDistance`) and **inherits the player's velocity**, plus a small throw impulse along the look direction (`drone.deployThrowSpeed`). Deploying fails if the spawn spot is obstructed. If the drone has no owner yet, the deploying player becomes its owner (section 6.3). The velocity is multiplied by `drone.deployDrag` each tick until it drops below `drone.deployRestSpeed`, then the drone comes to rest and hovers. Its rest position is recorded (patrol center fallback, section 3.2). If it spots a target while drifting, it starts chasing immediately, and the position where it spotted the target is recorded as its rest position instead. |
 | **Drone Deploying Station** | Anyone / automation (no permission check) | Spawns above the station **with no velocity** and hovers. |
 
 ### 2.3 Picking up
 
-- **Shift + right-click** a drone entity with an empty hand. Operators of the drone's group only.
+- **Shift + right-click** a drone entity with an empty hand. Operators of the drone only (section 6.3).
 - The drone becomes an item with all its data and goes into the player's inventory, or drops at their feet if the inventory is full.
 
 ### 2.4 Drone GUI
 
 - Operators can open a read-only status screen by right-clicking a drone entity, or by right-clicking (without Shift) while holding a drone item. For an item, the state shows as "Not deployed" and the screen doesn't refresh.
-- It shows the drone ID, label, energy, health, installed upgrades, target configuration, current state (idle / patrolling / chasing / following / returning to charge / charging) and patrol center.
+- It shows the drone ID, label, energy, health, installed upgrades, target configuration, current state (idle / patrolling / chasing / following / returning to charge / charging) and, only if the drone has a Patrol upgrade, its patrol center and patrol radius (with the max).
 - The drone's configuration is **not** editable here. Configuration is done in the Drone Programming Station.
 
 ### 2.5 Health and destruction
@@ -114,7 +114,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 - **CHASING:** The drone flies toward the target, getting faster the closer it gets (section 3.4).
 - **FOLLOWING** (non-Explosive only): Once within follow distance, the drone keeps that distance and tracks the target. It holds its current bearing (the horizontal direction from the target to the drone) at the follow distance, and stays at least `drone.followHeightOffset` blocks above the target's eyes.
   The chasing drone flies toward this follow position. It counts as FOLLOWING once it is within `drone.followEnterDistance` of it, and goes back to CHASING when it is more than `drone.followExitDistance` away (hysteresis, so the state doesn't flip back and forth).
-- **EXPLODE** (Explosive only): Once within the trigger distance, the drone explodes and is removed.
+- **EXPLODE** (Explosive only): An Explosive drone never follows. It chases straight at the center of the target's hitbox and stays CHASING. Once its own center is within `drone.explosionTriggerDistance` of that point, it explodes and is removed. The explosion damages entities but **never breaks blocks** in v1 (a block damage option is future work, section 11). Its power is `basePower + perUpgrade × (count − 1)`.
 - **RETURNING / CHARGING:** See section 5.
 
 ### 3.2 Patrol center
@@ -123,13 +123,18 @@ The patrol center is chosen in this order:
 1. The position configured on the Patrol upgrade in the Programming Station. It must be in the same dimension as the drone.
 2. Otherwise, where a hand-deployed drone came to rest (or, if it spotted a target while still drifting, where it spotted it).
 3. Otherwise, the Deploying Station's position.
+4. Otherwise (e.g. a drone spawned by `/summon`), where the drone is when it first needs a patrol center. That position is recorded like a rest position.
 
-The patrol radius scales with the number of Patrol upgrades: `patrolRadius = base + perUpgrade × (count − 1)`.
+The configured center is stored with its dimension. A center in another dimension is ignored and the next fallback applies. The drone's rest position is dimension-bound the same way.
+
+The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius = base + perUpgrade × (count − 1)`. Each drone can also have a configured **patrol radius** (Patrol upgrade config, set by the Programming Station or `/seekerdrones config patrolradius`). The drone patrols at the configured radius capped at the max, or at the max if none is configured. A configured radius above the max is kept in the data, so it takes effect once enough Patrol upgrades are installed.
+
+**Patrol flight:** the circle is split into evenly spaced waypoints (`upgrades.patrol.waypointSpacing` blocks apart along the circle, at least 8 waypoints) at the patrol center's height. The drone flies to them in order, counter-clockwise seen from above, at `upgrades.patrol.speed`. When it starts or resumes patrolling (e.g. after losing a target) it heads for the nearest waypoint. Waypoints whose spot is obstructed, in an unloaded chunk or unreachable by path finding are skipped. If every waypoint is skipped, the drone hovers at the patrol center. It uses the same straight-line-or-path steering as when chasing (section 3.4).
 
 ### 3.3 Detection
 
 - **Sight range** is how far away a drone can first spot a target. It is low by default and increased by **Sight upgrades**.
-- A valid target matches one of the drone's **allowed** target entries (section 2.7). Players can only be targeted with the **Player Seek upgrade** (section 4). **Operators of the drone's own group are never targeted.** Spectators and creative-mode players are ignored.
+- A valid target matches one of the drone's **allowed** target entries (section 2.7). Players can only be targeted with the **Player Seek upgrade** (section 4). **The drone's operators (its group, or its owner if it has no group, section 6.3) are never targeted.** Spectators and creative-mode players are ignored.
 - **Line of sight is required** unless the drone has the **X-ray upgrade**. Without X-ray, the drone must have a clear ray to the target's eyes (block collision raycast). A drone with X-ray skips the raycast entirely and detects targets through walls within its sight range.
 - If several valid targets are visible, the drone picks the **nearest**.
 - Targets are **sticky**: while chasing or following, the drone doesn't scan for other targets and never switches to a nearer one. It keeps its target until it loses it (section 3.5).
@@ -175,20 +180,24 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 | Upgrade | Stacks | Default cap | Effect | Per-upgrade config (set in Programming Station) |
 |---|---|---|---|---|
-| **Patrol** | Yes | 4 | Enables patrolling. Each extra upgrade increases the patrol radius. | Patrol center (x, y, z) |
+| **Patrol** | Yes | 4 | Enables patrolling. Each extra upgrade increases the max patrol radius. | Patrol center (x, y, z) and patrol radius (capped by the upgrade count, section 3.2) |
 | **Sight** | Yes | 4 | Increases sight (detection) range. | — |
 | **Explosive** | Yes | 4 | The drone explodes on reaching its target and is consumed. Explosion power scales with the count. | — |
 | **Siren** | Yes | 3 | Plays a siren sound when a target is spotted. More upgrades increase the audible radius (sound volume > 1.0). | — |
-| **Transmitter** | No | 1 | Sends a chat message to **all online operators** of the drone's group when a target is spotted, including the drone ID, label, target type and coordinates. The message is rate-limited per drone. | — |
+| **Transmitter** | No | 1 | Sends a chat message to **all online operators** of the drone (its group, or its owner if it has no group) when a target is spotted, including the drone ID, label, target type and coordinates. The message is rate-limited per drone. | — |
 | **Energy** | Yes | 4 | Increases max energy (FE). | — |
 | **Health** | Yes | 4 | Increases max HP. | — |
-| **Player Seek** | No | 1 | Allows player names as target entries. Player-name entries use target slots like any other entry. Operators of the drone's group are still exempt. | — (names go in the Targets list) |
+| **Player Seek** | No | 1 | Allows player names as target entries. Player-name entries use target slots like any other entry. The drone's operators (section 6.3) are still exempt. | — (names go in the Targets list) |
 | **Multi-target** | Yes | 3 | Each upgrade adds target slots (section 2.7). | — |
 | **X-ray** | No | 1 | Detection and tracking ignore line of sight, so targets are found through walls (section 3.3). | — |
 
-- The default **total slot limit** is 8.
-- The Siren fires once per target acquisition and repeats every N seconds (configurable) while the target is being chased or followed.
+- The default **total slot limit** is 24.
+- The caps are enforced when upgrades are installed (Programming Station, debug command). A flying drone uses its installed counts as they are, even if the config was lowered afterwards.
+- **Energy and Health upgrades arrive full:** installing one also adds the extra capacity to the drone's current energy / HP. Removing one lowers the max, and anything above the new max is lost.
+- The Siren fires once per target acquisition and repeats every N seconds (configurable) while the target is being chased or followed. Its volume is `baseVolume + perUpgrade × (count − 1)`, and vanilla hears a sound of volume `v > 1` from `16 × v` blocks. Placeholder sound: the vanilla raid horn, until a custom sound exists.
+- The Transmitter fires on target acquisition only (not while following). The message gives the drone's label and ID, the target's name (the player name for players, otherwise the entity type's name) and the target's block coordinates. After a message, that drone sends no other message for `upgrades.transmitter.cooldown` ticks. The cooldown isn't saved. It goes to the drone's online operators (section 6.3): the group's, or the owner if the drone has no group. An unowned drone or one with an unknown group notifies nobody.
 - Transmitter messages sent while operators are offline are **not** queued in v1.
+- **Upgrade items:** one item per type, `seekerdrones:<type>_upgrade` (e.g. `seekerdrones:multi_target_upgrade`), with placeholder recipes until the final ones (section 11).
 
 ---
 
@@ -220,7 +229,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 ## 6. Drone Operators
 
-Drone Operators control who can interact with drones.
+Drone Operators control who can interact with drones. A drone's operators come from its Operator Group, or from its owner if it has no group (section 6.3).
 
 ### 6.1 Operator Groups
 
@@ -241,15 +250,27 @@ Drone Operators control who can interact with drones.
 | Receive Transmitter notifications | Yes (all online operators) |
 | Exempt from being targeted by Player Seek | Yes |
 | Insert/extract drones in machines (manually or by automation) | **No**. Machines never check permissions, so automation keeps working. |
-| Drone may charge at a Charging Station | The station's placer must be the owner or an operator of the drone's group |
+| Drone may charge at a Charging Station | The station's placer must be an operator of the drone (section 6.3). *Open for M5: whether unowned drones may charge anywhere.* |
 
 Edge cases for the direct-interaction checks (pick up, hand-deploy, status GUI):
-- A drone with **no group ID** (creative tab, `/give`) is unowned: **anyone** may interact with it.
-- A drone whose group ID **doesn't exist** in saved data (foreign or wiped data) has no operators: **nobody** may interact with it, except via the bypass below.
-- **Server operators** (permission level ≥ 2) bypass the group check for these three actions only. The bypass does **not** make them exempt from Player Seek and does **not** make them receive Transmitter messages. Those stay group-only.
+- An **unowned** drone (no group and no owner, e.g. fresh from the creative tab or `/give`) may be used by **anyone**. The first player to hand-deploy it becomes its owner.
+- A drone whose group ID **doesn't exist** in saved data (foreign or wiped data) has no operators: **nobody** may interact with it, except via the bypass below. Its owner field doesn't help, since a group ID is present.
+- **Server operators** (permission level ≥ 2) bypass the operator check for these three actions only. The bypass does **not** make them exempt from Player Seek and does **not** make them receive Transmitter messages. Those stay operator-only.
+- Transmitter messages and the Player Seek exemption go to the operators from section 6.3. An unowned drone notifies nobody and exempts nobody.
 - A blocked player gets an action-bar message saying they are not an operator of this drone.
 
 The Programming, Deploying and Charging Stations have no access control in v1. Charging Stations only record their placer's UUID, which is used for the usability rule above.
+
+### 6.3 Drone owner
+
+Not every player should need a group: a solo player's creative, `/give` or otherwise groupless drones would otherwise have no operators, and creating a group per player doesn't scale on large servers. So each drone also stores an **owner**.
+
+- The owner is the player who **first hand-deploys** the drone. It is set only if the drone has no owner yet, and is then kept through every item/entity conversion. The Deploying Station never sets it.
+- The drone's **operators** are decided like this:
+  1. With a group ID: the group's current operators (section 6.1). The owner field is **ignored**, so removing someone from the group still revokes their access.
+  2. With no group but an owner: the owner is the **only** operator.
+  3. With neither: the drone is **unowned** and has no operators.
+- Every "requires operator" rule in section 6.2 uses this definition.
 
 ---
 
@@ -270,11 +291,11 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 - **Slots:** one drone slot, an upgrade input inventory, and a refund output buffer for removed upgrades.
 - **Program:** the station stores a desired configuration:
   - the target count for each upgrade type,
-  - per-upgrade config (patrol center),
+  - per-upgrade config (patrol center, patrol radius),
   - base config: the targets list (sized by the programmed Multi-target count, section 2.7), follow distance, **Label**, and **Color** (a button that cycles through the 16 dye colors on each click).
 - **Operation:** with a drone in the slot, the station works toward the program one step at a time:
   - It installs a missing upgrade from the input inventory, paying FE.
-  - It writes the configured settings (targets, follow distance, patrol center, label, color) onto the drone.
+  - It writes the configured settings (targets, follow distance, patrol center, patrol radius, label, color) onto the drone.
   - If required upgrades are missing from the input inventory, it waits.
 - **Manual removal (v1):** a player can remove installed upgrades one at a time from the GUI. Removed upgrades go into the refund buffer (a full refund), and removal costs no FE. The station does **not** automatically remove upgrades beyond the program in v1. A drone with more upgrades than the program asks for doesn't match, so it is never auto-output, and the GUI shows a warning.
 - **Refund buffer output:** the refund buffer can be set to push into an adjacent inventory on one configured face. It can also always be extracted through the item capability.
@@ -313,11 +334,12 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 
 The component is a record with a `Codec` and a `StreamCodec`, holding:
 - `droneId` (string): the persistent, readable ID from section 2.8. It survives item/entity conversion and is also meant for future features such as a map or the Camera upgrade.
-- `groupId` (optional UUID): the Operator Group. Empty on drones that weren't built by a Factory (e.g. creative/`/give`). See section 6.2 for how permission checks treat a drone without a group or with an unknown group.
+- `groupId` (optional UUID): the Operator Group. Empty on drones that weren't built by a Factory (e.g. creative/`/give`). See section 6.2 and 6.3 for how permission checks treat a drone without a group or with an unknown group.
+- `ownerId` (optional UUID): the player who first hand-deployed the drone (section 6.3). Only used while the drone has no group.
 - `energy` (int). Max energy is derived from the upgrades and config, not stored.
 - `health` (float). Max health is derived.
 - `upgrades` (map of upgrade type to count).
-- `config`: targets (a list of entries, each with its own kind: entity type / tag / player name), follow distance, patrol center (optional), label, color.
+- `config`: targets (a list of entries, each with its own kind: entity type / tag / player name), follow distance, patrol center (optional, position plus dimension), patrol radius (optional), label, color.
 
 The drone entity saves the same data in its entity NBT. Only the fields the client needs (e.g. status for the GUI and renderer) are synced.
 
@@ -332,6 +354,8 @@ The drone entity saves the same data in its entity NBT. Only the fields the clie
 - Energy drain is batched every N ticks.
 - The station search goes through the registry and should be cached briefly (don't query it every tick).
 - Entity sync to clients is kept minimal.
+- Path finding is the most expensive part of a drone's tick. Drones fly straight whenever the line to the goal is clear, and only path find when it isn't. A moving goal (a target) is re-pathed on the staggered tick. A fixed goal (a patrol waypoint) is only re-pathed when it changes or the current path has ended.
+- Profiled in M4 with 100 drones (`scripts/profile-drones.ps1`): patrolling over open ground costs about 7 µs per drone per tick. Patrolling through 7-high walls that cross every circle costs about 45 µs, almost all of it path finding. Each leg that crosses a wall needs a real search over the wall, about 1 ms each, compared with about 0.2 ms for follow paths.
 
 ---
 
@@ -369,9 +393,11 @@ All values below are placeholders.
 | `drone.deployRestSpeed` | 0.01 blocks/tick | Below this speed the drone comes to rest |
 | `drone.waterDamage` | 1 HP | |
 | `drone.waterDamageInterval` | 20 ticks | |
-| `upgrades.totalSlots` | 8 | |
+| `upgrades.totalSlots` | 24 | |
 | `upgrades.<type>.maxCount` | see section 4 | |
 | `upgrades.patrol.baseRadius` / `perUpgrade` | 16 / 16 blocks | |
+| `upgrades.patrol.speed` | 0.25 blocks/tick | Patrol flight speed |
+| `upgrades.patrol.waypointSpacing` | 8 blocks | Distance between patrol waypoints along the circle (at least 8 waypoints) |
 | `upgrades.sight.perUpgrade` | 8 blocks | |
 | `upgrades.explosive.basePower` / `perUpgrade` | 2.0 / 1.0 | TNT = 4.0 |
 | `upgrades.siren.baseVolume` / `perUpgrade` / `repeatInterval` | 2.0 / 2.0 / 100 ticks | |

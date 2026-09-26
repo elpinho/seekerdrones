@@ -222,8 +222,8 @@ public class OperatorGameTests {
         op.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
 
         helper.assertTrue(DronePermissions.canInteract(op, data), "A permission-level-2 player should bypass the group check for direct interaction");
-        helper.assertFalse(DronePermissions.isGroupOperator(server(helper), data, opUuid),
-                "isGroupOperator must ignore the permission bypass (Player Seek exemption / Transmitter recipients stay group-only)");
+        helper.assertFalse(DronePermissions.isOperator(server(helper), data, opUuid),
+                "isOperator must ignore the permission bypass (Player Seek exemption / Transmitter recipients stay group-only)");
 
         drone.interact(op, InteractionHand.MAIN_HAND);
         helper.assertTrue(drone.isRemoved(), "The bypassing server operator should be able to pick up the drone");

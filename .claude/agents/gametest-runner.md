@@ -43,6 +43,11 @@ powershell -ExecutionPolicy Bypass -File scripts/smoke-test-server.ps1 -Task run
   ```
 - **Entity selectors are global across the whole GameTest server.** All tests run concurrently in the same overworld dimension, just at large, spread-out coordinate offsets. A broad selector like `@e[type=seekerdrones:drone]` risks catching entities from unrelated tests running in parallel — scope selectors with `distance=..N` (implicitly centered on the command source's position) to stay local to your own test's structure.
 - **Watch for fixtures with unregistered random IDs colliding with permission checks.** A `DroneData` built with a random, never-registered `Optional<UUID>` group ID will trip the "unknown group → nobody may interact" edge case once `DronePermissions` is wired in, even though the fixture may have only intended the ID as arbitrary non-empty filler. If a test's mock player unexpectedly gets denied an interaction, check whether its sample data's `groupId` is backed by a real `OperatorGroups` entry.
+- **Capturing chat sent to a player** (e.g. Transmitter messages): `makeMockServerPlayerInLevel()` can't override `sendSystemMessage`. `UpgradeGameTests.spawnMessageCapturingOperator` copies its body (real `ServerPlayer` + `Connection`/`EmbeddedChannel` + `PlayerList.placeNewPlayer`) with an override that records messages. Reuse it.
+- **Captured chat includes other tests' noise:** `PlayerList` broadcasts "X joined/left the game" to every online player, and concurrent tests keep joining and leaving. Count only messages whose contents is a `TranslatableContents` with the key you expect, never the raw list size.
+- **Fast state changes need per-tick polling:** near a target the chase speed is already at `drone.maxSpeed` (1.2 blocks/tick), so an Explosive drone a few blocks away is gone in 1–2 ticks. Check invariants in a `succeedWhen` poll every tick rather than with a fixed `runAfterDelay`.
+- **Undead burn in daylight:** zombies and skeletons used as targets can die before the assertion. Shade the column above them with a block placed well clear of the drone's line of sight, or use husks.
+- **Patrol tests:** keep circles small with `DroneConfig.withPatrolRadius(Optional.of(4))` so drones stay near the test structure (the default radius is 16).
 
 ## Report
 Keep it short:

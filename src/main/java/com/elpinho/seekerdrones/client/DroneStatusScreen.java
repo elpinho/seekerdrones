@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneItem;
+import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
@@ -60,9 +61,13 @@ public class DroneStatusScreen extends Screen {
         lines.add(field("energy", Component.translatable("screen.seekerdrones.drone_status.energy_value", data.energy(), status.maxEnergy())));
         lines.add(field("health", Component.translatable("screen.seekerdrones.drone_status.health_value",
                 DroneItem.formatHealth(data.health()), DroneItem.formatHealth(status.maxHealth()))));
-        lines.add(field("patrol_center", data.config().patrolCenter()
-                .<Component>map(pos -> Component.literal(pos.getX() + ", " + pos.getY() + ", " + pos.getZ()))
-                .orElse(Component.translatable("screen.seekerdrones.drone_status.not_set"))));
+        if (DroneStats.isPatrolling(data)) {
+            lines.add(field("patrol_center", status.patrolCenter()
+                    .<Component>map(center -> Component.literal(center.pos().getX() + ", " + center.pos().getY() + ", " + center.pos().getZ()))
+                    .orElse(Component.translatable("screen.seekerdrones.drone_status.not_set"))));
+            lines.add(field("patrol_radius", Component.translatable("screen.seekerdrones.drone_status.patrol_radius_value",
+                    status.patrolRadius(), status.maxPatrolRadius())));
+        }
 
         lines.add(field("upgrades", data.upgrades().isEmpty() ? Component.translatable("screen.seekerdrones.drone_status.none") : Component.empty()));
         for (UpgradeType type : UpgradeType.values()) {
