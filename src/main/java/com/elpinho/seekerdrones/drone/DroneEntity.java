@@ -556,6 +556,18 @@ public class DroneEntity extends PathfinderMob {
         return false;
     }
 
+    // Drones never push or get pushed by other entities (section 2.5). Skipping pushEntities() also saves its entity
+    // query every tick, and with it cramming damage.
+
+    @Override
+    public boolean isPushable() {
+        return false;
+    }
+
+    @Override
+    protected void pushEntities() {
+    }
+
     // --- Persistence ---
 
     @Override

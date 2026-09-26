@@ -2,6 +2,7 @@ package com.elpinho.seekerdrones.gametest;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -29,6 +30,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
@@ -266,6 +268,63 @@ public class DroneGameTests {
         });
     }
 
+    // --- 9b. No entity pushing or cramming damage (DESIGN.md 2.5) ---
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void idleDroneAndMobDoNotPushEachOther(GameTestHelper helper) {
+        helper.setBlock(new BlockPos(4, 2, 4), Blocks.STONE);
+        Zombie zombie = helper.spawnWithNoFreeWill(EntityType.ZOMBIE, new BlockPos(4, 3, 4));
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
+        Vec3 zombieStart = zombie.position();
+        Vec3 droneStart = drone.position();
+
+        helper.runAfterDelay(30, () -> {
+            double zombieDrift = horizontalDistance(zombie.position(), zombieStart);
+            double droneDrift = horizontalDistance(drone.position(), droneStart);
+            helper.assertTrue(zombieDrift < 0.05,
+                    "Zombie should not be pushed horizontally by the overlapping drone, drifted " + zombieDrift);
+            helper.assertTrue(droneDrift < 0.05,
+                    "Drone should not be pushed horizontally by the overlapping zombie, drifted " + droneDrift);
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void idleDronesStackedTogetherDoNotPushApart(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(4, 3, 4);
+        DroneEntity droneA = helper.spawn(ModEntityTypes.DRONE.get(), pos);
+        DroneEntity droneB = helper.spawn(ModEntityTypes.DRONE.get(), pos);
+        DroneEntity droneC = helper.spawn(ModEntityTypes.DRONE.get(), pos);
+        Vec3 start = droneA.position();
+
+        helper.runAfterDelay(30, () -> {
+            for (DroneEntity drone : List.of(droneA, droneB, droneC)) {
+                helper.assertTrue(drone.position().distanceTo(start) < 0.05,
+                        "Stacked drone should not have been pushed apart, drifted to " + drone.position());
+            }
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void manyStackedDronesTakeNoCrammingDamage(GameTestHelper helper) {
+        BlockPos pos = new BlockPos(4, 3, 4);
+        // More than the default maxEntityCramming gamerule (24), so vanilla cramming damage would trigger if drones
+        // still queried their surroundings for pushing.
+        List<DroneEntity> drones = new ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            drones.add(helper.spawn(ModEntityTypes.DRONE.get(), pos));
+        }
+
+        helper.runAfterDelay(40, () -> {
+            for (DroneEntity drone : drones) {
+                helper.assertTrue(drone.getHealth() >= drone.getMaxHealth() - 0.001F,
+                        "Stacked drone should take no cramming damage, health=" + drone.getHealth() + "/" + drone.getMaxHealth());
+            }
+            helper.succeed();
+        });
+    }
+
     // --- 9. Plain right-click shows status without deploying (DESIGN.md 2.4) ---
 
     @GameTest(template = "empty", timeoutTicks = 20)
@@ -286,6 +345,13 @@ public class DroneGameTests {
     }
 
     // --- Helpers ---
+
+    /** Horizontal-only displacement, ignoring vertical settling (e.g. a mob falling onto its floor block). */
+    private static double horizontalDistance(Vec3 a, Vec3 b) {
+        double dx = a.x - b.x;
+        double dz = a.z - b.z;
+        return Math.sqrt(dx * dx + dz * dz);
+    }
 
     /** A drone data set exercising every field: mixed targets, patrol center, label, non-default color, upgrades. */
     private static DroneData sampleDroneData(String droneId) {

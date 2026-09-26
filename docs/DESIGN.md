@@ -63,6 +63,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 - Drones take damage from every normal source: players, mobs, projectiles (including other mods' weapons), fire, lava and explosions.
 - Drones are immune to fall damage (they don't fall) and to drowning. Instead, while **in water** (not rain) a drone takes `drone.waterDamage` HP every `drone.waterDamageInterval` ticks.
 - Taking damage has no mob-style feedback: no knockback (from hits or explosions), no red hurt flash, and a drone-specific damage sound instead of the generic one (placeholder: the iron golem damage sound until a custom sound exists).
+- Drones don't take part in entity pushing: they never push other entities (including other drones) and are never pushed by them. This also means they never take entity-cramming damage. (Performance decision, from M3 profiling.)
 - Drones do **not** regenerate health on their own. HP is restored only while docked at a Charging Station (section 5.3).
 - When HP reaches 0, the drone is **destroyed and lost**. It plays a small explosion effect (particles and sound only, with no damage and no block breaking) and disappears. It leaves no drop, and its upgrades are lost. This applies whether or not it has Explosive upgrades.
 - An Explosive drone that **reaches its target** explodes and is **consumed**, leaving no drop. It is a suicide drone.
