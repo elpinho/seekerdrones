@@ -27,6 +27,12 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue DRONE_CHASE_ACCELERATION_K;
     public static final ModConfigSpec.IntValue DRONE_DEFAULT_FOLLOW_DISTANCE;
     public static final ModConfigSpec.DoubleValue DRONE_EXPLOSION_TRIGGER_DISTANCE;
+    public static final ModConfigSpec.DoubleValue DRONE_DEPLOY_SPAWN_DISTANCE;
+    public static final ModConfigSpec.DoubleValue DRONE_DEPLOY_THROW_SPEED;
+    public static final ModConfigSpec.DoubleValue DRONE_DEPLOY_DRAG;
+    public static final ModConfigSpec.DoubleValue DRONE_DEPLOY_REST_SPEED;
+    public static final ModConfigSpec.DoubleValue DRONE_WATER_DAMAGE;
+    public static final ModConfigSpec.IntValue DRONE_WATER_DAMAGE_INTERVAL;
 
     // === upgrades ===
     public static final ModConfigSpec.IntValue UPGRADES_TOTAL_SLOTS;
@@ -77,6 +83,7 @@ public class ServerConfig {
 
     // === chargingStation ===
     public static final ModConfigSpec.IntValue CHARGING_STATION_CHARGE_RATE;
+    public static final ModConfigSpec.DoubleValue CHARGING_STATION_HEAL_PER_TICK;
 
     // === deployingStation ===
     public static final ModConfigSpec.IntValue DEPLOYING_STATION_ENERGY_PER_DEPLOY;
@@ -139,6 +146,24 @@ public class ServerConfig {
         DRONE_EXPLOSION_TRIGGER_DISTANCE = BUILDER
                 .comment("Distance (blocks) at which an Explosive drone triggers on its target.")
                 .defineInRange("explosionTriggerDistance", 1.5, 0.1, 16.0);
+        DRONE_DEPLOY_SPAWN_DISTANCE = BUILDER
+                .comment("Distance (blocks) in front of the player's eyes where a hand-deployed drone spawns.")
+                .defineInRange("deploySpawnDistance", 1.0, 0.0, 4.0);
+        DRONE_DEPLOY_THROW_SPEED = BUILDER
+                .comment("Speed (blocks/tick) added along the look direction on hand-deploy, on top of the player's velocity.")
+                .defineInRange("deployThrowSpeed", 0.15, 0.0, 1.5);
+        DRONE_DEPLOY_DRAG = BUILDER
+                .comment("Velocity multiplier applied each tick while a drone drifts.")
+                .defineInRange("deployDrag", 0.9, 0.0, 0.99);
+        DRONE_DEPLOY_REST_SPEED = BUILDER
+                .comment("Speed (blocks/tick) below which a drifting drone comes to rest.")
+                .defineInRange("deployRestSpeed", 0.01, 0.0, 1.0);
+        DRONE_WATER_DAMAGE = BUILDER
+                .comment("HP lost each water damage interval while a drone is in water.")
+                .defineInRange("waterDamage", 1.0, 0.0, 1024.0);
+        DRONE_WATER_DAMAGE_INTERVAL = BUILDER
+                .comment("Ticks between water damage applications.")
+                .defineInRange("waterDamageInterval", 20, 1, Integer.MAX_VALUE);
         BUILDER.pop();
 
         BUILDER.push("upgrades");
@@ -219,6 +244,9 @@ public class ServerConfig {
         CHARGING_STATION_CHARGE_RATE = BUILDER
                 .comment("FE/tick a Charging Station feeds into its docked drone.")
                 .defineInRange("chargeRate", 1_000, 1, Integer.MAX_VALUE);
+        CHARGING_STATION_HEAL_PER_TICK = BUILDER
+                .comment("HP/tick a Charging Station restores to its docked drone.")
+                .defineInRange("healPerTick", 0.1, 0.0, 1024.0);
         BUILDER.pop();
 
         BUILDER.push("deployingStation");
@@ -228,6 +256,14 @@ public class ServerConfig {
         BUILDER.pop();
 
         SPEC = BUILDER.build();
+    }
+
+    /**
+     * Reads a config value, falling back to its default while the server config isn't loaded
+     * (e.g. item tooltips in the main menu).
+     */
+    public static <T> T get(ModConfigSpec.ConfigValue<T> value) {
+        return SPEC.isLoaded() ? value.get() : value.getDefault();
     }
 
     private ServerConfig() {}

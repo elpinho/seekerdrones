@@ -37,12 +37,13 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 - The **Drone item** carries all drone state in a custom data component (`seekerdrones:drone_data`, see section 8.2).
 - The **Drone entity** is the deployed, flying form. Converting between item and entity is lossless: energy, health, upgrades, config, operator group, persistent drone ID, label and color are all preserved.
+- **Item tooltip:** the first line is `<label> - <drone ID>` (or just the drone ID if there is no label), drawn in the drone's color using the dye's text color (`DyeColor.getTextColor`) so dark colors stay readable. There is no separate color line. Below it the tooltip lists energy, health, installed upgrades (if any) and the number of target entries.
 
 ### 2.2 Deploying
 
 | Method | Who | Behavior |
 |---|---|---|
-| **Shift + right-click** with the drone item (hand-deploy) | Operators of the drone's group only | Spawns in front of the player and **inherits the player's velocity**. The velocity decays by drag each tick until the drone comes to rest and hovers. If it spots a target while drifting, it starts chasing immediately. |
+| **Shift + right-click** with the drone item (hand-deploy) | Operators of the drone's group only | Spawns in front of the player (`drone.deploySpawnDistance`) and **inherits the player's velocity**, plus a small throw impulse along the look direction (`drone.deployThrowSpeed`). Deploying fails if the spawn spot is obstructed. The velocity is multiplied by `drone.deployDrag` each tick until it drops below `drone.deployRestSpeed`, then the drone comes to rest and hovers. Its rest position is recorded (patrol center fallback, section 3.2). If it spots a target while drifting, it starts chasing immediately. |
 | **Drone Deploying Station** | Anyone / automation (no permission check) | Spawns above the station **with no velocity** and hovers. |
 
 ### 2.3 Picking up
@@ -52,14 +53,17 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 ### 2.4 Drone GUI
 
-- Operators can open a read-only status screen by right-clicking a drone entity.
+- Operators can open a read-only status screen by right-clicking a drone entity, or by right-clicking (without Shift) while holding a drone item. For an item, the state shows as "Not deployed" and the screen doesn't refresh.
 - It shows the drone ID, label, energy, health, installed upgrades, target configuration, current state (idle / patrolling / chasing / following / returning to charge / charging) and patrol center.
 - The drone's configuration is **not** editable here. Configuration is done in the Drone Programming Station.
 
 ### 2.5 Health and destruction
 
 - Drones have HP. Base HP is configurable and **Health upgrades** increase it.
-- Players, mobs and projectiles can damage drones.
+- Drones take damage from every normal source: players, mobs, projectiles (including other mods' weapons), fire, lava and explosions.
+- Drones are immune to fall damage (they don't fall) and to drowning. Instead, while **in water** (not rain) a drone takes `drone.waterDamage` HP every `drone.waterDamageInterval` ticks.
+- Taking damage has no mob-style feedback: no knockback (from hits or explosions), no red hurt flash, and a drone-specific damage sound instead of the generic one (placeholder: the iron golem damage sound until a custom sound exists).
+- Drones do **not** regenerate health on their own. HP is restored only while docked at a Charging Station (section 5.3).
 - When HP reaches 0, the drone is **destroyed and lost**. It plays a small explosion effect (particles and sound only, with no damage and no block breaking) and disappears. It leaves no drop, and its upgrades are lost. This applies whether or not it has Explosive upgrades.
 - An Explosive drone that **reaches its target** explodes and is **consumed**, leaving no drop. It is a suicide drone.
 
@@ -67,10 +71,10 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 | Setting | Description |
 |---|---|
-| **Targets** | A list of entries. Each entry is an **entity type ID** (e.g. `minecraft:zombie`), an **entity tag** (e.g. `#minecraft:raiders`) or, with Player Seek only, a **player name**. See section 2.7 for how many entries are allowed. |
+| **Targets** | A list of entries. Each entry has its own kind: an **entity type ID** (e.g. `minecraft:zombie`), an **entity tag** (e.g. `#minecraft:raiders`) or, with Player Seek only, a **player name**. Kinds can be mixed freely within one list. See section 2.7 for how many entries are allowed. |
 | **Follow distance** | How far a non-Explosive drone keeps from its target while following it (blocks). |
 | **Label** | Optional short text label for identification. It is shown in the drone GUI, in Transmitter messages and as the drone's nameplate. Set by the Programming Station. |
-| **Color** | One of the 16 dye colors, which tints part of the drone's model and item. Set by the Programming Station. |
+| **Color** | One of the 16 dye colors, which tints part of the drone's model and item. Set by the Programming Station. Defaults to **blue** (the closest dye color to indigo). |
 
 ### 2.7 Target slots
 
@@ -83,6 +87,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 - Every drone gets a **persistent, random but readable ID** when the Factory builds it, e.g. `K7F3-Q9MX`.
 - The ID is 8 random uppercase letters and digits (A–Z, 0–9), shown with a dash in the middle.
 - It never changes, is kept through every item/entity conversion, and is shown in the drone GUI, the item tooltip and Transmitter messages.
+- A drone item without an ID (e.g. from the creative tab or `/give`) shows "Unassigned" in its tooltip and gets a new ID the first time it is deployed.
 
 ---
 
@@ -204,6 +209,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 - Each Charging Station charges **one drone at a time**.
 - If the chosen station is busy, the drone checks for another free usable station within 10 blocks of it and goes there. If there is none, it waits by hovering very close to the busy station.
+- While docked, the drone also regains `chargingStation.healPerTick` HP per tick, up to its max HP. Charging finishes when the drone is at full energy **and** full health.
 - When charging finishes, the drone returns to its patrol center and resumes patrolling, or hovers if it has no Patrol upgrade. A drone without a Patrol upgrade returns to where it was when it left.
 
 ---
@@ -280,7 +286,7 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 
 ### 7.4 Drone Charging Station
 
-- It accepts FE and charges one docked drone at a time at a configurable FE/tick rate.
+- It accepts FE and charges one docked drone at a time at a configurable FE/tick rate. It also restores the docked drone's HP (section 5.3).
 - It records its placer's UUID and registers itself in the station registry on placement. It unregisters when broken.
 - Drone docking and queuing follow section 5.3.
 
@@ -297,11 +303,11 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 
 The component is a record with a `Codec` and a `StreamCodec`, holding:
 - `droneId` (string): the persistent, readable ID from section 2.8. It survives item/entity conversion and is also meant for future features such as a map or the Camera upgrade.
-- `groupId` (UUID): the Operator Group.
+- `groupId` (optional UUID): the Operator Group. Empty on drones that weren't built by a Factory (e.g. creative/`/give`). How M2 permission checks treat a drone without a group is decided in M2.
 - `energy` (int). Max energy is derived from the upgrades and config, not stored.
 - `health` (float). Max health is derived.
 - `upgrades` (map of upgrade type to count).
-- `config`: targets, follow distance, patrol center (optional), label, color.
+- `config`: targets (a list of entries, each with its own kind: entity type / tag / player name), follow distance, patrol center (optional), label, color.
 
 The drone entity saves the same data in its entity NBT. Only the fields the client needs (e.g. status for the GUI and renderer) are synced.
 
@@ -343,6 +349,12 @@ All values below are placeholders.
 | `drone.chaseAccelerationK` | 2.0 | |
 | `drone.defaultFollowDistance` | 4 blocks | |
 | `drone.explosionTriggerDistance` | 1.5 blocks | |
+| `drone.deploySpawnDistance` | 1.0 block | Distance in front of the player's eyes |
+| `drone.deployThrowSpeed` | 0.15 blocks/tick | Added along the look direction on hand-deploy |
+| `drone.deployDrag` | 0.9 | Velocity multiplier per tick while drifting |
+| `drone.deployRestSpeed` | 0.01 blocks/tick | Below this speed the drone comes to rest |
+| `drone.waterDamage` | 1 HP | |
+| `drone.waterDamageInterval` | 20 ticks | |
 | `upgrades.totalSlots` | 8 | |
 | `upgrades.<type>.maxCount` | see section 4 | |
 | `upgrades.patrol.baseRadius` / `perUpgrade` | 16 / 16 blocks | |
@@ -355,6 +367,7 @@ All values below are placeholders.
 | `upgrades.multiTarget.perUpgrade` | 1 | Extra target slots per upgrade |
 | `programmingStation.baseCost.<type>` | 10 000 FE | Multiplied by index `n` |
 | `chargingStation.chargeRate` | 1 000 FE/tick | |
+| `chargingStation.healPerTick` | 0.1 HP/tick | |
 | `deployingStation.energyPerDeploy` | 5 000 FE | |
 
 ---

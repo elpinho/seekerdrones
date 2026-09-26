@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
+import com.elpinho.seekerdrones.network.ModNetwork;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModCreativeTabs;
@@ -39,6 +40,8 @@ public class SeekerDrones {
 
         modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
 
+        modEventBus.addListener(ModEntityTypes::registerAttributes);
+        modEventBus.addListener(ModNetwork::registerPayloads);
         modEventBus.addListener(SeekerDronesDataGenerators::gatherData);
 
         LOGGER.info("Seeker Drones initializing");

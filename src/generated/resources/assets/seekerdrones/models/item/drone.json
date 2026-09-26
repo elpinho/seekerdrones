@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "seekerdrones:item/drone",
+    "layer1": "seekerdrones:item/drone_tint"
+  }
+}
