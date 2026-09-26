@@ -61,9 +61,10 @@ public class ModLanguageProvider extends LanguageProvider {
 
         add("message.seekerdrones.not_operator", "You are not an operator of this drone");
 
+        add("commands.seekerdrones.not_holding_drone", "You must hold a drone item in your main hand");
+        add("commands.seekerdrones.no_drones", "No drones matched");
+
         add("commands.seekerdrones.group.unknown", "Unknown operator group %s");
-        add("commands.seekerdrones.group.not_holding_drone", "You must hold a drone item in your main hand");
-        add("commands.seekerdrones.group.no_drones", "No drones matched");
         add("commands.seekerdrones.group.single_owner", "The owner must be exactly one player");
         add("commands.seekerdrones.group.created", "Created operator group %s owned by %s");
         add("commands.seekerdrones.group.list.empty", "There are no operator groups");
@@ -75,5 +76,21 @@ public class ModLanguageProvider extends LanguageProvider {
         add("commands.seekerdrones.group.cannot_remove_owner", "%s is the group owner and can't be removed");
         add("commands.seekerdrones.group.assigned", "Assigned %s drone(s) to group %s");
         add("commands.seekerdrones.group.cleared", "Removed the operator group from %s drone(s)");
+
+        add("commands.seekerdrones.config.unknown_tag", "Unknown entity tag #%s");
+        add("commands.seekerdrones.config.duplicate_target", "%s is already a target");
+        add("commands.seekerdrones.config.no_such_index", "There is no target #%s (the drone has %s)");
+        add("commands.seekerdrones.config.target.added", "Added target %s to %s drone(s)");
+        add("commands.seekerdrones.config.target.removed", "Removed target #%s from %s drone(s)");
+        add("commands.seekerdrones.config.target.cleared", "Cleared the targets of %s drone(s)");
+        add("commands.seekerdrones.config.target.list.header", "%s - %s target(s), %s slot(s), follow distance %s:");
+        add("commands.seekerdrones.config.target.list.empty", "  No targets");
+        add("commands.seekerdrones.config.target.list.entry", "  %s. %s %s");
+        add("commands.seekerdrones.config.target.list.ignored_slot", " (ignored: no free target slot)");
+        add("commands.seekerdrones.config.target.list.ignored_player_seek", " (ignored: needs Player Seek)");
+        add("commands.seekerdrones.config.target.kind.entity_type", "Entity");
+        add("commands.seekerdrones.config.target.kind.tag", "Tag");
+        add("commands.seekerdrones.config.target.kind.player_name", "Player");
+        add("commands.seekerdrones.config.followdistance.set", "Set the follow distance of %s drone(s) to %s");
     }
 }

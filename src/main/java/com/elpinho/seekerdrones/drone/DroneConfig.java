@@ -42,4 +42,12 @@ public record DroneConfig(List<TargetEntry> targets, int followDistance, Optiona
     public static DroneConfig createDefault() {
         return new DroneConfig(List.of(), ServerConfig.get(ServerConfig.DRONE_DEFAULT_FOLLOW_DISTANCE), Optional.empty(), "", DEFAULT_COLOR);
     }
+
+    public DroneConfig withTargets(List<TargetEntry> targets) {
+        return new DroneConfig(targets, followDistance, patrolCenter, label, color);
+    }
+
+    public DroneConfig withFollowDistance(int followDistance) {
+        return new DroneConfig(targets, followDistance, patrolCenter, label, color);
+    }
 }

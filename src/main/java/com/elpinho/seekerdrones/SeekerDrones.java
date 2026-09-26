@@ -2,7 +2,7 @@ package com.elpinho.seekerdrones;
 
 import org.slf4j.Logger;
 
-import com.elpinho.seekerdrones.command.GroupCommand;
+import com.elpinho.seekerdrones.command.SeekerDronesCommand;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
 import com.elpinho.seekerdrones.network.ModNetwork;
@@ -47,7 +47,7 @@ public class SeekerDrones {
         modEventBus.addListener(ModNetwork::registerPayloads);
         modEventBus.addListener(SeekerDronesDataGenerators::gatherData);
 
-        NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> GroupCommand.register(event.getDispatcher()));
+        NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> SeekerDronesCommand.register(event.getDispatcher(), event.getBuildContext()));
 
         LOGGER.info("Seeker Drones initializing");
     }

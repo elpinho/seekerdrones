@@ -1,19 +1,19 @@
 package com.elpinho.seekerdrones.command;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.operator.OperatorGroup;
 import com.elpinho.seekerdrones.operator.OperatorGroups;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.mojang.authlib.GameProfile;
-import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -45,10 +45,6 @@ public final class GroupCommand {
 
     private static final DynamicCommandExceptionType UNKNOWN_GROUP =
             new DynamicCommandExceptionType(id -> Component.translatable(KEY + "unknown", String.valueOf(id)));
-    private static final SimpleCommandExceptionType NOT_HOLDING_DRONE =
-            new SimpleCommandExceptionType(Component.translatable(KEY + "not_holding_drone"));
-    private static final SimpleCommandExceptionType NO_DRONES =
-            new SimpleCommandExceptionType(Component.translatable(KEY + "no_drones"));
     private static final SimpleCommandExceptionType SINGLE_OWNER =
             new SimpleCommandExceptionType(Component.translatable(KEY + "single_owner"));
 
@@ -59,35 +55,34 @@ public final class GroupCommand {
 
     private GroupCommand() {}
 
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("seekerdrones")
-                .requires(source -> source.hasPermission(2))
-                .then(Commands.literal("group")
-                        .then(Commands.literal("create")
-                                .executes(ctx -> create(ctx.getSource(), ctx.getSource().getPlayerOrException().getGameProfile()))
-                                .then(Commands.argument("owner", GameProfileArgument.gameProfile())
-                                        .executes(ctx -> create(ctx.getSource(), singleProfile(ctx, "owner")))))
-                        .then(Commands.literal("list")
-                                .executes(ctx -> list(ctx.getSource())))
-                        .then(Commands.literal("info")
-                                .then(groupArgument().executes(ctx -> info(ctx.getSource(), groupId(ctx)))))
-                        .then(Commands.literal("add")
-                                .then(groupArgument()
-                                        .then(Commands.argument("players", GameProfileArgument.gameProfile())
-                                                .executes(ctx -> add(ctx.getSource(), groupId(ctx), GameProfileArgument.getGameProfiles(ctx, "players"))))))
-                        .then(Commands.literal("remove")
-                                .then(groupArgument()
-                                        .then(Commands.argument("players", GameProfileArgument.gameProfile())
-                                                .executes(ctx -> remove(ctx.getSource(), groupId(ctx), GameProfileArgument.getGameProfiles(ctx, "players"))))))
-                        .then(Commands.literal("assign")
-                                .then(groupArgument()
-                                        .executes(ctx -> assignHeld(ctx.getSource(), Optional.of(groupId(ctx))))
-                                        .then(Commands.argument("drones", EntityArgument.entities())
-                                                .executes(ctx -> assignEntities(ctx.getSource(), Optional.of(groupId(ctx)), EntityArgument.getEntities(ctx, "drones"))))))
-                        .then(Commands.literal("clear")
-                                .executes(ctx -> assignHeld(ctx.getSource(), Optional.empty()))
+    /** The {@code group} subtree of {@code /seekerdrones}, registered by {@link SeekerDronesCommand}. */
+    public static LiteralArgumentBuilder<CommandSourceStack> build() {
+        return Commands.literal("group")
+                .then(Commands.literal("create")
+                        .executes(ctx -> create(ctx.getSource(), ctx.getSource().getPlayerOrException().getGameProfile()))
+                        .then(Commands.argument("owner", GameProfileArgument.gameProfile())
+                                .executes(ctx -> create(ctx.getSource(), singleProfile(ctx, "owner")))))
+                .then(Commands.literal("list")
+                        .executes(ctx -> list(ctx.getSource())))
+                .then(Commands.literal("info")
+                        .then(groupArgument().executes(ctx -> info(ctx.getSource(), groupId(ctx)))))
+                .then(Commands.literal("add")
+                        .then(groupArgument()
+                                .then(Commands.argument("players", GameProfileArgument.gameProfile())
+                                        .executes(ctx -> add(ctx.getSource(), groupId(ctx), GameProfileArgument.getGameProfiles(ctx, "players"))))))
+                .then(Commands.literal("remove")
+                        .then(groupArgument()
+                                .then(Commands.argument("players", GameProfileArgument.gameProfile())
+                                        .executes(ctx -> remove(ctx.getSource(), groupId(ctx), GameProfileArgument.getGameProfiles(ctx, "players"))))))
+                .then(Commands.literal("assign")
+                        .then(groupArgument()
+                                .executes(ctx -> assignHeld(ctx.getSource(), Optional.of(groupId(ctx))))
                                 .then(Commands.argument("drones", EntityArgument.entities())
-                                        .executes(ctx -> assignEntities(ctx.getSource(), Optional.empty(), EntityArgument.getEntities(ctx, "drones")))))));
+                                        .executes(ctx -> assignEntities(ctx.getSource(), Optional.of(groupId(ctx)), EntityArgument.getEntities(ctx, "drones"))))))
+                .then(Commands.literal("clear")
+                        .executes(ctx -> assignHeld(ctx.getSource(), Optional.empty()))
+                        .then(Commands.argument("drones", EntityArgument.entities())
+                                .executes(ctx -> assignEntities(ctx.getSource(), Optional.empty(), EntityArgument.getEntities(ctx, "drones")))));
     }
 
     private static RequiredArgumentBuilder<CommandSourceStack, UUID> groupArgument() {
@@ -170,27 +165,18 @@ public final class GroupCommand {
     }
 
     private static int assignHeld(CommandSourceStack source, Optional<UUID> groupId) throws CommandSyntaxException {
-        ItemStack stack = source.getPlayerOrException().getMainHandItem();
-        if (!(stack.getItem() instanceof DroneItem)) {
-            throw NOT_HOLDING_DRONE.create();
-        }
+        ItemStack stack = SeekerDronesCommand.heldDrone(source);
         stack.set(ModDataComponents.DRONE_DATA, DroneItem.getData(stack).withGroupId(groupId));
         sendAssigned(source, groupId, 1);
         return 1;
     }
 
     private static int assignEntities(CommandSourceStack source, Optional<UUID> groupId, Collection<? extends Entity> entities) throws CommandSyntaxException {
-        int count = 0;
-        for (Entity entity : entities) {
-            if (entity instanceof DroneEntity drone) {
-                DroneData data = drone.snapshotData().withGroupId(groupId);
-                drone.setDroneData(data);
-                count++;
-            }
+        List<DroneEntity> drones = SeekerDronesCommand.drones(entities);
+        for (DroneEntity drone : drones) {
+            drone.setDroneData(drone.snapshotData().withGroupId(groupId));
         }
-        if (count == 0) {
-            throw NO_DRONES.create();
-        }
+        int count = drones.size();
         sendAssigned(source, groupId, count);
         return count;
     }

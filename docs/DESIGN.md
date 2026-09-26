@@ -43,7 +43,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 | Method | Who | Behavior |
 |---|---|---|
-| **Shift + right-click** with the drone item (hand-deploy) | Operators of the drone's group only | Spawns in front of the player (`drone.deploySpawnDistance`) and **inherits the player's velocity**, plus a small throw impulse along the look direction (`drone.deployThrowSpeed`). Deploying fails if the spawn spot is obstructed. The velocity is multiplied by `drone.deployDrag` each tick until it drops below `drone.deployRestSpeed`, then the drone comes to rest and hovers. Its rest position is recorded (patrol center fallback, section 3.2). If it spots a target while drifting, it starts chasing immediately. |
+| **Shift + right-click** with the drone item (hand-deploy) | Operators of the drone's group only | Spawns in front of the player (`drone.deploySpawnDistance`) and **inherits the player's velocity**, plus a small throw impulse along the look direction (`drone.deployThrowSpeed`). Deploying fails if the spawn spot is obstructed. The velocity is multiplied by `drone.deployDrag` each tick until it drops below `drone.deployRestSpeed`, then the drone comes to rest and hovers. Its rest position is recorded (patrol center fallback, section 3.2). If it spots a target while drifting, it starts chasing immediately, and the position where it spotted the target is recorded as its rest position instead. |
 | **Drone Deploying Station** | Anyone / automation (no permission check) | Spawns above the station **with no velocity** and hovers. |
 
 ### 2.3 Picking up
@@ -111,7 +111,8 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 - **IDLE (hover):** A drone without a Patrol upgrade hovers where it is and scans for targets. This is a stationary sentry.
 - **PATROLLING:** A drone with at least one Patrol upgrade flies in a circle around its **patrol center** and scans for targets.
 - **CHASING:** The drone flies toward the target, getting faster the closer it gets (section 3.4).
-- **FOLLOWING** (non-Explosive only): Once within follow distance, the drone keeps that distance and tracks the target.
+- **FOLLOWING** (non-Explosive only): Once within follow distance, the drone keeps that distance and tracks the target. It holds its current bearing (the horizontal direction from the target to the drone) at the follow distance, and stays at least `drone.followHeightOffset` blocks above the target's eyes.
+  The chasing drone flies toward this follow position. It counts as FOLLOWING once it is within `drone.followEnterDistance` of it, and goes back to CHASING when it is more than `drone.followExitDistance` away (hysteresis, so the state doesn't flip back and forth).
 - **EXPLODE** (Explosive only): Once within the trigger distance, the drone explodes and is removed.
 - **RETURNING / CHARGING:** See section 5.
 
@@ -119,7 +120,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 The patrol center is chosen in this order:
 1. The position configured on the Patrol upgrade in the Programming Station. It must be in the same dimension as the drone.
-2. Otherwise, where a hand-deployed drone came to rest.
+2. Otherwise, where a hand-deployed drone came to rest (or, if it spotted a target while still drifting, where it spotted it).
 3. Otherwise, the Deploying Station's position.
 
 The patrol radius scales with the number of Patrol upgrades: `patrolRadius = base + perUpgrade × (count − 1)`.
@@ -130,6 +131,7 @@ The patrol radius scales with the number of Patrol upgrades: `patrolRadius = bas
 - A valid target matches one of the drone's **allowed** target entries (section 2.7). Players can only be targeted with the **Player Seek upgrade** (section 4). **Operators of the drone's own group are never targeted.** Spectators and creative-mode players are ignored.
 - **Line of sight is required** unless the drone has the **X-ray upgrade**. Without X-ray, the drone must have a clear ray to the target's eyes (block collision raycast). A drone with X-ray skips the raycast entirely and detects targets through walls within its sight range.
 - If several valid targets are visible, the drone picks the **nearest**.
+- Targets are **sticky**: while chasing or following, the drone doesn't scan for other targets and never switches to a nearer one. It keeps its target until it loses it (section 3.5).
 
 **Performance (required — there may be dozens of drones):**
 - Drones scan for targets every N ticks (default 10), not every tick. Scans are **staggered** using `(tickCount + entityId) % N`, so drones spread the work over different ticks.
@@ -143,7 +145,8 @@ The patrol radius scales with the number of Patrol upgrades: `patrolRadius = bas
 ### 3.4 Chase speed
 
 - The drone accelerates as the distance to the target shrinks, and its speed is always capped.
-- Suggested curve: `speed = min(maxSpeed, cruiseSpeed × e^(k × (1 − d / sightRange)))`, where `d` is the current distance. `cruiseSpeed`, `maxSpeed` and `k` are configurable.
+- Suggested curve: `speed = min(maxSpeed, cruiseSpeed × e^(k × (1 − min(d, sightRange) / sightRange)))`, where `d` is the current distance. `cruiseSpeed`, `maxSpeed` and `k` are configurable.
+- `d` is clamped to the sight range, so the chase speed never drops below `cruiseSpeed`. Beyond sight range (but still within pursuit range) the drone flies at `cruiseSpeed`.
 - `maxSpeed` must stay low enough to avoid clipping through blocks and outrunning chunk loading. The suggested hard ceiling is about 1.5 blocks per tick.
 - Drones fly using flying-mob navigation (vanilla `FlyingPathNavigation`). They go around obstacles and never pass through blocks.
 
@@ -354,6 +357,10 @@ All values below are placeholders.
 | `drone.maxSpeed` | 1.2 blocks/tick | Hard ceiling of about 1.5 |
 | `drone.chaseAccelerationK` | 2.0 | |
 | `drone.defaultFollowDistance` | 4 blocks | |
+| `drone.followHeightOffset` | 1.5 blocks | Minimum height above the target's eyes while following |
+| `drone.followEnterDistance` | 1.0 block | Distance to the follow position at which a chasing drone starts following |
+| `drone.followExitDistance` | 3.0 blocks | Distance to the follow position at which a following drone goes back to chasing; kept at least `followEnterDistance` |
+| `drone.repathDistance` | 1.0 block | Path recompute threshold between staggered ticks (section 3.4) |
 | `drone.explosionTriggerDistance` | 1.5 blocks | |
 | `drone.deploySpawnDistance` | 1.0 block | Distance in front of the player's eyes |
 | `drone.deployThrowSpeed` | 0.15 blocks/tick | Added along the look direction on hand-deploy |

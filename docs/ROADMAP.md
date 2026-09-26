@@ -29,13 +29,16 @@ Each milestone ends in something playable or testable. The drone and its AI come
 - **Done when:** non-operators are blocked from direct interaction with drones.
 
 ### M3 — Seeking AI
-- Targets (entity types and tags) and the allowed-target fail-safe.
+- Targets (entity types, tags and player names) and the allowed-target fail-safe.
 - Staggered detection with line of sight.
+- The detection effects of the Sight, X-ray, Player Seek and Multi-target upgrades, read from the drone's upgrade counts. The fail-safe needs these counts, so they come in with the AI. Their items come in M4.
 - Chase speed curve, following at a set distance, losing the target, idle hover.
+- A debug command (`/seekerdrones config`, permission level 2) to set targets and follow distance on a held drone or on drone entities. It stays after the Programming Station exists (M7) as an admin/testing tool.
 - **Done when:** a hand-deployed drone finds a zombie and follows it, and dozens of drones don't noticeably hurt TPS (profiled).
 
 ### M4 — Upgrades
-- All upgrade items (placeholder recipes) and their effects: Patrol, Sight, Explosive, Siren, Transmitter, Energy, Health, Player Seek, Multi-target, X-ray.
+- All upgrade items (placeholder recipes): Patrol, Sight, Explosive, Siren, Transmitter, Energy, Health, Player Seek, Multi-target, X-ray.
+- The remaining upgrade effects: Patrol, Explosive, Siren and Transmitter. Sight, X-ray, Player Seek and Multi-target already work from M3.
 - Total slot limit and per-type caps.
 - A temporary debug command to apply upgrades until the Programming Station exists (M7).
 - **Done when:** every upgrade's effect can be tested in game.

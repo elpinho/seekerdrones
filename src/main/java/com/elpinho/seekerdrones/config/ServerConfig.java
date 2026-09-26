@@ -26,6 +26,10 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue DRONE_MAX_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_CHASE_ACCELERATION_K;
     public static final ModConfigSpec.IntValue DRONE_DEFAULT_FOLLOW_DISTANCE;
+    public static final ModConfigSpec.DoubleValue DRONE_FOLLOW_HEIGHT_OFFSET;
+    public static final ModConfigSpec.DoubleValue DRONE_FOLLOW_ENTER_DISTANCE;
+    public static final ModConfigSpec.DoubleValue DRONE_FOLLOW_EXIT_DISTANCE;
+    public static final ModConfigSpec.DoubleValue DRONE_REPATH_DISTANCE;
     public static final ModConfigSpec.DoubleValue DRONE_EXPLOSION_TRIGGER_DISTANCE;
     public static final ModConfigSpec.DoubleValue DRONE_DEPLOY_SPAWN_DISTANCE;
     public static final ModConfigSpec.DoubleValue DRONE_DEPLOY_THROW_SPEED;
@@ -143,6 +147,18 @@ public class ServerConfig {
         DRONE_DEFAULT_FOLLOW_DISTANCE = BUILDER
                 .comment("Default follow distance (blocks) for a new drone's base config.")
                 .defineInRange("defaultFollowDistance", 4, 1, 64);
+        DRONE_FOLLOW_HEIGHT_OFFSET = BUILDER
+                .comment("Minimum height (blocks) above the target's eyes while following.")
+                .defineInRange("followHeightOffset", 1.5, 0.0, 16.0);
+        DRONE_FOLLOW_ENTER_DISTANCE = BUILDER
+                .comment("Distance (blocks) to the follow position at which a chasing drone switches to following.")
+                .defineInRange("followEnterDistance", 1.0, 0.1, 16.0);
+        DRONE_FOLLOW_EXIT_DISTANCE = BUILDER
+                .comment("Distance (blocks) to the follow position at which a following drone goes back to chasing. Must be larger than followEnterDistance; it is raised to match if not.")
+                .defineInRange("followExitDistance", 3.0, 0.1, 32.0);
+        DRONE_REPATH_DISTANCE = BUILDER
+                .comment("How far (blocks) a navigating drone's goal may move before its path is recomputed between staggered scan ticks.")
+                .defineInRange("repathDistance", 1.0, 0.1, 16.0);
         DRONE_EXPLOSION_TRIGGER_DISTANCE = BUILDER
                 .comment("Distance (blocks) at which an Explosive drone triggers on its target.")
                 .defineInRange("explosionTriggerDistance", 1.5, 0.1, 16.0);
