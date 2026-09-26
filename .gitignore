@@ -26,7 +26,8 @@ run-data
 repo
 
 # Claude Code session artifacts
-.claude/
+.claude/*
+!.claude/agents/
 
 # Data generation cache (not meaningful across machines; generated output itself is committed)
 src/generated/resources/.cache/
