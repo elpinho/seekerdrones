@@ -222,17 +222,16 @@ public class DroneGameTests {
         helper.succeed();
     }
 
-    // --- 7b. DroneConfig CODEC and STREAM_CODEC round-trips of patrol altitude (DESIGN.md 3.2, 8.2, 9) ---
+    // --- 7b. DroneConfig CODEC and STREAM_CODEC round-trips of patrol center/radius (DESIGN.md 3.2, 8.2, 9) ---
 
     @GameTest(template = "empty", timeoutTicks = 5)
-    public static void patrolAltitudeSurvivesConfigCodecAndStreamCodecRoundTrip(GameTestHelper helper) {
-        DroneConfig withAltitude = DroneConfig.createDefault()
+    public static void patrolCenterAndRadiusSurviveConfigCodecAndStreamCodecRoundTrip(GameTestHelper helper) {
+        DroneConfig withPatrol = DroneConfig.createDefault()
                 .withPatrolCenter(Optional.of(GlobalPos.of(Level.OVERWORLD, new BlockPos(10, 70, 10))))
-                .withPatrolRadius(Optional.of(12))
-                .withPatrolAltitude(Optional.of(80));
-        DroneConfig withoutAltitude = withAltitude.withPatrolAltitude(Optional.empty());
+                .withPatrolRadius(Optional.of(12));
+        DroneConfig withoutPatrol = withPatrol.withPatrolCenter(Optional.empty()).withPatrolRadius(Optional.empty());
 
-        for (DroneConfig config : List.of(withAltitude, withoutAltitude)) {
+        for (DroneConfig config : List.of(withPatrol, withoutPatrol)) {
             Optional<Tag> encoded = DroneConfig.CODEC.encodeStart(NbtOps.INSTANCE, config).result();
             helper.assertTrue(encoded.isPresent(), "DroneConfig should encode through its CODEC, config=" + config);
             DroneConfig decoded = DroneConfig.CODEC.parse(NbtOps.INSTANCE, encoded.get()).result().orElse(null);
@@ -388,7 +387,7 @@ public class DroneGameTests {
                 new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie"),
                 new TargetEntry(TargetEntry.Kind.TAG, "minecraft:raiders"),
                 new TargetEntry(TargetEntry.Kind.PLAYER_NAME, "Steve"));
-        DroneConfig config = new DroneConfig(targets, 6, Optional.of(GlobalPos.of(Level.OVERWORLD, new BlockPos(10, 70, 10))), Optional.of(12), Optional.empty(), "Sentry", DyeColor.RED);
+        DroneConfig config = new DroneConfig(targets, 6, Optional.of(GlobalPos.of(Level.OVERWORLD, new BlockPos(10, 70, 10))), Optional.of(12), "Sentry", DyeColor.RED);
         Map<UpgradeType, Integer> upgrades = Map.of(UpgradeType.ENERGY, 1, UpgradeType.HEALTH, 2);
         // Base max energy 100_000 + 1*100_000 = 200_000; base max health 20 + 2*10 = 40. Both values below max.
         return new DroneData(droneId, Optional.of(UUID.randomUUID()), Optional.of(UUID.randomUUID()), "Steve", 123_456, 15.0F, upgrades, config);

@@ -230,7 +230,7 @@ public class ServerConfig {
         UPGRADES_PATROL_PER_UPGRADE_RADIUS = BUILDER.comment("Extra patrol radius (blocks) per additional Patrol upgrade.").defineInRange("perUpgrade", 16, 0, Integer.MAX_VALUE);
         UPGRADES_PATROL_SPEED = BUILDER.comment("Patrol flight speed (blocks/tick).").defineInRange("speed", 0.25, 0.01, 1.5);
         UPGRADES_PATROL_WAYPOINT_SPACING = BUILDER.comment("Distance (blocks) between patrol waypoints along the circle. There are always at least 8 waypoints.").defineInRange("waypointSpacing", 8.0, 1.0, 256.0);
-        UPGRADES_PATROL_MAX_CLIMB = BUILDER.comment("How far (blocks) above the patrol altitude a patrol waypoint may be raised to clear an obstacle. Waypoints that need more are skipped.").defineInRange("maxClimb", 16.0, 0.0, 384.0);
+        UPGRADES_PATROL_MAX_CLIMB = BUILDER.comment("How far (blocks) above the patrol height a patrol waypoint may be raised to clear an obstacle. Waypoints that need more are skipped.").defineInRange("maxClimb", 16.0, 0.0, 384.0);
         UPGRADES_PATROL_CLIMB_CLEARANCE = BUILDER.comment("Gap (blocks) kept between the drone and the obstacle below a raised patrol waypoint.").defineInRange("climbClearance", 1.0, 0.0, 16.0);
         BUILDER.pop();
 

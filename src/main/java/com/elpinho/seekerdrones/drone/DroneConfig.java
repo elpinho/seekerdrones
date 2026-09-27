@@ -18,7 +18,7 @@ import net.minecraft.world.item.DyeColor;
  * A drone's base configuration (DESIGN.md section 2.6), set by the Programming Station.
  */
 public record DroneConfig(List<TargetEntry> targets, int followDistance, Optional<GlobalPos> patrolCenter, Optional<Integer> patrolRadius,
-        Optional<Integer> patrolAltitude, String label, DyeColor color) {
+        String label, DyeColor color) {
     public static final DyeColor DEFAULT_COLOR = DyeColor.BLUE;
 
     public static final Codec<DroneConfig> CODEC = RecordCodecBuilder.create(instance -> instance.group(
@@ -26,7 +26,6 @@ public record DroneConfig(List<TargetEntry> targets, int followDistance, Optiona
             Codec.INT.fieldOf("follow_distance").forGetter(DroneConfig::followDistance),
             GlobalPos.CODEC.optionalFieldOf("patrol_center").forGetter(DroneConfig::patrolCenter),
             ExtraCodecs.POSITIVE_INT.optionalFieldOf("patrol_radius").forGetter(DroneConfig::patrolRadius),
-            Codec.INT.optionalFieldOf("patrol_altitude").forGetter(DroneConfig::patrolAltitude),
             Codec.STRING.optionalFieldOf("label", "").forGetter(DroneConfig::label),
             DyeColor.CODEC.optionalFieldOf("color", DEFAULT_COLOR).forGetter(DroneConfig::color)
     ).apply(instance, DroneConfig::new));
@@ -42,7 +41,6 @@ public record DroneConfig(List<TargetEntry> targets, int followDistance, Optiona
                 ByteBufCodecs.VAR_INT.encode(buf, config.followDistance());
                 PATROL_CENTER_STREAM_CODEC.encode(buf, config.patrolCenter());
                 OPTIONAL_INT_STREAM_CODEC.encode(buf, config.patrolRadius());
-                OPTIONAL_INT_STREAM_CODEC.encode(buf, config.patrolAltitude());
                 ByteBufCodecs.STRING_UTF8.encode(buf, config.label());
                 DyeColor.STREAM_CODEC.encode(buf, config.color());
             },
@@ -50,7 +48,6 @@ public record DroneConfig(List<TargetEntry> targets, int followDistance, Optiona
                     TARGETS_STREAM_CODEC.decode(buf),
                     ByteBufCodecs.VAR_INT.decode(buf),
                     PATROL_CENTER_STREAM_CODEC.decode(buf),
-                    OPTIONAL_INT_STREAM_CODEC.decode(buf),
                     OPTIONAL_INT_STREAM_CODEC.decode(buf),
                     ByteBufCodecs.STRING_UTF8.decode(buf),
                     DyeColor.STREAM_CODEC.decode(buf)));
@@ -61,28 +58,23 @@ public record DroneConfig(List<TargetEntry> targets, int followDistance, Optiona
 
     public static DroneConfig createDefault() {
         return new DroneConfig(List.of(), ServerConfig.get(ServerConfig.DRONE_DEFAULT_FOLLOW_DISTANCE), Optional.empty(), Optional.empty(),
-                Optional.empty(), "", DEFAULT_COLOR);
+                "", DEFAULT_COLOR);
     }
 
     public DroneConfig withTargets(List<TargetEntry> targets) {
-        return new DroneConfig(targets, followDistance, patrolCenter, patrolRadius, patrolAltitude, label, color);
+        return new DroneConfig(targets, followDistance, patrolCenter, patrolRadius, label, color);
     }
 
     public DroneConfig withFollowDistance(int followDistance) {
-        return new DroneConfig(targets, followDistance, patrolCenter, patrolRadius, patrolAltitude, label, color);
+        return new DroneConfig(targets, followDistance, patrolCenter, patrolRadius, label, color);
     }
 
     public DroneConfig withPatrolCenter(Optional<GlobalPos> patrolCenter) {
-        return new DroneConfig(targets, followDistance, patrolCenter, patrolRadius, patrolAltitude, label, color);
+        return new DroneConfig(targets, followDistance, patrolCenter, patrolRadius, label, color);
     }
 
     /** The wanted patrol radius, or empty for the largest the Patrol upgrades allow (section 3.2). */
     public DroneConfig withPatrolRadius(Optional<Integer> patrolRadius) {
-        return new DroneConfig(targets, followDistance, patrolCenter, patrolRadius, patrolAltitude, label, color);
-    }
-
-    /** The Y level to patrol at, or empty to patrol at the patrol center's height (section 3.2). */
-    public DroneConfig withPatrolAltitude(Optional<Integer> patrolAltitude) {
-        return new DroneConfig(targets, followDistance, patrolCenter, patrolRadius, patrolAltitude, label, color);
+        return new DroneConfig(targets, followDistance, patrolCenter, patrolRadius, label, color);
     }
 }

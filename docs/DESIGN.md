@@ -54,7 +54,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 ### 2.4 Drone GUI
 
 - Operators can open a read-only status screen by right-clicking a drone entity, or by right-clicking (without Shift) while holding a drone item. For an item, the state shows as "Not deployed" and the screen doesn't refresh.
-- It shows the drone ID, label, energy, health, installed upgrades, target configuration, current state (idle / patrolling / chasing / following / returning to charge / charging) and, only if the drone has a Patrol upgrade, its patrol center, patrol radius (with the max) and patrol altitude.
+- It shows the drone ID, label, energy, health, installed upgrades, target configuration, current state (idle / patrolling / chasing / following / returning to charge / charging) and, only if the drone has a Patrol upgrade, its patrol center and patrol radius (with the max).
 - The drone's configuration is **not** editable here. Configuration is done in the Drone Programming Station.
 
 ### 2.5 Health and destruction
@@ -133,9 +133,9 @@ The configured center is stored with its dimension. A center in another dimensio
 
 The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius = base + perUpgrade × (count − 1)`. Each drone can also have a configured **patrol radius** (Patrol upgrade config, set by the Programming Station or `/seekerdrones config patrolradius`). The drone patrols at the configured radius capped at the max, or at the max if none is configured. A configured radius above the max is kept in the data, so it takes effect once enough Patrol upgrades are installed.
 
-**Patrol altitude:** each drone can also have a configured **patrol altitude**, an absolute Y level (Patrol upgrade config, set by the Programming Station or `/seekerdrones config patrolaltitude`). The drone patrols at that height, kept within the dimension's build height. Without one, it patrols at the patrol center's height.
+**Patrol height:** the drone patrols at the patrol center's height (its Y coordinate). There is no separate altitude setting: to patrol higher or lower, move the center to that Y.
 
-**Patrol flight:** the circle is split into evenly spaced waypoints (`upgrades.patrol.waypointSpacing` blocks apart along the circle, at least 8 waypoints) at the patrol height. The drone flies through them in order without stopping, counter-clockwise seen from above, at `upgrades.patrol.speed`. When it starts or resumes patrolling (e.g. after losing a target) it heads for the nearest waypoint. Changing the center, radius or altitude also restarts from the nearest waypoint of the new circle.
+**Patrol flight:** the circle is split into evenly spaced waypoints (`upgrades.patrol.waypointSpacing` blocks apart along the circle, at least 8 waypoints) at the patrol height. The drone flies through them in order without stopping, counter-clockwise seen from above, at `upgrades.patrol.speed`. When it starts or resumes patrolling (e.g. after losing a target) it heads for the nearest waypoint. Changing the center or radius also restarts from the nearest waypoint of the new circle.
 - **Climbing over obstacles:** if the drone doesn't fit at a waypoint (a hill, a building, a tree), the waypoint is raised to `upgrades.patrol.climbClearance` above the highest block under the drone (the motion-blocking heightmap). It is never lowered, so the drone climbs over obstacles and never dives into caves or under overhangs.
 - **Climbing ahead:** the straight legs to both neighboring waypoints are checked the same way, every 0.5 blocks. A waypoint is raised to the highest climb needed on either leg (if the drone fits there). The drone climbs one waypoint before an obstacle, crosses it level and comes back down to the patrol height one waypoint after it. It never flies into an obstacle's face, and the climbs happen over open ground, so they need no path finding. Inertia (section 3.4) makes these height changes gradual.
 - Waypoints that would need to be raised more than `upgrades.patrol.maxClimb`, are in an unloaded chunk or are unreachable by path finding are skipped. If every waypoint is skipped, the drone hovers at the patrol center (at the patrol height). It uses the same straight-line-or-path steering as when chasing (section 3.4).
@@ -198,7 +198,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 | Upgrade | Stacks | Default cap | Effect | Per-upgrade config (set in Programming Station) |
 |---|---|---|---|---|
-| **Patrol** | Yes | 4 | Enables patrolling. Each extra upgrade increases the max patrol radius. | Patrol center (x, y, z), patrol radius (capped by the upgrade count) and patrol altitude (section 3.2) |
+| **Patrol** | Yes | 4 | Enables patrolling. Each extra upgrade increases the max patrol radius. | Patrol center (x, y, z; its y is the patrol height) and patrol radius (capped by the upgrade count) (section 3.2) |
 | **Sight** | Yes | 8 | Increases sight (detection) range. | — |
 | **Explosive** | Yes | 4 | The drone explodes on reaching its target and is consumed. Explosion power scales with the count. | — |
 | **Siren** | Yes | 3 | Plays a siren sound when a target is spotted. More upgrades increase the audible radius (sound volume > 1.0). | — |
@@ -312,11 +312,11 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 - **Slots:** one drone slot, an upgrade input inventory, and a refund output buffer for removed upgrades.
 - **Program:** the station stores a desired configuration:
   - the target count for each upgrade type,
-  - per-upgrade config (patrol center, patrol radius, patrol altitude),
+  - per-upgrade config (patrol center, patrol radius),
   - base config: the targets list (sized by the programmed Multi-target count, section 2.7), follow distance, **Label**, and **Color** (a button that cycles through the 16 dye colors on each click).
 - **Operation:** with a drone in the slot, the station works toward the program one step at a time:
   - It installs a missing upgrade from the input inventory, paying FE.
-  - It writes the configured settings (targets, follow distance, patrol center, patrol radius, patrol altitude, label, color) onto the drone.
+  - It writes the configured settings (targets, follow distance, patrol center, patrol radius, label, color) onto the drone.
   - If required upgrades are missing from the input inventory, it waits.
 - **Manual removal (v1):** a player can remove installed upgrades one at a time from the GUI. Removed upgrades go into the refund buffer (a full refund), and removal costs no FE. The station does **not** automatically remove upgrades beyond the program in v1. A drone with more upgrades than the program asks for doesn't match, so it is never auto-output, and the GUI shows a warning.
 - **Refund buffer output:** the refund buffer can be set to push into an adjacent inventory on one configured face. It can also always be extracted through the item capability.
@@ -366,7 +366,7 @@ The component is a record with a `Codec` and a `StreamCodec`, holding:
 - `energy` (int). Max energy is derived from the upgrades and config, not stored.
 - `health` (float). Max health is derived.
 - `upgrades` (map of upgrade type to count).
-- `config`: targets (a list of entries, each with its own kind: entity type / tag / player name), follow distance, patrol center (optional, position plus dimension), patrol radius (optional), patrol altitude (optional Y level), label, color.
+- `config`: targets (a list of entries, each with its own kind: entity type / tag / player name), follow distance, patrol center (optional, position plus dimension), patrol radius (optional), label, color.
 
 The drone entity saves the same data in its entity NBT. Only the fields the client needs (e.g. status for the GUI and renderer) are synced.
 

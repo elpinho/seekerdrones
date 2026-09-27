@@ -841,10 +841,11 @@ public class DroneEntity extends PathfinderMob {
             setState(DroneState.PATROLLING);
             patrolWaypoint = -1;
         }
-        Vec3 centerPos = patrolCenterAtHeight(center, data);
+        // The drone patrols at the center's own height (section 3.2).
+        Vec3 centerPos = Vec3.atBottomCenterOf(center.pos());
         double radius = DroneStats.patrolRadius(data);
         if (!centerPos.equals(patrolCircleCenter) || radius != patrolCircleRadius) {
-            // A new center, radius or altitude: start over from the nearest waypoint of the new circle.
+            // A new center or radius: start over from the nearest waypoint of the new circle.
             patrolCircleCenter = centerPos;
             patrolCircleRadius = radius;
             patrolWaypoint = -1;
@@ -885,17 +886,6 @@ public class DroneEntity extends PathfinderMob {
             return;
         }
         selectWaypoint((patrolWaypoint + 1) % count, centerPos, radius, count);
-    }
-
-    /**
-     * The patrol center at the patrol height (section 3.2): the configured altitude, kept within the build height,
-     * or the center's own height if no altitude is set.
-     */
-    private Vec3 patrolCenterAtHeight(GlobalPos center, DroneData data) {
-        Vec3 pos = Vec3.atBottomCenterOf(center.pos());
-        return data.config().patrolAltitude()
-                .map(altitude -> new Vec3(pos.x, Mth.clamp(altitude, level().getMinBuildHeight(), level().getMaxBuildHeight() - 1), pos.z))
-                .orElse(pos);
     }
 
     private static int patrolWaypointCount(double radius) {

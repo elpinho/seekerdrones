@@ -311,32 +311,36 @@ public class UpgradeGameTests {
         });
     }
 
-    // --- 4b. Patrol altitude (DESIGN.md section 3.2, 9) ---
+    // --- 4b. Patrol height (DESIGN.md section 3.2) ---
 
     // skyAccess=true: vanilla GameTestInfo normally encases every test with an invisible barrier ceiling exactly at
     // the top of the structure's bounding box (StructureUtils.encaseStructure), which this test would otherwise fly
-    // into when patrolling well above the structure's nominal height.
+    // into when patrolling well above the structure's nominal height after the center is raised.
     @GameTest(template = "empty", timeoutTicks = 260, skyAccess = true)
-    public static void patrolAltitudeSetsFlightHeightAndClearingReturnsToCenterHeight(GameTestHelper helper) {
+    public static void patrolDroneFliesAtPatrolCenterHeightAndFollowsCenterToNewHeight(GameTestHelper helper) {
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
-        double centerHeight = drone.getY();
+        GlobalPos center = GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(4, 3, 4)));
         DroneData base = dataWithUpgrades(DroneData.createNew(), Map.of(UpgradeType.PATROL, 1));
-        DroneData withAltitude = base.withConfig(base.config().withPatrolRadius(Optional.of(4))
-                .withPatrolAltitude(Optional.of((int) centerHeight + 6)));
-        drone.setDroneData(withAltitude);
+        DroneData data = base.withConfig(base.config().withPatrolRadius(Optional.of(4)).withPatrolCenter(Optional.of(center)));
+        drone.setDroneData(data);
 
         helper.runAfterDelay(120, () -> {
             helper.assertTrue(drone.getState() == DroneState.PATROLLING, "Sanity: drone should be patrolling, state=" + drone.getState());
-            helper.assertTrue(Math.abs(drone.getY() - (centerHeight + 6)) <= 1.0,
-                    "Drone should patrol at the configured altitude, y=" + drone.getY());
+            double centerY = Vec3.atBottomCenterOf(center.pos()).y;
+            helper.assertTrue(Math.abs(drone.getY() - centerY) <= 1.0,
+                    "Drone should patrol at its patrol center's own height (there is no separate altitude setting), y="
+                            + drone.getY() + " center y=" + centerY);
 
-            // Changing/clearing the altitude mid-patrol restarts from the nearest waypoint of the new circle,
-            // moving the drone to the new height.
-            drone.setDroneData(withAltitude.withConfig(withAltitude.config().withPatrolAltitude(Optional.empty())));
+            // Moving the center to a different Y (same x/z) restarts patrolling from the nearest waypoint of the
+            // new circle, which is at the new height.
+            GlobalPos raisedCenter = GlobalPos.of(center.dimension(), center.pos().above(6));
+            drone.setDroneData(data.withConfig(data.config().withPatrolCenter(Optional.of(raisedCenter))));
 
             helper.runAfterDelay(120, () -> {
-                helper.assertTrue(Math.abs(drone.getY() - centerHeight) <= 1.0,
-                        "Clearing the patrol altitude should return the drone to the patrol center's height, y=" + drone.getY());
+                double raisedY = Vec3.atBottomCenterOf(raisedCenter.pos()).y;
+                helper.assertTrue(Math.abs(drone.getY() - raisedY) <= 1.0,
+                        "Moving the patrol center to a new height (same x/z) should move the drone to the new height, y="
+                                + drone.getY() + " expected " + raisedY);
                 helper.succeed();
             });
         });
