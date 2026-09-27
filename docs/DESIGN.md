@@ -199,7 +199,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 | Upgrade | Stacks | Default cap | Effect | Per-upgrade config (set in Programming Station) |
 |---|---|---|---|---|
 | **Patrol** | Yes | 4 | Enables patrolling. Each extra upgrade increases the max patrol radius. | Patrol center (x, y, z), patrol radius (capped by the upgrade count) and patrol altitude (section 3.2) |
-| **Sight** | Yes | 4 | Increases sight (detection) range. | — |
+| **Sight** | Yes | 8 | Increases sight (detection) range. | — |
 | **Explosive** | Yes | 4 | The drone explodes on reaching its target and is consumed. Explosion power scales with the count. | — |
 | **Siren** | Yes | 3 | Plays a siren sound when a target is spotted. More upgrades increase the audible radius (sound volume > 1.0). | — |
 | **Transmitter** | No | 1 | Sends a chat message to **all online operators** of the drone (its group, or its owner if it has no group) when a target is spotted, including the drone ID, label, target type and coordinates. The message is rate-limited per drone. | — |

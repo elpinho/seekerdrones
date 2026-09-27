@@ -226,7 +226,7 @@ public class ServerConfig {
         BUILDER.pop();
 
         BUILDER.push("sight");
-        UPGRADES_SIGHT_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 4, 0, 64);
+        UPGRADES_SIGHT_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 8, 0, 64);
         UPGRADES_SIGHT_PER_UPGRADE = BUILDER.comment("Extra sight range (blocks) per Sight upgrade.").defineInRange("perUpgrade", 8, 0, Integer.MAX_VALUE);
         BUILDER.pop();
 
