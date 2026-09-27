@@ -3,6 +3,7 @@ package com.elpinho.seekerdrones.datagen;
 import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.drone.DroneState;
 import com.elpinho.seekerdrones.drone.UpgradeType;
+import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
 import com.elpinho.seekerdrones.registry.ModItems;
 
@@ -20,6 +21,7 @@ public class ModLanguageProvider extends LanguageProvider {
 
         addItem(ModItems.DRONE, "Drone");
         addEntityType(ModEntityTypes.DRONE, "Drone");
+        addBlock(ModBlocks.CHARGING_STATION, "Drone Charging Station");
 
         add("tooltip.seekerdrones.drone.unassigned", "Unassigned");
         add("tooltip.seekerdrones.drone.owner", "Owner: %s");
@@ -138,5 +140,8 @@ public class ModLanguageProvider extends LanguageProvider {
         add("commands.seekerdrones.upgrade.list.header", "%s - %s / %s upgrade slots used:");
         add("commands.seekerdrones.upgrade.list.empty", "  No upgrades");
         add("commands.seekerdrones.upgrade.list.entry", "  %s x%s (max %s)");
+
+        add("commands.seekerdrones.energy.set", "Set the energy of %s drone(s)");
+        add("commands.seekerdrones.energy.get", "%s - %s / %s FE");
     }
 }

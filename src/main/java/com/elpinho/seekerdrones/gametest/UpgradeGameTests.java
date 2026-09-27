@@ -142,7 +142,7 @@ public class UpgradeGameTests {
         runCommand(helper, "seekerdrones upgrade set xray 2 " + SELECTOR);
 
         helper.runAfterDelay(3, () -> {
-            helper.assertValueEqual(drone.snapshotData(), before,
+            assertDroneDataUnchangedExceptHoverDrain(helper, before, drone.snapshotData(),
                     "Exceeding the per-type cap should fail and leave the drone's data unchanged");
             helper.succeed();
         });
@@ -160,7 +160,7 @@ public class UpgradeGameTests {
 
         helper.runAfterDelay(3, () -> {
             ServerConfig.UPGRADES_TOTAL_SLOTS.set(originalSlots);
-            helper.assertValueEqual(drone.snapshotData(), before,
+            assertDroneDataUnchangedExceptHoverDrain(helper, before, drone.snapshotData(),
                     "Exceeding the total slot limit should fail and leave the drone's data unchanged");
             helper.succeed();
         });
@@ -837,6 +837,22 @@ public class UpgradeGameTests {
     private static boolean isTransmitterMessage(Component component) {
         return component.getContents() instanceof TranslatableContents contents
                 && contents.getKey().equals("message.seekerdrones.transmitter");
+    }
+
+    /**
+     * Asserts a drone entity's data is unchanged apart from its own passive hover drain (DESIGN.md section 5.1): a
+     * live drone entity keeps draining {@code drone.hoverEnergyPerTick} FE every {@code drone.energyDrainInterval}
+     * ticks regardless of what a test does to it, so comparing a live drone's {@code snapshotData()} for exact
+     * equality across any tick gap is inherently racy against that drain. Everything except energy is compared
+     * exactly; energy is allowed to have dropped by at most one drain interval's hover cost (it should never rise).
+     */
+    private static void assertDroneDataUnchangedExceptHoverDrain(GameTestHelper helper, DroneData before, DroneData after, String message) {
+        helper.assertValueEqual(after.withEnergy(before.energy()), before, message + " (fields other than energy)");
+        int maxHoverDrain = ServerConfig.get(ServerConfig.DRONE_ENERGY_DRAIN_INTERVAL) * ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK);
+        int lost = before.energy() - after.energy();
+        helper.assertTrue(lost >= 0 && lost <= maxHoverDrain,
+                message + ": energy should only have dropped by at most one hover-drain interval (" + maxHoverDrain
+                        + " FE) of passive drain, was " + before.energy() + " -> " + after.energy() + " (lost " + lost + ")");
     }
 
     private static void runCommand(GameTestHelper helper, String command) {

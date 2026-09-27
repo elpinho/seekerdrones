@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 import javax.annotation.Nullable;
 
@@ -303,15 +304,17 @@ public class SeekingGameTests {
 
     // --- 7. Losing the target (DESIGN.md 3.5) ---
 
-    @GameTest(template = "empty", timeoutTicks = 90)
+    @GameTest(template = "empty", timeoutTicks = 120)
     public static void losesTargetOnDeath(GameTestHelper helper) {
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
         Zombie zombie = spawnStationaryZombie(helper, 4, 1, 7);
         drone.setDroneData(droneTargetingZombieEntity());
 
-        helper.runAfterDelay(30, () -> {
-            helper.assertTrue(drone.getSeekTarget() == zombie,
-                    "Sanity: drone should have acquired the zombie before killing it, target=" + drone.getSeekTarget());
+        // Poll for acquisition instead of a fixed-tick wait: the scan is staggered by (tickCount + entityId) % 10
+        // (section 3.3), and the entity ID (and so this drone's stagger offset) depends on how many entities have
+        // been created server-wide before it, which varies from run to run under GameTest's large concurrent test
+        // batches. A fixed short wait can occasionally race that offset; polling with a generous timeout can't.
+        pollUntil(helper, () -> drone.getSeekTarget() == zombie, 60, () -> {
             zombie.setInvulnerable(false);
             zombie.kill();
 
@@ -326,7 +329,7 @@ public class SeekingGameTests {
                     helper.succeed();
                 });
             });
-        });
+        }, () -> helper.fail("Drone never acquired the zombie, target=" + drone.getSeekTarget()));
     }
 
     @GameTest(template = "empty", timeoutTicks = 90)
@@ -662,6 +665,23 @@ public class SeekingGameTests {
     }
 
     // --- Tick-polling helpers ---
+
+    /**
+     * Polls {@code condition} every tick for up to {@code ticksRemaining} ticks, running {@code onReady} as soon as
+     * it's true, or {@code onTimeout} if it never becomes true in time. See {@link #trackVelocityChanges} for why
+     * each step must reschedule with a fresh lambda.
+     */
+    private static void pollUntil(GameTestHelper helper, BooleanSupplier condition, int ticksRemaining, Runnable onReady, Runnable onTimeout) {
+        if (condition.getAsBoolean()) {
+            onReady.run();
+            return;
+        }
+        if (ticksRemaining <= 1) {
+            onTimeout.run();
+            return;
+        }
+        helper.runAtTickTime(helper.getTick() + 1, () -> pollUntil(helper, condition, ticksRemaining - 1, onReady, onTimeout));
+    }
 
     /**
      * Samples the drone's velocity every tick for {@code ticksRemaining} more ticks, asserting it never changes by

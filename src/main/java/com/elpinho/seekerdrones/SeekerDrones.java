@@ -8,6 +8,7 @@ import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
 import com.elpinho.seekerdrones.network.ModNetwork;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModBlocks;
+import com.elpinho.seekerdrones.registry.ModCapabilities;
 import com.elpinho.seekerdrones.registry.ModCreativeTabs;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
@@ -44,6 +45,7 @@ public class SeekerDrones {
         modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
 
         modEventBus.addListener(ModEntityTypes::registerAttributes);
+        modEventBus.addListener(ModCapabilities::register);
         modEventBus.addListener(ModNetwork::registerPayloads);
         modEventBus.addListener(SeekerDronesDataGenerators::gatherData);
 

@@ -14,8 +14,10 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue DRONE_HOVER_ENERGY_PER_TICK;
     public static final ModConfigSpec.IntValue DRONE_ENERGY_DRAIN_INTERVAL;
     public static final ModConfigSpec.DoubleValue DRONE_RETURN_SAFETY_MARGIN;
+    public static final ModConfigSpec.IntValue DRONE_RETURN_WAIT_BUFFER;
     public static final ModConfigSpec.IntValue DRONE_CHARGING_SEARCH_RADIUS;
     public static final ModConfigSpec.IntValue DRONE_CHARGING_ALTERNATE_RADIUS;
+    public static final ModConfigSpec.IntValue DRONE_UNREACHABLE_STATION_COOLDOWN;
     public static final ModConfigSpec.DoubleValue DRONE_BASE_MAX_HEALTH;
     public static final ModConfigSpec.IntValue DRONE_BASE_SIGHT_RANGE;
     public static final ModConfigSpec.DoubleValue DRONE_PURSUIT_MULTIPLIER;
@@ -96,6 +98,7 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_XRAY;
 
     // === chargingStation ===
+    public static final ModConfigSpec.IntValue CHARGING_STATION_CAPACITY;
     public static final ModConfigSpec.IntValue CHARGING_STATION_CHARGE_RATE;
     public static final ModConfigSpec.DoubleValue CHARGING_STATION_HEAL_PER_TICK;
 
@@ -121,12 +124,18 @@ public class ServerConfig {
         DRONE_RETURN_SAFETY_MARGIN = BUILDER
                 .comment("Safety margin multiplier applied to the dynamic return-to-charge threshold.")
                 .defineInRange("returnSafetyMargin", 1.25, 1.0, 100.0);
+        DRONE_RETURN_WAIT_BUFFER = BUILDER
+                .comment("Ticks of hover energy added to the return-to-charge threshold, so a drone can wait for a busy station.")
+                .defineInRange("returnWaitBuffer", 600, 0, Integer.MAX_VALUE);
         DRONE_CHARGING_SEARCH_RADIUS = BUILDER
                 .comment("Radius (blocks) to search the station registry for a usable Charging Station.")
                 .defineInRange("chargingSearchRadius", 500, 1, Integer.MAX_VALUE);
         DRONE_CHARGING_ALTERNATE_RADIUS = BUILDER
                 .comment("Radius (blocks) to search for a free alternate station when the chosen one is busy.")
                 .defineInRange("chargingAlternateRadius", 10, 1, Integer.MAX_VALUE);
+        DRONE_UNREACHABLE_STATION_COOLDOWN = BUILDER
+                .comment("Ticks a drone skips a Charging Station it couldn't reach before trying it again.")
+                .defineInRange("unreachableStationCooldown", 1200, 0, Integer.MAX_VALUE);
         DRONE_BASE_MAX_HEALTH = BUILDER
                 .comment("Base max HP of a drone with no Health upgrades.")
                 .defineInRange("baseMaxHealth", 20.0, 1.0, 1024.0);
@@ -289,6 +298,9 @@ public class ServerConfig {
         BUILDER.pop(); // programmingStation
 
         BUILDER.push("chargingStation");
+        CHARGING_STATION_CAPACITY = BUILDER
+                .comment("FE a Charging Station can store.")
+                .defineInRange("capacity", 100_000, 1, Integer.MAX_VALUE);
         CHARGING_STATION_CHARGE_RATE = BUILDER
                 .comment("FE/tick a Charging Station feeds into its docked drone.")
                 .defineInRange("chargeRate", 1_000, 1, Integer.MAX_VALUE);

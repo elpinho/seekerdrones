@@ -1,4 +1,5 @@
 {
+  "block.seekerdrones.charging_station": "Drone Charging Station",
   "commands.seekerdrones.config.duplicate_target": "%s is already a target",
   "commands.seekerdrones.config.followdistance.set": "Set the follow distance of %s drone(s) to %s",
   "commands.seekerdrones.config.no_such_index": "There is no target #%s (the drone has %s)",
@@ -20,6 +21,8 @@
   "commands.seekerdrones.config.target.list.ignored_slot": " (ignored: no free target slot)",
   "commands.seekerdrones.config.target.removed": "Removed target #%s from %s drone(s)",
   "commands.seekerdrones.config.unknown_tag": "Unknown entity tag #%s",
+  "commands.seekerdrones.energy.get": "%s - %s / %s FE",
+  "commands.seekerdrones.energy.set": "Set the energy of %s drone(s)",
   "commands.seekerdrones.group.added": "Added %s operator(s) to group %s",
   "commands.seekerdrones.group.assigned": "Assigned %s drone(s) to group %s",
   "commands.seekerdrones.group.cannot_remove_owner": "%s is the group owner and can't be removed",

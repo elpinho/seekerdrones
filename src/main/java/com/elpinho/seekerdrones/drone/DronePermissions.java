@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.drone;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.elpinho.seekerdrones.operator.OperatorGroups;
@@ -46,6 +47,18 @@ public final class DronePermissions {
             return OperatorGroups.get(server).isOperator(data.groupId().get(), player);
         }
         return data.ownerId().map(player::equals).orElse(false);
+    }
+
+    /**
+     * Whether the drone may charge at a station placed by {@code stationOwner} (section 5.2): the placer must be an
+     * operator of the drone. An unowned drone may use any station, and a station with no placer serves only unowned
+     * drones.
+     */
+    public static boolean canUseStation(MinecraftServer server, DroneData data, Optional<UUID> stationOwner) {
+        if (data.groupId().isEmpty() && data.ownerId().isEmpty()) {
+            return true;
+        }
+        return stationOwner.isPresent() && isOperator(server, data, stationOwner.get());
     }
 
     /** All online operators of the drone, e.g. for Transmitter notifications (section 4). */

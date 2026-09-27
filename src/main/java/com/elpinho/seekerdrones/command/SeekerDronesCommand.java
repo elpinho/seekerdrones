@@ -34,7 +34,8 @@ public final class SeekerDronesCommand {
                 .requires(source -> source.hasPermission(2))
                 .then(GroupCommand.build())
                 .then(ConfigCommand.build(buildContext))
-                .then(UpgradeCommand.build()));
+                .then(UpgradeCommand.build())
+                .then(EnergyCommand.build()));
     }
 
     /** The drone item in the executing player's main hand. */

@@ -47,6 +47,7 @@ Each milestone ends in something playable or testable. The drone and its AI come
 - Energy drain (per block flown and while hovering), batched.
 - Drone Charging Station block and the charging station registry.
 - Dynamic return threshold (including the Explosive exception), charging queue, and dropping as an item at 0 energy.
+- A debug command (`/seekerdrones energy`, permission level 2) to read and set energy on a held drone or on drone entities. It stays as an admin/testing tool.
 - **Done when:** a patrolling drone runs low, charges and resumes its patrol on its own.
 
 ### M6 — Drone Factory

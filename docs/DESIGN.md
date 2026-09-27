@@ -230,17 +230,20 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 ### 5.2 Returning to charge
 
-- The **return threshold** is dynamic: the energy needed to reach the nearest usable Charging Station, which is `distance × FE-per-block × safetyMargin` (default 1.25).
+- The **return threshold** is dynamic: the energy needed to reach the nearest usable Charging Station and wait there for a while, which is `distance × FE-per-block × safetyMargin + returnWaitBuffer × hoverFE-per-tick` (defaults 1.25 and 600 ticks). The wait buffer lets a drone queue at a busy station (section 5.3) without running dry.
 - The drone looks for stations within a fixed radius (default 500 blocks) using the station registry (section 8.3), not a block scan.
-- A **usable** station is owned by a player who is the owner or an operator of the drone's group, and is in the same dimension.
+- A **usable** station is in the same dimension, and its placer is an operator of the drone (section 6.3): an operator of the drone's group, or the drone's owner if it has no group. An **unowned** drone may use **any** station. A station with no recorded placer (placed by a non-player) is usable only by unowned drones.
 - Once the threshold is reached, returning overrides every other state, including chasing, **except** for a drone with an **Explosive** upgrade that is currently chasing. That drone keeps chasing, since it will be consumed anyway. If an Explosive drone loses its target while below the threshold, it returns to charge as normal.
-- If no usable station is in range, the drone carries on normally until its energy hits 0. It then **drops as an item** with its data intact.
+- A returning drone doesn't scan for targets and flies at `drone.cruiseSpeed`. A station farther than 32 blocks is approached in legs of 32 blocks, raised over obstacles like patrol waypoints (section 3.2), so path finding stays short.
+- If the chosen station turns out to be **unreachable** (path finding can't reach it, or the drone makes no progress toward it), the drone skips that station for `drone.unreachableStationCooldown` ticks and picks the next-nearest usable one.
+- If no usable station is in range (or all are being skipped), the drone carries on normally until its energy hits 0. It then **drops as an item** with its data intact.
 
 ### 5.3 Charging queue
 
-- Each Charging Station charges **one drone at a time**.
+- Each Charging Station charges **one drone at a time**. A drone claims the station once it is within a few blocks of it and renews the claim every tick until it is done. A claim that isn't renewed (the drone was picked up, destroyed or unloaded) lapses after a second.
 - If the chosen station is busy, the drone checks for another free usable station within 10 blocks of it and goes there. If there is none, it waits by hovering very close to the busy station.
-- While docked, the drone also regains `chargingStation.healPerTick` HP per tick, up to its max HP. Charging finishes when the drone is at full energy **and** full health.
+- While docked, the drone also regains `chargingStation.healPerTick` HP per tick, up to its max HP. Healing costs no FE, but only happens while the station has FE stored. Charging finishes when the drone is at full energy **and** full health.
+- A docked drone has no hover drain. If the station runs out of FE, the drone stays docked and waits, charging again as soon as FE arrives.
 - When charging finishes, the drone returns to its patrol center and resumes patrolling, or hovers if it has no Patrol upgrade. A drone without a Patrol upgrade returns to where it was when it left.
 
 ---
@@ -268,7 +271,7 @@ Drone Operators control who can interact with drones. A drone's operators come f
 | Receive Transmitter notifications | Yes (all online operators) |
 | Exempt from being targeted by Player Seek | Yes |
 | Insert/extract drones in machines (manually or by automation) | **No**. Machines never check permissions, so automation keeps working. |
-| Drone may charge at a Charging Station | The station's placer must be an operator of the drone (section 6.3). *Open for M5: whether unowned drones may charge anywhere.* |
+| Drone may charge at a Charging Station | The station's placer must be an operator of the drone (section 6.3). An unowned drone may charge at any station (section 5.2). |
 
 Edge cases for the direct-interaction checks (pick up, hand-deploy, status GUI):
 - An **unowned** drone (no group and no owner, e.g. fresh from the creative tab or `/give`) may be used by **anyone**. The first player to hand-deploy it becomes its owner.
@@ -374,6 +377,7 @@ The drone entity saves the same data in its entity NBT. Only the fields the clie
 - The station search goes through the registry and should be cached briefly (don't query it every tick).
 - Entity sync to clients is kept minimal.
 - Path finding is the most expensive part of a drone's tick. Drones fly straight whenever the line to the goal is clear for their whole box (9 raycasts, on the staggered tick or after a bump), and only path find when it isn't. A moving goal (a target) is re-pathed on the staggered tick. A fixed goal (a patrol waypoint) is only re-pathed when it changes or the current path has ended.
+- Profiled in M5 with 100 drones: the energy drain and return-threshold check add no measurable cost (patrolling over open ground 9.8 µs per drone per tick, idle 3.0 µs). The `charging` scenario (100 drones going low at the same moment, 25 stations) costs about 13 µs per drone. Without a wait buffer 75 of 100 drones ran dry while queuing. With `drone.returnWaitBuffer` at 600 ticks, 84 survived. The rest were in lines longer than the buffer covers at the busiest stations, which only happens when every drone goes low at once.
 - Re-profiled after the smooth-flight rework (inertia, box clear-path check, climbing ahead over patrol obstacles): patrolling over open ground about 7–10 µs per drone per tick, patrolling through 7-high walls about 24 µs (climbing ahead removes most path searches), following over open ground about 7 µs and through walls about 13 µs.
 - Profiled in M4 with 100 drones (`scripts/profile-drones.ps1`): patrolling over open ground costs about 7 µs per drone per tick. Patrolling through 7-high walls that cross every circle costs about 45 µs, almost all of it path finding. Each leg that crosses a wall needs a real search over the wall, about 1 ms each, compared with about 0.2 ms for follow paths.
 
@@ -390,8 +394,10 @@ All values below are placeholders.
 | `drone.hoverEnergyPerTick` | 1 FE | |
 | `drone.energyDrainInterval` | 20 ticks | |
 | `drone.returnSafetyMargin` | 1.25 | |
+| `drone.returnWaitBuffer` | 600 ticks | Hover time added to the return threshold, for waiting at a busy station (section 5.2) |
 | `drone.chargingSearchRadius` | 500 blocks | |
 | `drone.chargingAlternateRadius` | 10 blocks | Alternate free station search |
+| `drone.unreachableStationCooldown` | 1200 ticks | How long an unreachable station is skipped (section 5.2) |
 | `drone.baseMaxHealth` | 20 | |
 | `drone.baseSightRange` | 8 blocks | |
 | `drone.pursuitMultiplier` | 2.0 | |
@@ -434,6 +440,7 @@ All values below are placeholders.
 | `upgrades.health.perUpgrade` | 10 | |
 | `upgrades.multiTarget.perUpgrade` | 1 | Extra target slots per upgrade |
 | `programmingStation.baseCost.<type>` | 10 000 FE | Multiplied by index `n` |
+| `chargingStation.capacity` | 100 000 FE | FE the station can store |
 | `chargingStation.chargeRate` | 1 000 FE/tick | |
 | `chargingStation.healPerTick` | 0.1 HP/tick | |
 | `deployingStation.energyPerDeploy` | 5 000 FE | |

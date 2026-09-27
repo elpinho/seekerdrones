@@ -283,6 +283,17 @@ $allScenarios = [ordered]@{
             Set-DronePatrol
         }
     }
+    "charging" = @{
+        Description = "$Drones drones set to low energy next to 25 Charging Stations (8 blocks apart) (stocked far beyond capacity via NBT), so they queue, switch to free stations, dock and charge."
+        Baseline = "empty"
+        Setup = {
+            foreach ($p in (Get-Grid 25 8 0)) {
+                Invoke-Rcon "setblock $([Math]::Floor($p[0])) $groundY $([Math]::Floor($p[2])) seekerdrones:charging_station{Energy:2000000000}" | Out-Null
+            }
+            Summon-Grid "seekerdrones:drone" $Drones 3 ($groundY + 4)
+            Invoke-Rcon "seekerdrones energy set 700 @e[type=seekerdrones:drone]" | Out-Null
+        }
+    }
     "patrol-obstacles" = @{
         Description = "$Drones drones patrolling (1 Patrol upgrade, 16-block radius) through 7-high walls, so waypoints often need paths or get skipped."
         Baseline = "empty"
@@ -439,8 +450,10 @@ try {
 
         $mspt = Get-Mspt
         $droneCount = Get-Count "@e[type=seekerdrones:drone]"
-        $states = "chasing {0}, following {1}" -f (Get-Count '@e[type=seekerdrones:drone,nbt={State:"chasing"}]'),
-            (Get-Count '@e[type=seekerdrones:drone,nbt={State:"following"}]')
+        $states = "chasing {0}, following {1}, returning {2}, charging {3}" -f (Get-Count '@e[type=seekerdrones:drone,nbt={State:"chasing"}]'),
+            (Get-Count '@e[type=seekerdrones:drone,nbt={State:"following"}]'),
+            (Get-Count '@e[type=seekerdrones:drone,nbt={State:"returning"}]'),
+            (Get-Count '@e[type=seekerdrones:drone,nbt={State:"charging"}]')
         Write-Host "Scenario '$name': recording /perf (10 s)..."
         $profileText = Invoke-Perf
         Set-Content -Path (Join-Path $outDir "profile-$stamp-$name.txt") -Value $profileText

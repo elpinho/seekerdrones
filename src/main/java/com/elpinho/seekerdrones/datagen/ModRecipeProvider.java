@@ -47,6 +47,17 @@ public class ModRecipeProvider extends RecipeProvider {
                     .unlockedBy(getHasName(core), has(core))
                     .save(output);
         }
+        // Placeholder Charging Station recipe until the final recipes (section 11).
+        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ModItems.CHARGING_STATION.get())
+                .pattern("ILI")
+                .pattern("RBR")
+                .pattern("III")
+                .define('I', Items.IRON_INGOT)
+                .define('L', Items.LIGHTNING_ROD)
+                .define('R', Items.REDSTONE)
+                .define('B', Items.REDSTONE_BLOCK)
+                .unlockedBy(getHasName(Items.REDSTONE_BLOCK), has(Items.REDSTONE_BLOCK))
+                .save(output);
         // The Drone Assembly recipes are added in M6.
     }
 }

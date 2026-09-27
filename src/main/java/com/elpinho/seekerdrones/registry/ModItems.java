@@ -8,6 +8,7 @@ import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.UpgradeItem;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -16,6 +17,8 @@ public class ModItems {
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(SeekerDrones.MODID);
 
     public static final DeferredItem<DroneItem> DRONE = ITEMS.register("drone", () -> new DroneItem(new Item.Properties().stacksTo(1)));
+
+    public static final DeferredItem<BlockItem> CHARGING_STATION = ITEMS.registerSimpleBlockItem(ModBlocks.CHARGING_STATION);
 
     public static final Map<UpgradeType, DeferredItem<UpgradeItem>> UPGRADES = registerUpgrades();
 

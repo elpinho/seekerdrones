@@ -23,6 +23,7 @@ public class ModCreativeTabs {
                     .icon(() -> new ItemStack(ModItems.DRONE.get()))
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.DRONE.get());
+                        output.accept(ModItems.CHARGING_STATION.get());
                         for (UpgradeType type : UpgradeType.values()) {
                             output.accept(ModItems.upgrade(type).get());
                         }
