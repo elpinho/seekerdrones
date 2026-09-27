@@ -17,5 +17,9 @@ public final class ModNetwork {
                 (payload, context) -> ClientPayloadHandlers.handleDroneStatus(payload));
         registrar.playToServer(RequestDroneStatusPayload.TYPE, RequestDroneStatusPayload.STREAM_CODEC,
                 RequestDroneStatusPayload::handle);
+        registrar.playToClient(StationStatusPayload.TYPE, StationStatusPayload.STREAM_CODEC,
+                (payload, context) -> ClientPayloadHandlers.handleStationStatus(payload));
+        registrar.playToServer(RequestStationStatusPayload.TYPE, RequestStationStatusPayload.STREAM_CODEC,
+                RequestStationStatusPayload::handle);
     }
 }

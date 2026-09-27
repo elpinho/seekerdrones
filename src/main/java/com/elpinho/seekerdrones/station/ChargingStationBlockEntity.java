@@ -82,6 +82,11 @@ public class ChargingStationBlockEntity extends BlockEntity {
         return claimant != null && !claimant.equals(drone) && level != null && level.getGameTime() - claimTime <= CLAIM_TIMEOUT_TICKS;
     }
 
+    /** The drone holding a live claim on this station, if any. */
+    public Optional<UUID> getClaimant() {
+        return claimant != null && level != null && level.getGameTime() - claimTime <= CLAIM_TIMEOUT_TICKS ? Optional.of(claimant) : Optional.empty();
+    }
+
     /** Claims or renews the claim for {@code drone}. Fails if another drone holds the station. */
     public boolean claim(UUID drone) {
         if (level == null || isClaimedByOther(drone)) {

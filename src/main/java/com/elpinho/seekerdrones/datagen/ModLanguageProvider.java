@@ -3,6 +3,7 @@ package com.elpinho.seekerdrones.datagen;
 import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.drone.DroneState;
 import com.elpinho.seekerdrones.drone.UpgradeType;
+import com.elpinho.seekerdrones.network.StationStatusPayload;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
 import com.elpinho.seekerdrones.registry.ModItems;
@@ -87,6 +88,21 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.drone_status.none", "None");
         add("screen.seekerdrones.drone_status.not_set", "Not set");
         add("screen.seekerdrones.drone_status.not_deployed", "Not deployed");
+
+        add("screen.seekerdrones.charging_station", "Drone Charging Station");
+        add("screen.seekerdrones.charging_station.status", "Status:");
+        add("screen.seekerdrones.charging_station.energy", "Energy:");
+        add("screen.seekerdrones.charging_station.charge_rate", "Charge rate:");
+        add("screen.seekerdrones.charging_station.charge_rate_value", "%s FE/t");
+        add("screen.seekerdrones.charging_station.owner", "Owner:");
+        add("screen.seekerdrones.charging_station.drone", "Drone:");
+        add("screen.seekerdrones.charging_station.drone_energy", "Energy:");
+        add("screen.seekerdrones.charging_station.drone_health", "Health:");
+        add(StationStatusPayload.Status.IDLE.getTranslationKey(), "Idle");
+        add(StationStatusPayload.Status.DOCKING.getTranslationKey(), "Drone docking");
+        add(StationStatusPayload.Status.CHARGING.getTranslationKey(), "Charging");
+        add(StationStatusPayload.Status.HEALING.getTranslationKey(), "Repairing");
+        add(StationStatusPayload.Status.NO_POWER.getTranslationKey(), "Out of power");
 
         add("message.seekerdrones.not_operator", "You are not an operator of this drone");
 

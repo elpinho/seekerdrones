@@ -341,6 +341,11 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 - It accepts FE and charges one docked drone at a time at a configurable FE/tick rate. It also restores the docked drone's HP (section 5.3).
 - It records its placer's UUID and registers itself in the station registry on placement. It unregisters when broken.
 - Drone docking and queuing follow section 5.3.
+- **GUI:** right-clicking the station opens a read-only status screen. Anyone can open it, since stations have no access control in v1 (section 6.2). It refreshes about once a second and shows:
+  - **Status:** Idle, Drone docking (a drone has claimed the station but hasn't docked yet), Charging, Repairing (full energy, still healing), or Out of power (a drone is docked but the station has 0 FE).
+  - The station's **stored FE / capacity** with a bar, and its **charge rate** (`chargingStation.chargeRate` FE/t).
+  - The **owner** (the placer's name), or "None" if a non-player placed it. This decides which drones may use the station (section 5.2).
+  - The **drone** holding the station: its label and ID in its color, and its energy and health, each with a bar. "None" if no drone holds it.
 
 ---
 

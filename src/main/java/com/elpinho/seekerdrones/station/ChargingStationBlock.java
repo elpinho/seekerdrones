@@ -5,10 +5,13 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import com.elpinho.seekerdrones.network.StationStatusPayload;
 import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -17,6 +20,8 @@ import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * Drone Charging Station (DESIGN.md section 7.4). Registers itself in the dimension's station registry when placed,
@@ -63,6 +68,16 @@ public class ChargingStationBlock extends BaseEntityBlock {
             station.setOwner(player.getUUID());
             ChargingStationRegistry.get(serverLevel).add(pos, Optional.of(player.getUUID()));
         }
+    }
+
+    /** Opens the read-only status screen. Anyone may look: stations have no access control in v1 (section 6.2). */
+    @Override
+    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
+        if (player instanceof ServerPlayer serverPlayer && level instanceof ServerLevel serverLevel
+                && level.getBlockEntity(pos) instanceof ChargingStationBlockEntity station) {
+            PacketDistributor.sendToPlayer(serverPlayer, StationStatusPayload.of(serverLevel, station, true));
+        }
+        return InteractionResult.sidedSuccess(level.isClientSide());
     }
 
     @Override
