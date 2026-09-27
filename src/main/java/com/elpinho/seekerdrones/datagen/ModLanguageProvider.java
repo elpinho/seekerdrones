@@ -125,6 +125,10 @@ public class ModLanguageProvider extends LanguageProvider {
         add("commands.seekerdrones.config.patrolradius.cleared", "%s drone(s) now patrol at the largest radius their Patrol upgrades allow");
         add("screen.seekerdrones.drone_status.patrol_radius", "Patrol radius:");
         add("screen.seekerdrones.drone_status.patrol_radius_value", "%s (max %s)");
+        add("commands.seekerdrones.config.patrolaltitude.set", "Set the patrol altitude of %s drone(s) to Y %s");
+        add("commands.seekerdrones.config.patrolaltitude.cleared", "%s drone(s) now patrol at their patrol center's height");
+        add("screen.seekerdrones.drone_status.patrol_altitude", "Patrol altitude:");
+        add("screen.seekerdrones.drone_status.patrol_altitude_center", "Patrol center's height");
 
         add("commands.seekerdrones.upgrade.unknown_type", "Unknown upgrade type %s");
         add("commands.seekerdrones.upgrade.over_type_cap", "A drone can have at most %2$s %1$s upgrade(s)");

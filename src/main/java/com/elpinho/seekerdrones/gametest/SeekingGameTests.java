@@ -5,6 +5,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import javax.annotation.Nullable;
+
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
@@ -22,6 +24,7 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.entity.player.Player;
@@ -261,9 +264,13 @@ public class SeekingGameTests {
             int followDistance = data.config().followDistance();
             helper.assertTrue(Math.abs(horizontal - followDistance) <= 1.0,
                     "Horizontal follow distance should be close to " + followDistance + ", was " + horizontal);
-            double minY = zombie.getEyeY() + ServerConfig.get(ServerConfig.DRONE_FOLLOW_HEIGHT_OFFSET) - 0.1;
-            helper.assertTrue(drone.getY() >= minY,
-                    "Drone should stay at/above the target's eyes plus the follow height offset, droneY=" + drone.getY() + " minY=" + minY);
+            // Section 3.1: the follow position is followHeightOffset above the target's eyes, not "at least" that
+            // much, so this checks a tolerance band rather than a lower bound. The drone only brakes to a stop once
+            // it's within followEnterDistance (1.0 default) of the ideal spot, so its final resting position can be
+            // off by up to about that much in any direction, including vertically.
+            double wantedY = zombie.getEyeY() + ServerConfig.get(ServerConfig.DRONE_FOLLOW_HEIGHT_OFFSET);
+            helper.assertTrue(Math.abs(drone.getY() - wantedY) <= 1.0,
+                    "Drone should settle close to followHeightOffset above the target's eyes, droneY=" + drone.getY() + " wantedY=" + wantedY);
         });
     }
 
@@ -278,10 +285,12 @@ public class SeekingGameTests {
                     "Sanity: drone should be FOLLOWING the stationary target before it moves, state=" + drone.getState());
 
             // Move the target horizontally, away from the drone, so the new follow position ends up well beyond
-            // the (default) follow exit distance from where the drone currently is.
+            // the (default) follow exit distance from where the drone currently is. The smoothed target position
+            // (section 3.1) lags behind a teleport, so it takes a few ticks for the follow position to move far
+            // enough for the exit-distance check to trip, not just 1-2.
             zombie.moveTo(zombie.getX() + 6.0, zombie.getY(), zombie.getZ());
 
-            helper.runAfterDelay(3, () -> {
+            helper.runAfterDelay(15, () -> {
                 helper.assertTrue(drone.getState() == DroneState.CHASING,
                         "Drone should switch back to CHASING once its target moves beyond the follow exit distance, state="
                                 + drone.getState());
@@ -473,6 +482,254 @@ public class SeekingGameTests {
             helper.assertTrue(loaded.getSeekTarget() == null, "Drone with an unresolved target UUID should have no target");
             helper.succeed();
         });
+    }
+
+    // --- 11. Inertia while chasing/following (DESIGN.md 3.4) ---
+
+    @GameTest(template = "empty", timeoutTicks = 250)
+    public static void chaseVelocityChangesByAtMostAccelerationEachTick(GameTestHelper helper) {
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(1, 3, 4));
+        spawnStationaryZombie(helper, 7, 1, 4);
+        drone.setDroneData(droneTargetingZombieEntity());
+
+        double maxDelta = ServerConfig.get(ServerConfig.DRONE_ACCELERATION) + 1.0E-3;
+        trackVelocityChanges(helper, drone, 180, maxDelta, null, null, helper::succeed);
+    }
+
+    // --- 12. Leash: small target movement is ignored, large movement is followed (DESIGN.md 3.1) ---
+
+    @GameTest(template = "empty", timeoutTicks = 400)
+    public static void settledFollowingDroneIgnoresSmallTargetMovementButFollowsLargeOnes(GameTestHelper helper) {
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 1));
+        Zombie zombie = spawnStationaryZombie(helper, 4, 1, 4);
+        drone.setDroneData(droneTargetingZombieEntity());
+
+        helper.runAfterDelay(150, () -> {
+            helper.assertTrue(drone.getState() == DroneState.FOLLOWING,
+                    "Sanity: drone should have settled into FOLLOWING before the leash is tested, state=" + drone.getState());
+
+            // Well within followSlack (2 blocks default): should not move the settled drone at all.
+            zombie.moveTo(zombie.getX(), zombie.getY(), zombie.getZ() + 1.0);
+
+            trackDisplacement(helper, drone, 40, 0.3, () -> {
+                // Well beyond followSlack: should make the drone move and settle back into FOLLOWING. Moved along a
+                // different axis (x) than the settle/small-move axis (z), so the new target position can't coincide
+                // with the drone's own resting spot (which sits behind the target along the original bearing) and
+                // create a degenerate near-zero bearing vector. Kept within the shared "empty" structure's bounds
+                // (0-8): going further risks landing inside a neighboring, concurrently-running test's structure.
+                zombie.moveTo(zombie.getX() + 4.0, zombie.getY(), zombie.getZ());
+
+                helper.runAfterDelay(200, () -> {
+                    helper.assertTrue(drone.getState() == DroneState.FOLLOWING,
+                            "Drone should settle back into FOLLOWING after the target moves well beyond the leash slack, state="
+                                    + drone.getState());
+                    double dx = drone.getX() - zombie.getX();
+                    double dz = drone.getZ() - zombie.getZ();
+                    double horizontal = Math.sqrt(dx * dx + dz * dz);
+                    int followDistance = drone.snapshotData().config().followDistance();
+                    helper.assertTrue(Math.abs(horizontal - followDistance) <= 1.0,
+                            "Drone should be back at follow distance from the moved target, horizontal=" + horizontal);
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
+    // --- 13. Smoothed target position filters small hops (DESIGN.md 3.1) ---
+
+    @GameTest(template = "empty", timeoutTicks = 300)
+    public static void settledFollowingDroneIgnoresTargetHopping(GameTestHelper helper) {
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 1));
+        Zombie zombie = spawnStationaryZombie(helper, 4, 1, 4);
+        drone.setDroneData(droneTargetingZombieEntity());
+
+        helper.runAfterDelay(150, () -> {
+            helper.assertTrue(drone.getState() == DroneState.FOLLOWING,
+                    "Sanity: drone should have settled into FOLLOWING before hopping starts, state=" + drone.getState());
+            double baseY = zombie.getY();
+
+            hopTarget(helper, zombie, baseY, 0, 10, () ->
+                    trackDisplacement(helper, drone, 1, 0.3, helper::succeed));
+        });
+    }
+
+    /** Teleports the target up/down by 0.5 blocks every 4 ticks, simulating small hops/jitter (section 3.1). */
+    private static void hopTarget(GameTestHelper helper, Zombie zombie, double baseY, int hopIndex, int totalHops, Runnable onDone) {
+        if (hopIndex >= totalHops) {
+            onDone.run();
+            return;
+        }
+        double offset = (hopIndex % 2 == 0) ? 0.5 : -0.5;
+        zombie.moveTo(zombie.getX(), baseY + offset, zombie.getZ());
+        helper.runAfterDelay(4, () -> hopTarget(helper, zombie, baseY, hopIndex + 1, totalHops, onDone));
+    }
+
+    // --- 14. Blocked follow position (DESIGN.md 3.1) ---
+
+    @GameTest(template = "empty", timeoutTicks = 300)
+    public static void followingDroneSettlesInClearSpotUnderLowCeilingAndStaysCalm(GameTestHelper helper) {
+        buildLowCorridor(helper);
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(1, 3, 4));
+        Zombie zombie = spawnStationaryZombie(helper, 4, 2, 4);
+        drone.setDroneData(droneTargetingZombieEntity());
+
+        helper.runAfterDelay(200, () -> {
+            helper.assertTrue(drone.getState() == DroneState.FOLLOWING,
+                    "Sanity: drone should settle into FOLLOWING under a low ceiling, state=" + drone.getState());
+            helper.assertTrue(helper.getLevel().noBlockCollision(drone, drone.getBoundingBox()),
+                    "Drone's follow position under a low ceiling should not collide with blocks, pos=" + drone.position());
+
+            trackDisplacementSum(helper, drone, 40, 1.0, 0.0, drone.position(), () -> {
+                helper.assertTrue(helper.getLevel().noBlockCollision(drone, drone.getBoundingBox()),
+                        "Drone should still be clear of blocks after settling, pos=" + drone.position());
+                helper.succeed();
+            });
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 300)
+    public static void followingDroneUsesHalfDistanceWhenIdealSpotIsWalledOff(GameTestHelper helper) {
+        Zombie zombie = spawnStationaryZombie(helper, 5, 3, 4);
+        // A wall exactly at the ideal follow position (default follow distance 4, west of the target, the drone's
+        // approach side), spanning every candidate height so all three height fallbacks are blocked there.
+        for (int y = 1; y <= 6; y++) {
+            for (int z = 3; z <= 5; z++) {
+                helper.setBlock(new BlockPos(1, y, z), Blocks.STONE);
+            }
+        }
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(2, 3, 4));
+        drone.setDroneData(droneTargetingZombieEntity());
+        int followDistance = drone.snapshotData().config().followDistance();
+
+        helper.runAfterDelay(200, () -> {
+            helper.assertTrue(drone.getState() == DroneState.FOLLOWING,
+                    "Sanity: drone should settle into FOLLOWING despite the wall, state=" + drone.getState());
+            helper.assertTrue(helper.getLevel().noBlockCollision(drone, drone.getBoundingBox()),
+                    "Drone should not clip into the wall, pos=" + drone.position());
+            double dx = drone.getX() - zombie.getX();
+            double dz = drone.getZ() - zombie.getZ();
+            double horizontal = Math.sqrt(dx * dx + dz * dz);
+            helper.assertTrue(Math.abs(horizontal - followDistance / 2.0) <= 1.0,
+                    "With the full follow distance walled off, the drone should settle at about half the follow distance ("
+                            + (followDistance / 2.0) + "), horizontal=" + horizontal);
+            helper.succeed();
+        });
+    }
+
+    /**
+     * A 3-block-wide, low-ceilinged corridor along the x-axis (floor at y=1, a 2-thick ceiling at y=4-5, walls at
+     * z=2 and z=6), so the ideal follow height (followHeightOffset=1.5 above the target's eyes) can't fit, forcing
+     * the height fallback. A single-block-thick ceiling isn't enough: with the default followHeightOffset (1.5) and
+     * a zombie's eye height (~1.74), the ideal spot sits at about 1.5 + 1.74 = 3.24 above the target's feet, which
+     * clears a ceiling that's only 1 block thick sitting right above the target's eyes; a 2-thick ceiling covers it.
+     */
+    private static void buildLowCorridor(GameTestHelper helper) {
+        for (int x = 0; x <= 8; x++) {
+            helper.setBlock(new BlockPos(x, 1, 4), Blocks.STONE);
+            helper.setBlock(new BlockPos(x, 4, 4), Blocks.STONE);
+            helper.setBlock(new BlockPos(x, 5, 4), Blocks.STONE);
+            for (int y = 2; y <= 3; y++) {
+                helper.setBlock(new BlockPos(x, y, 2), Blocks.STONE);
+                helper.setBlock(new BlockPos(x, y, 6), Blocks.STONE);
+            }
+        }
+    }
+
+    // --- 15. Facing (DESIGN.md 3.4) ---
+
+    @GameTest(template = "empty", timeoutTicks = 250)
+    public static void followingDroneTurnsGraduallyAndFacesTargetOnceSettled(GameTestHelper helper) {
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(1, 3, 4));
+        Zombie zombie = spawnStationaryZombie(helper, 6, 1, 7);
+        drone.setDroneData(droneTargetingZombieEntity());
+
+        double maxTurn = ServerConfig.get(ServerConfig.DRONE_TURN_SPEED) + 0.5;
+        trackYawChanges(helper, drone, 180, maxTurn, drone.getYRot(), () -> {
+            helper.assertTrue(drone.getState() == DroneState.FOLLOWING,
+                    "Sanity: drone should have settled into FOLLOWING by now, state=" + drone.getState());
+            double dx = zombie.getX() - drone.getX();
+            double dz = zombie.getZ() - drone.getZ();
+            float wantedYaw = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90.0F;
+            float diff = Mth.wrapDegrees(wantedYaw - drone.getYRot());
+            double tolerance = ServerConfig.get(ServerConfig.DRONE_FACING_TOLERANCE) + 5.0;
+            helper.assertTrue(Math.abs(diff) <= tolerance,
+                    "Settled following drone should face its target within tolerance, diff=" + diff + " tolerance=" + tolerance);
+            helper.assertTrue(drone.getYRot() == drone.getYHeadRot() && drone.getYRot() == drone.yBodyRot,
+                    "Drone's yaw, head rotation and body rotation should stay equal on the server, yaw=" + drone.getYRot()
+                            + " head=" + drone.getYHeadRot() + " body=" + drone.yBodyRot);
+            helper.succeed();
+        });
+    }
+
+    // --- Tick-polling helpers ---
+
+    /**
+     * Samples the drone's velocity every tick for {@code ticksRemaining} more ticks, asserting it never changes by
+     * more than {@code maxDelta} between consecutive ticks (skipping ticks where the drone is touching a block, per
+     * section 3.4's inertia rule). {@code perTick}, if not null, runs once per tick after the check.
+     * <p>
+     * Note: each step must reschedule itself with a <em>fresh</em> lambda, not a reused one. {@code GameTestInfo}
+     * keys its {@code runAtTickTime} map by the {@code Runnable}'s identity and removes the fired entry by iterator
+     * right after running it; re-registering the very same instance for a future tick from inside its own call gets
+     * silently cancelled by that same removal, so the chain would only ever fire once.
+     */
+    private static void trackVelocityChanges(GameTestHelper helper, DroneEntity drone, int ticksRemaining, double maxDelta,
+            @Nullable Vec3 previous, @Nullable Runnable perTick, Runnable onDone) {
+        if (ticksRemaining <= 0 || drone.isRemoved()) {
+            onDone.run();
+            return;
+        }
+        Vec3 velocity = drone.getDeltaMovement();
+        if (previous != null && !drone.horizontalCollision && !drone.verticalCollision) {
+            double delta = velocity.subtract(previous).length();
+            helper.assertTrue(delta <= maxDelta,
+                    "Velocity should change by at most " + maxDelta + " blocks/tick, changed by " + delta
+                            + " (from " + previous + " to " + velocity + ") at tick " + helper.getTick());
+        }
+        if (perTick != null) {
+            perTick.run();
+        }
+        helper.runAtTickTime(helper.getTick() + 1,
+                () -> trackVelocityChanges(helper, drone, ticksRemaining - 1, maxDelta, velocity, perTick, onDone));
+    }
+
+    /** Same idea as {@link #trackVelocityChanges}, but for the drone's yaw (degrees/tick), per section 3.4. */
+    private static void trackYawChanges(GameTestHelper helper, DroneEntity drone, int ticksRemaining, double maxDelta, float previous, Runnable onDone) {
+        if (ticksRemaining <= 0) {
+            onDone.run();
+            return;
+        }
+        float current = drone.getYRot();
+        float delta = Mth.wrapDegrees(current - previous);
+        helper.assertTrue(Math.abs(delta) <= maxDelta,
+                "Yaw should change by at most " + maxDelta + " degrees/tick, changed by " + delta + " at tick " + helper.getTick());
+        helper.runAtTickTime(helper.getTick() + 1, () -> trackYawChanges(helper, drone, ticksRemaining - 1, maxDelta, current, onDone));
+    }
+
+    /** Asserts the drone's net displacement from where it started stays under {@code maxDistance} after {@code ticks}. */
+    private static void trackDisplacement(GameTestHelper helper, DroneEntity drone, int ticks, double maxDistance, Runnable onDone) {
+        Vec3 start = drone.position();
+        helper.runAfterDelay(ticks, () -> {
+            double displacement = start.distanceTo(drone.position());
+            helper.assertTrue(displacement <= maxDistance,
+                    "Drone should not have moved noticeably, displacement=" + displacement + " over " + ticks + " ticks");
+            onDone.run();
+        });
+    }
+
+    /** Sums the drone's per-tick displacement over {@code ticksRemaining} more ticks, so brief bouncing back and forth still counts. */
+    private static void trackDisplacementSum(GameTestHelper helper, DroneEntity drone, int ticksRemaining, double maxTotal, double total, Vec3 previous,
+            Runnable onDone) {
+        Vec3 current = drone.position();
+        double updatedTotal = total + previous.distanceTo(current);
+        if (ticksRemaining <= 1) {
+            helper.assertTrue(updatedTotal <= maxTotal,
+                    "Settled drone should stay calm (no fast bouncing), total displacement=" + updatedTotal);
+            onDone.run();
+            return;
+        }
+        helper.runAtTickTime(helper.getTick() + 1,
+                () -> trackDisplacementSum(helper, drone, ticksRemaining - 1, maxTotal, updatedTotal, current, onDone));
     }
 
     // --- Helpers ---

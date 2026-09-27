@@ -54,7 +54,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 ### 2.4 Drone GUI
 
 - Operators can open a read-only status screen by right-clicking a drone entity, or by right-clicking (without Shift) while holding a drone item. For an item, the state shows as "Not deployed" and the screen doesn't refresh.
-- It shows the drone ID, label, energy, health, installed upgrades, target configuration, current state (idle / patrolling / chasing / following / returning to charge / charging) and, only if the drone has a Patrol upgrade, its patrol center and patrol radius (with the max).
+- It shows the drone ID, label, energy, health, installed upgrades, target configuration, current state (idle / patrolling / chasing / following / returning to charge / charging) and, only if the drone has a Patrol upgrade, its patrol center, patrol radius (with the max) and patrol altitude.
 - The drone's configuration is **not** editable here. Configuration is done in the Drone Programming Station.
 
 ### 2.5 Health and destruction
@@ -111,9 +111,13 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 - **IDLE (hover):** A drone without a Patrol upgrade hovers where it is and scans for targets. This is a stationary sentry.
 - **PATROLLING:** A drone with at least one Patrol upgrade flies in a circle around its **patrol center** and scans for targets.
-- **CHASING:** The drone flies toward the target, getting faster the closer it gets (section 3.4).
-- **FOLLOWING** (non-Explosive only): Once within follow distance, the drone keeps that distance and tracks the target. It holds its current bearing (the horizontal direction from the target to the drone) at the follow distance, and stays at least `drone.followHeightOffset` blocks above the target's eyes.
+- **CHASING:** The drone flies toward the target (section 3.4). An Explosive drone gets faster the closer it gets.
+- **FOLLOWING** (non-Explosive only): Once within follow distance, the drone keeps that distance and tracks the target. It holds its current bearing (the horizontal direction from the target to the drone) at the follow distance, `drone.followHeightOffset` blocks above the target's eyes.
   The chasing drone flies toward this follow position. It counts as FOLLOWING once it is within `drone.followEnterDistance` of it, and goes back to CHASING when it is more than `drone.followExitDistance` away (hysteresis, so the state doesn't flip back and forth).
+  - **Smoothed target position:** the follow position is measured from a smoothed copy of the target's position, not the exact one. Each tick it moves `drone.followSmoothing` of the way toward the target, so hops, head turns and jitter are filtered out.
+  - **Leash:** once the drone reaches the follow position (within `drone.followEnterDistance`), it brakes to a stop and holds still. It only moves again when the follow position is more than `drone.followSlack` away. A target moving around a little doesn't move the drone at all. A target walking away is followed smoothly.
+  - **Blocked follow position:** on the staggered tick (and soon after bumping into a block), the drone checks that it fits at the follow position. If not, it tries in order: lower heights (at the target's eye level, then around its chest, e.g. under a ceiling), then half the follow distance (e.g. against a wall), then other bearings around the target (45° steps, nearest first). It keeps the first free spot until the next check. If none is free, it aims for the ideal spot and path finding gets as close as it can.
+  - **Facing:** a following drone faces its target loosely. It only turns once it faces more than `drone.facingTolerance` away, then eases into the turn at up to `drone.turnSpeed`.
 - **EXPLODE** (Explosive only): An Explosive drone never follows. It chases straight at the center of the target's hitbox and stays CHASING. Once its own center is within `drone.explosionTriggerDistance` of that point, it explodes and is removed. The explosion damages entities but **never breaks blocks** in v1 (a block damage option is future work, section 11). Its power is `basePower + perUpgrade × (count − 1)`.
 - **RETURNING / CHARGING:** See section 5.
 
@@ -129,7 +133,12 @@ The configured center is stored with its dimension. A center in another dimensio
 
 The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius = base + perUpgrade × (count − 1)`. Each drone can also have a configured **patrol radius** (Patrol upgrade config, set by the Programming Station or `/seekerdrones config patrolradius`). The drone patrols at the configured radius capped at the max, or at the max if none is configured. A configured radius above the max is kept in the data, so it takes effect once enough Patrol upgrades are installed.
 
-**Patrol flight:** the circle is split into evenly spaced waypoints (`upgrades.patrol.waypointSpacing` blocks apart along the circle, at least 8 waypoints) at the patrol center's height. The drone flies to them in order, counter-clockwise seen from above, at `upgrades.patrol.speed`. When it starts or resumes patrolling (e.g. after losing a target) it heads for the nearest waypoint. Waypoints whose spot is obstructed, in an unloaded chunk or unreachable by path finding are skipped. If every waypoint is skipped, the drone hovers at the patrol center. It uses the same straight-line-or-path steering as when chasing (section 3.4).
+**Patrol altitude:** each drone can also have a configured **patrol altitude**, an absolute Y level (Patrol upgrade config, set by the Programming Station or `/seekerdrones config patrolaltitude`). The drone patrols at that height, kept within the dimension's build height. Without one, it patrols at the patrol center's height.
+
+**Patrol flight:** the circle is split into evenly spaced waypoints (`upgrades.patrol.waypointSpacing` blocks apart along the circle, at least 8 waypoints) at the patrol height. The drone flies through them in order without stopping, counter-clockwise seen from above, at `upgrades.patrol.speed`. When it starts or resumes patrolling (e.g. after losing a target) it heads for the nearest waypoint. Changing the center, radius or altitude also restarts from the nearest waypoint of the new circle.
+- **Climbing over obstacles:** if the drone doesn't fit at a waypoint (a hill, a building, a tree), the waypoint is raised to `upgrades.patrol.climbClearance` above the highest block under the drone (the motion-blocking heightmap). It is never lowered, so the drone climbs over obstacles and never dives into caves or under overhangs.
+- **Climbing ahead:** the straight legs to both neighboring waypoints are checked the same way, every 0.5 blocks. A waypoint is raised to the highest climb needed on either leg (if the drone fits there). The drone climbs one waypoint before an obstacle, crosses it level and comes back down to the patrol height one waypoint after it. It never flies into an obstacle's face, and the climbs happen over open ground, so they need no path finding. Inertia (section 3.4) makes these height changes gradual.
+- Waypoints that would need to be raised more than `upgrades.patrol.maxClimb`, are in an unloaded chunk or are unreachable by path finding are skipped. If every waypoint is skipped, the drone hovers at the patrol center (at the patrol height). It uses the same straight-line-or-path steering as when chasing (section 3.4).
 
 ### 3.3 Detection
 
@@ -148,13 +157,22 @@ The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius =
   4. Cap the raycasts per scan (default 4).
 - While chasing or following, the drone re-checks line of sight at the same staggered interval, not every tick. X-ray drones skip this check.
 
-### 3.4 Chase speed
+### 3.4 Chase speed and flight
 
-- The drone accelerates as the distance to the target shrinks, and its speed is always capped.
-- Suggested curve: `speed = min(maxSpeed, cruiseSpeed × e^(k × (1 − min(d, sightRange) / sightRange)))`, where `d` is the current distance. `cruiseSpeed`, `maxSpeed` and `k` are configurable.
-- `d` is clamped to the sight range, so the chase speed never drops below `cruiseSpeed`. Beyond sight range (but still within pursuit range) the drone flies at `cruiseSpeed`.
+**Chase speed.** The speed is always capped at `maxSpeed`, and it depends on the kind of drone:
+- **Explosive drones** accelerate as the distance to the target shrinks, so they hit hard. The curve is `speed = min(maxSpeed, cruiseSpeed × e^(k × (1 − min(d, sightRange) / sightRange)))`, where `d` is the current distance. `cruiseSpeed`, `maxSpeed` and `k` are configurable. `d` is clamped to the sight range, so the speed never drops below `cruiseSpeed`. Beyond sight range (but still within pursuit range) the drone flies at `cruiseSpeed`.
+- **Non-Explosive drones** chase and follow at `min(maxSpeed, cruiseSpeed + targetSpeed)`, where `targetSpeed` is how fast the smoothed target position (section 3.1) moves. They keep up with fast targets without rushing at slow ones.
 - `maxSpeed` must stay low enough to avoid clipping through blocks and outrunning chunk loading. The suggested hard ceiling is about 1.5 blocks per tick.
-- Drones fly using flying-mob navigation (vanilla `FlyingPathNavigation`). They go around obstacles and never pass through blocks.
+
+**Inertia.** Drones never jump to a new speed or direction. Each tick the drone works out the velocity it wants, and its actual velocity changes toward it by at most `drone.acceleration` blocks/tick² (`drone.explosiveAcceleration` for an Explosive drone chasing its target, so it can turn fast enough to hit it):
+- Toward a spot where it should stop (the follow position, the patrol center when hovering), it brakes in time to stop there. The end of a path counts, but path nodes along the way don't.
+- Patrol waypoints and an Explosive drone's target are flown through at full speed.
+- While the wanted direction points away from its heading, the drone slows down (to at least 20% speed), so it turns tightly instead of swinging wide past corners and waypoints.
+- A drone that stops steering (idle, or after losing its target) drifts to a stop with the drift drag (section 2.2).
+
+**Facing.** A drone turns as a whole. A following drone faces its target (section 3.1). Every other drone faces its direction of travel, with the same tolerance and eased turning.
+
+**Obstacles.** Drones fly using flying-mob navigation (vanilla `FlyingPathNavigation`). They go around obstacles and never pass through blocks. The drone flies straight while its whole box can fly the line to the goal (rays from the center and the corners of its box), and follows a path otherwise. Bumping into a block triggers a new check, at most every 5 ticks.
 
 ### 3.5 Losing the target
 
@@ -180,7 +198,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 | Upgrade | Stacks | Default cap | Effect | Per-upgrade config (set in Programming Station) |
 |---|---|---|---|---|
-| **Patrol** | Yes | 4 | Enables patrolling. Each extra upgrade increases the max patrol radius. | Patrol center (x, y, z) and patrol radius (capped by the upgrade count, section 3.2) |
+| **Patrol** | Yes | 4 | Enables patrolling. Each extra upgrade increases the max patrol radius. | Patrol center (x, y, z), patrol radius (capped by the upgrade count) and patrol altitude (section 3.2) |
 | **Sight** | Yes | 4 | Increases sight (detection) range. | — |
 | **Explosive** | Yes | 4 | The drone explodes on reaching its target and is consumed. Explosion power scales with the count. | — |
 | **Siren** | Yes | 3 | Plays a siren sound when a target is spotted. More upgrades increase the audible radius (sound volume > 1.0). | — |
@@ -291,11 +309,11 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 - **Slots:** one drone slot, an upgrade input inventory, and a refund output buffer for removed upgrades.
 - **Program:** the station stores a desired configuration:
   - the target count for each upgrade type,
-  - per-upgrade config (patrol center, patrol radius),
+  - per-upgrade config (patrol center, patrol radius, patrol altitude),
   - base config: the targets list (sized by the programmed Multi-target count, section 2.7), follow distance, **Label**, and **Color** (a button that cycles through the 16 dye colors on each click).
 - **Operation:** with a drone in the slot, the station works toward the program one step at a time:
   - It installs a missing upgrade from the input inventory, paying FE.
-  - It writes the configured settings (targets, follow distance, patrol center, patrol radius, label, color) onto the drone.
+  - It writes the configured settings (targets, follow distance, patrol center, patrol radius, patrol altitude, label, color) onto the drone.
   - If required upgrades are missing from the input inventory, it waits.
 - **Manual removal (v1):** a player can remove installed upgrades one at a time from the GUI. Removed upgrades go into the refund buffer (a full refund), and removal costs no FE. The station does **not** automatically remove upgrades beyond the program in v1. A drone with more upgrades than the program asks for doesn't match, so it is never auto-output, and the GUI shows a warning.
 - **Refund buffer output:** the refund buffer can be set to push into an adjacent inventory on one configured face. It can also always be extracted through the item capability.
@@ -340,7 +358,7 @@ The component is a record with a `Codec` and a `StreamCodec`, holding:
 - `energy` (int). Max energy is derived from the upgrades and config, not stored.
 - `health` (float). Max health is derived.
 - `upgrades` (map of upgrade type to count).
-- `config`: targets (a list of entries, each with its own kind: entity type / tag / player name), follow distance, patrol center (optional, position plus dimension), patrol radius (optional), label, color.
+- `config`: targets (a list of entries, each with its own kind: entity type / tag / player name), follow distance, patrol center (optional, position plus dimension), patrol radius (optional), patrol altitude (optional Y level), label, color.
 
 The drone entity saves the same data in its entity NBT. Only the fields the client needs (e.g. status for the GUI and renderer) are synced.
 
@@ -355,7 +373,8 @@ The drone entity saves the same data in its entity NBT. Only the fields the clie
 - Energy drain is batched every N ticks.
 - The station search goes through the registry and should be cached briefly (don't query it every tick).
 - Entity sync to clients is kept minimal.
-- Path finding is the most expensive part of a drone's tick. Drones fly straight whenever the line to the goal is clear, and only path find when it isn't. A moving goal (a target) is re-pathed on the staggered tick. A fixed goal (a patrol waypoint) is only re-pathed when it changes or the current path has ended.
+- Path finding is the most expensive part of a drone's tick. Drones fly straight whenever the line to the goal is clear for their whole box (9 raycasts, on the staggered tick or after a bump), and only path find when it isn't. A moving goal (a target) is re-pathed on the staggered tick. A fixed goal (a patrol waypoint) is only re-pathed when it changes or the current path has ended.
+- Re-profiled after the smooth-flight rework (inertia, box clear-path check, climbing ahead over patrol obstacles): patrolling over open ground about 7–10 µs per drone per tick, patrolling through 7-high walls about 24 µs (climbing ahead removes most path searches), following over open ground about 7 µs and through walls about 13 µs.
 - Profiled in M4 with 100 drones (`scripts/profile-drones.ps1`): patrolling over open ground costs about 7 µs per drone per tick. Patrolling through 7-high walls that cross every circle costs about 45 µs, almost all of it path finding. Each leg that crosses a wall needs a real search over the wall, about 1 ms each, compared with about 0.2 ms for follow paths.
 
 ---
@@ -381,11 +400,17 @@ All values below are placeholders.
 | `drone.maxRaycastsPerScan` | 4 | |
 | `drone.cruiseSpeed` | 0.4 blocks/tick | |
 | `drone.maxSpeed` | 1.2 blocks/tick | Hard ceiling of about 1.5 |
-| `drone.chaseAccelerationK` | 2.0 | |
+| `drone.chaseAccelerationK` | 2.0 | Explosive chase speed curve (section 3.4) |
+| `drone.acceleration` | 0.04 blocks/tick² | Max change in velocity per tick (inertia, section 3.4) |
+| `drone.explosiveAcceleration` | 0.15 blocks/tick² | Same, for an Explosive drone chasing its target |
+| `drone.turnSpeed` | 12 °/tick | Max turn rate of the drone's facing |
+| `drone.facingTolerance` | 20° | How far the drone may face away from where it wants to face before it turns |
 | `drone.defaultFollowDistance` | 4 blocks | |
-| `drone.followHeightOffset` | 1.5 blocks | Minimum height above the target's eyes while following |
+| `drone.followHeightOffset` | 1.5 blocks | Height above the target's eyes while following |
 | `drone.followEnterDistance` | 1.0 block | Distance to the follow position at which a chasing drone starts following |
 | `drone.followExitDistance` | 3.0 blocks | Distance to the follow position at which a following drone goes back to chasing; kept at least `followEnterDistance` |
+| `drone.followSlack` | 2.0 blocks | How far the follow position may move from a settled drone before it moves again (leash, section 3.1); kept at least `followEnterDistance` |
+| `drone.followSmoothing` | 0.15 | Fraction of the way the smoothed target position moves toward the target each tick (section 3.1) |
 | `drone.repathDistance` | 1.0 block | Path recompute threshold between staggered ticks (section 3.4) |
 | `drone.explosionTriggerDistance` | 1.5 blocks | |
 | `drone.deploySpawnDistance` | 1.0 block | Distance in front of the player's eyes |
@@ -399,6 +424,8 @@ All values below are placeholders.
 | `upgrades.patrol.baseRadius` / `perUpgrade` | 16 / 16 blocks | |
 | `upgrades.patrol.speed` | 0.25 blocks/tick | Patrol flight speed |
 | `upgrades.patrol.waypointSpacing` | 8 blocks | Distance between patrol waypoints along the circle (at least 8 waypoints) |
+| `upgrades.patrol.maxClimb` | 16 blocks | How far above the patrol height a waypoint may be raised to clear an obstacle; beyond that it is skipped |
+| `upgrades.patrol.climbClearance` | 1.0 block | Gap kept above the obstacle under a raised waypoint |
 | `upgrades.sight.perUpgrade` | 8 blocks | |
 | `upgrades.explosive.basePower` / `perUpgrade` | 2.0 / 1.0 | TNT = 4.0 |
 | `upgrades.siren.baseVolume` / `perUpgrade` / `repeatInterval` | 2.0 / 2.0 / 100 ticks | |

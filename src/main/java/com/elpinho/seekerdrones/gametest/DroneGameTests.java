@@ -22,12 +22,16 @@ import com.elpinho.seekerdrones.operator.OperatorGroups;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
 import com.elpinho.seekerdrones.registry.ModItems;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.NonNullList;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -218,6 +222,30 @@ public class DroneGameTests {
         helper.succeed();
     }
 
+    // --- 7b. DroneConfig CODEC and STREAM_CODEC round-trips of patrol altitude (DESIGN.md 3.2, 8.2, 9) ---
+
+    @GameTest(template = "empty", timeoutTicks = 5)
+    public static void patrolAltitudeSurvivesConfigCodecAndStreamCodecRoundTrip(GameTestHelper helper) {
+        DroneConfig withAltitude = DroneConfig.createDefault()
+                .withPatrolCenter(Optional.of(GlobalPos.of(Level.OVERWORLD, new BlockPos(10, 70, 10))))
+                .withPatrolRadius(Optional.of(12))
+                .withPatrolAltitude(Optional.of(80));
+        DroneConfig withoutAltitude = withAltitude.withPatrolAltitude(Optional.empty());
+
+        for (DroneConfig config : List.of(withAltitude, withoutAltitude)) {
+            Optional<Tag> encoded = DroneConfig.CODEC.encodeStart(NbtOps.INSTANCE, config).result();
+            helper.assertTrue(encoded.isPresent(), "DroneConfig should encode through its CODEC, config=" + config);
+            DroneConfig decoded = DroneConfig.CODEC.parse(NbtOps.INSTANCE, encoded.get()).result().orElse(null);
+            helper.assertValueEqual(decoded, config, "DroneConfig after a CODEC (NBT) round-trip");
+
+            ByteBuf buf = Unpooled.buffer();
+            DroneConfig.STREAM_CODEC.encode(buf, config);
+            DroneConfig streamDecoded = DroneConfig.STREAM_CODEC.decode(buf);
+            helper.assertValueEqual(streamDecoded, config, "DroneConfig after a STREAM_CODEC round-trip");
+        }
+        helper.succeed();
+    }
+
     // --- 8. No knockback (DESIGN.md 2.5) ---
 
     @GameTest(template = "empty", timeoutTicks = 40)
@@ -360,7 +388,7 @@ public class DroneGameTests {
                 new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie"),
                 new TargetEntry(TargetEntry.Kind.TAG, "minecraft:raiders"),
                 new TargetEntry(TargetEntry.Kind.PLAYER_NAME, "Steve"));
-        DroneConfig config = new DroneConfig(targets, 6, Optional.of(GlobalPos.of(Level.OVERWORLD, new BlockPos(10, 70, 10))), Optional.of(12), "Sentry", DyeColor.RED);
+        DroneConfig config = new DroneConfig(targets, 6, Optional.of(GlobalPos.of(Level.OVERWORLD, new BlockPos(10, 70, 10))), Optional.of(12), Optional.empty(), "Sentry", DyeColor.RED);
         Map<UpgradeType, Integer> upgrades = Map.of(UpgradeType.ENERGY, 1, UpgradeType.HEALTH, 2);
         // Base max energy 100_000 + 1*100_000 = 200_000; base max health 20 + 2*10 = 40. Both values below max.
         return new DroneData(droneId, Optional.of(UUID.randomUUID()), Optional.of(UUID.randomUUID()), "Steve", 123_456, 15.0F, upgrades, config);

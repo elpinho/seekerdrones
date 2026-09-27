@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.gametest;
 
 import java.util.List;
+import java.util.Optional;
 
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
@@ -176,6 +177,28 @@ public class ConfigCommandGameTests {
         });
     }
 
+    // --- patrolaltitude (DESIGN.md 3.2, 9) ---
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void patrolAltitudeCommandSetsAndClearsOnEntities(GameTestHelper helper) {
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
+
+        runCommand(helper, "seekerdrones config patrolaltitude set 80 " + SELECTOR);
+
+        helper.runAfterDelay(3, () -> {
+            helper.assertTrue(drone.snapshotData().config().patrolAltitude().equals(Optional.of(80)),
+                    "patrolaltitude set should store the given Y level, was " + drone.snapshotData().config().patrolAltitude());
+
+            runCommand(helper, "seekerdrones config patrolaltitude clear " + SELECTOR);
+
+            helper.runAfterDelay(3, () -> {
+                helper.assertTrue(drone.snapshotData().config().patrolAltitude().isEmpty(),
+                        "patrolaltitude clear should remove the configured altitude, was " + drone.snapshotData().config().patrolAltitude());
+                helper.succeed();
+            });
+        });
+    }
+
     // --- Held-item form (best effort; needs a real ServerPlayer, see report) ---
 
     @GameTest(template = "empty", timeoutTicks = 40)
@@ -204,6 +227,43 @@ public class ConfigCommandGameTests {
                 server.getPlayerList().remove(player);
             }
             helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    @SuppressWarnings("deprecation") // GameTestHelper.makeMockServerPlayerInLevel is deprecated for removal but still the only way to get a real ServerPlayer here.
+    public static void heldItemFormSetsAndClearsPatrolAltitude(GameTestHelper helper) {
+        MinecraftServer server = server(helper);
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        Vec3 pos = helper.absoluteVec(new Vec3(4, 1, 4));
+        player.moveTo(pos.x, pos.y, pos.z, 0.0F, 0.0F);
+        ItemStack stack = DroneItem.createStack(DroneData.createNew());
+        player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+
+        CommandSourceStack source = server.createCommandSourceStack()
+                .withEntity(player)
+                .withLevel(helper.getLevel())
+                .withPosition(pos)
+                .withPermission(4);
+        server.getCommands().performPrefixedCommand(source, "seekerdrones config patrolaltitude set 64");
+
+        helper.runAfterDelay(3, () -> {
+            DroneData afterSet = DroneItem.getData(player.getMainHandItem());
+            helper.assertTrue(afterSet.config().patrolAltitude().equals(Optional.of(64)),
+                    "Held-item command should have set the patrol altitude, was " + afterSet.config().patrolAltitude());
+
+            server.getCommands().performPrefixedCommand(source, "seekerdrones config patrolaltitude clear");
+
+            helper.runAfterDelay(3, () -> {
+                try {
+                    DroneData afterClear = DroneItem.getData(player.getMainHandItem());
+                    helper.assertTrue(afterClear.config().patrolAltitude().isEmpty(),
+                            "Held-item command should have cleared the patrol altitude, was " + afterClear.config().patrolAltitude());
+                } finally {
+                    server.getPlayerList().remove(player);
+                }
+                helper.succeed();
+            });
         });
     }
 

@@ -25,10 +25,16 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue DRONE_CRUISE_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_MAX_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_CHASE_ACCELERATION_K;
+    public static final ModConfigSpec.DoubleValue DRONE_ACCELERATION;
+    public static final ModConfigSpec.DoubleValue DRONE_EXPLOSIVE_ACCELERATION;
+    public static final ModConfigSpec.DoubleValue DRONE_TURN_SPEED;
+    public static final ModConfigSpec.DoubleValue DRONE_FACING_TOLERANCE;
     public static final ModConfigSpec.IntValue DRONE_DEFAULT_FOLLOW_DISTANCE;
     public static final ModConfigSpec.DoubleValue DRONE_FOLLOW_HEIGHT_OFFSET;
     public static final ModConfigSpec.DoubleValue DRONE_FOLLOW_ENTER_DISTANCE;
     public static final ModConfigSpec.DoubleValue DRONE_FOLLOW_EXIT_DISTANCE;
+    public static final ModConfigSpec.DoubleValue DRONE_FOLLOW_SLACK;
+    public static final ModConfigSpec.DoubleValue DRONE_FOLLOW_SMOOTHING;
     public static final ModConfigSpec.DoubleValue DRONE_REPATH_DISTANCE;
     public static final ModConfigSpec.DoubleValue DRONE_EXPLOSION_TRIGGER_DISTANCE;
     public static final ModConfigSpec.DoubleValue DRONE_DEPLOY_SPAWN_DISTANCE;
@@ -46,6 +52,8 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue UPGRADES_PATROL_PER_UPGRADE_RADIUS;
     public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_SPEED;
     public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_WAYPOINT_SPACING;
+    public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_MAX_CLIMB;
+    public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_CLIMB_CLEARANCE;
 
     public static final ModConfigSpec.IntValue UPGRADES_SIGHT_MAX_COUNT;
     public static final ModConfigSpec.IntValue UPGRADES_SIGHT_PER_UPGRADE;
@@ -138,14 +146,26 @@ public class ServerConfig {
                 .comment("Maximum line-of-sight raycasts performed per drone per scan.")
                 .defineInRange("maxRaycastsPerScan", 4, 1, 64);
         DRONE_CRUISE_SPEED = BUILDER
-                .comment("Chase speed (blocks/tick) at the edge of sight range.")
+                .comment("Base chase speed (blocks/tick). Non-Explosive drones chase at this speed plus their target's speed; Explosive drones fly at it at the edge of sight range.")
                 .defineInRange("cruiseSpeed", 0.4, 0.01, 1.5);
         DRONE_MAX_SPEED = BUILDER
                 .comment("Hard cap on chase speed (blocks/tick). Suggested ceiling is about 1.5.")
                 .defineInRange("maxSpeed", 1.2, 0.01, 1.5);
         DRONE_CHASE_ACCELERATION_K = BUILDER
-                .comment("Exponential growth rate k in the chase speed curve.")
+                .comment("Exponential growth rate k in the Explosive chase speed curve.")
                 .defineInRange("chaseAccelerationK", 2.0, 0.0, 10.0);
+        DRONE_ACCELERATION = BUILDER
+                .comment("Max change in a drone's velocity per tick (blocks/tick²). Lower is smoother but slower to turn and stop.")
+                .defineInRange("acceleration", 0.04, 0.001, 1.5);
+        DRONE_EXPLOSIVE_ACCELERATION = BUILDER
+                .comment("Max change in velocity per tick (blocks/tick²) for an Explosive drone chasing its target, so it can turn fast enough to hit it.")
+                .defineInRange("explosiveAcceleration", 0.15, 0.001, 1.5);
+        DRONE_TURN_SPEED = BUILDER
+                .comment("Max turn rate (degrees/tick) of a drone's facing.")
+                .defineInRange("turnSpeed", 12.0, 1.0, 180.0);
+        DRONE_FACING_TOLERANCE = BUILDER
+                .comment("How far (degrees) a drone may face away from where it wants to face before it turns.")
+                .defineInRange("facingTolerance", 20.0, 0.0, 180.0);
         DRONE_DEFAULT_FOLLOW_DISTANCE = BUILDER
                 .comment("Default follow distance (blocks) for a new drone's base config.")
                 .defineInRange("defaultFollowDistance", 4, 1, 64);
@@ -158,6 +178,12 @@ public class ServerConfig {
         DRONE_FOLLOW_EXIT_DISTANCE = BUILDER
                 .comment("Distance (blocks) to the follow position at which a following drone goes back to chasing. Must be larger than followEnterDistance; it is raised to match if not.")
                 .defineInRange("followExitDistance", 3.0, 0.1, 32.0);
+        DRONE_FOLLOW_SLACK = BUILDER
+                .comment("How far (blocks) the follow position may move away from a settled following drone before it moves again. Kept at least followEnterDistance.")
+                .defineInRange("followSlack", 2.0, 0.1, 32.0);
+        DRONE_FOLLOW_SMOOTHING = BUILDER
+                .comment("Fraction of the way the tracked target position moves toward the target each tick while chasing or following. Lower is smoother but lags more.")
+                .defineInRange("followSmoothing", 0.15, 0.01, 1.0);
         DRONE_REPATH_DISTANCE = BUILDER
                 .comment("How far (blocks) a navigating drone's goal may move before its path is recomputed between staggered scan ticks.")
                 .defineInRange("repathDistance", 1.0, 0.1, 16.0);
@@ -195,6 +221,8 @@ public class ServerConfig {
         UPGRADES_PATROL_PER_UPGRADE_RADIUS = BUILDER.comment("Extra patrol radius (blocks) per additional Patrol upgrade.").defineInRange("perUpgrade", 16, 0, Integer.MAX_VALUE);
         UPGRADES_PATROL_SPEED = BUILDER.comment("Patrol flight speed (blocks/tick).").defineInRange("speed", 0.25, 0.01, 1.5);
         UPGRADES_PATROL_WAYPOINT_SPACING = BUILDER.comment("Distance (blocks) between patrol waypoints along the circle. There are always at least 8 waypoints.").defineInRange("waypointSpacing", 8.0, 1.0, 256.0);
+        UPGRADES_PATROL_MAX_CLIMB = BUILDER.comment("How far (blocks) above the patrol altitude a patrol waypoint may be raised to clear an obstacle. Waypoints that need more are skipped.").defineInRange("maxClimb", 16.0, 0.0, 384.0);
+        UPGRADES_PATROL_CLIMB_CLEARANCE = BUILDER.comment("Gap (blocks) kept between the drone and the obstacle below a raised patrol waypoint.").defineInRange("climbClearance", 1.0, 0.0, 16.0);
         BUILDER.pop();
 
         BUILDER.push("sight");

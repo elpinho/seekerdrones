@@ -67,6 +67,9 @@ public class DroneStatusScreen extends Screen {
                     .orElse(Component.translatable("screen.seekerdrones.drone_status.not_set"))));
             lines.add(field("patrol_radius", Component.translatable("screen.seekerdrones.drone_status.patrol_radius_value",
                     status.patrolRadius(), status.maxPatrolRadius())));
+            lines.add(field("patrol_altitude", data.config().patrolAltitude()
+                    .<Component>map(y -> Component.literal(String.valueOf(y)))
+                    .orElse(Component.translatable("screen.seekerdrones.drone_status.patrol_altitude_center"))));
         }
 
         lines.add(field("upgrades", data.upgrades().isEmpty() ? Component.translatable("screen.seekerdrones.drone_status.none") : Component.empty()));

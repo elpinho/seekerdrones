@@ -32,6 +32,7 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
@@ -41,6 +42,7 @@ import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.control.BodyRotationControl;
 import net.minecraft.world.entity.ai.navigation.FlyingPathNavigation;
 import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.item.ItemEntity;
@@ -50,7 +52,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.pathfinder.Path;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.fluids.FluidType;
@@ -77,10 +81,28 @@ public class DroneEntity extends PathfinderMob {
     private static final int MIN_PATROL_WAYPOINTS = 8;
     /** How close (blocks) the drone must get to a patrol waypoint before heading for the next one. */
     private static final double WAYPOINT_REACH_DISTANCE = 1.0;
+    /** Distance (blocks) between the points checked for obstacles along a patrol leg; less than the drone's width. */
+    private static final double LEG_SAMPLE_SPACING = 0.5;
     /** Extra ticks on top of twice the straight flight time before a patrol waypoint is given up. */
     private static final int WAYPOINT_GRACE_TICKS = 60;
     /** {@link #patrolWaypoint} value: no waypoint is usable, so the drone hovers at the patrol center. */
     private static final int NO_FREE_WAYPOINT = -2;
+
+    /**
+     * Bearing turns (degrees) tried in order when the follow position is blocked (section 3.1): the current bearing
+     * first, then ever further around the target.
+     */
+    private static final double[] FOLLOW_BEARING_TURNS = {0, 45, -45, 90, -90, 135, -135, 180};
+    /** Min ticks between free-space and clear-path re-checks triggered by bumping into blocks. */
+    private static final int COLLISION_RECHECK_TICKS = 5;
+    /** Shrinks the drone's box for the clear-path check, so merely touching a block doesn't count as blocked. */
+    private static final double CLEAR_PATH_MARGIN = 0.01;
+    /** Fraction of the remaining angle turned each tick, so turns ease in and out. */
+    private static final float TURN_EASING = 0.3F;
+    /** A turn ends once the drone faces within this many degrees of where it wants to face. */
+    private static final float TURN_DONE_ANGLE = 1.0F;
+    /** Below this horizontal speed (blocks/tick), a drone that faces its direction of travel keeps its facing. */
+    private static final double FACE_MOVEMENT_MIN_SPEED = 0.03;
 
     /** Server-side drone state. Health lives in the entity itself and is copied back by {@link #snapshotData()}. */
     @Nullable
@@ -102,12 +124,36 @@ public class DroneEntity extends PathfinderMob {
     private UUID pendingTargetId;
     /** The tick at which line of sight to the target was first found lost, or -1 while it is visible. */
     private int lostSightSince = -1;
-    /** Horizontal unit vector from the target to the drone, held while following (section 3.1). */
+    /**
+     * The target's position (feet x/z, eye y) smoothed over time, so the drone reacts to where the target is going
+     * rather than to every hop (section 3.1). Null until the first pursuit tick.
+     */
+    @Nullable
+    private Vec3 targetAnchor;
+    /** How far the smoothed target position moved on the last tick (blocks/tick). */
+    private double targetAnchorSpeed;
+    /** Horizontal unit vector from the target to the follow position (section 3.1). */
     private Vec3 followBearing = new Vec3(1, 0, 0);
+    /** True while {@link #followBearing} was turned to get around an obstacle, so it isn't re-derived each tick. */
+    private boolean followBearingLocked;
+    /** Horizontal distance (blocks) from the target to the follow position, shortened if the full distance is blocked. */
+    private double followRange;
+    /** Height (blocks) of the follow position above the target's eyes, lowered if blocked (e.g. under a ceiling). */
+    private double followHeight;
+    /** The tick of the last free-space check of the follow position. */
+    private int followSlotCheckTick;
+    /** Forces a free-space check of the follow position on the next tick. */
+    private boolean followSlotStale = true;
+    /** True while a following drone holds still, until the follow position moves more than the slack away. */
+    private boolean followHolding;
     /** Whether the straight line to the goal was clear at the last check, so no path is needed. */
     private boolean directPathClear;
     /** Forces a direct-path check on the next tick instead of waiting for the staggered tick. */
     private boolean recheckDirectPath;
+    /** The tick of the last clear-path check. */
+    private int directPathCheckTick;
+    /** True while the drone turns toward where it wants to face (section 3.4). */
+    private boolean turning;
     /** The goal of the current navigation path, or null if not path finding. */
     @Nullable
     private Vec3 pathGoal;
@@ -115,6 +161,13 @@ public class DroneEntity extends PathfinderMob {
     // --- Upgrades (server only, not saved) ---
     /** The patrol waypoint being flown to, -1 to pick the nearest one, or {@link #NO_FREE_WAYPOINT}. */
     private int patrolWaypoint = -1;
+    /** Where the drone flies for the current patrol waypoint, raised over any obstacle. Null if none is selected. */
+    @Nullable
+    private Vec3 patrolGoal;
+    /** The patrol circle's center (at the patrol height) and radius when the waypoint was picked. */
+    @Nullable
+    private Vec3 patrolCircleCenter;
+    private double patrolCircleRadius;
     /** The tick after which the current patrol waypoint is given up. */
     private int waypointDeadline;
     /** Patrol waypoints skipped in a row because no path reached them. */
@@ -137,6 +190,18 @@ public class DroneEntity extends PathfinderMob {
         navigation.setCanOpenDoors(false);
         navigation.setCanPassDoors(false);
         return navigation;
+    }
+
+    @Override
+    protected BodyRotationControl createBodyControl() {
+        // The drone turns as a whole (see updateFacing): its body and head always match its yaw, on both sides.
+        return new BodyRotationControl(this) {
+            @Override
+            public void clientTick() {
+                yBodyRot = getYRot();
+                yHeadRot = getYRot();
+            }
+        };
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -306,6 +371,48 @@ public class DroneEntity extends PathfinderMob {
         } else {
             pursue(data, staggered);
         }
+        // A following drone keeps an eye on its target; any other drone faces where it is flying.
+        updateFacing(target != null && !DroneStats.isExplosive(data) ? targetAnchor : null);
+    }
+
+    /**
+     * Turns the drone toward {@code lookAt}, or toward its direction of travel if null (section 3.4). It only starts
+     * turning once it faces more than {@code drone.facingTolerance} away, then eases into the turn at up to
+     * {@code drone.turnSpeed}, so small target movements don't make it twitch.
+     */
+    private void updateFacing(@Nullable Vec3 lookAt) {
+        double dx;
+        double dz;
+        if (lookAt != null) {
+            dx = lookAt.x - getX();
+            dz = lookAt.z - getZ();
+        } else {
+            Vec3 velocity = getDeltaMovement();
+            if (velocity.horizontalDistanceSqr() < FACE_MOVEMENT_MIN_SPEED * FACE_MOVEMENT_MIN_SPEED) {
+                return;
+            }
+            dx = velocity.x;
+            dz = velocity.z;
+        }
+        if (dx * dx + dz * dz < 1.0E-4) {
+            return;
+        }
+        float wanted = (float) (Mth.atan2(dz, dx) * Mth.RAD_TO_DEG) - 90.0F;
+        float difference = Mth.wrapDegrees(wanted - getYRot());
+        if (Math.abs(difference) > ServerConfig.get(ServerConfig.DRONE_FACING_TOLERANCE)) {
+            turning = true;
+        }
+        if (!turning) {
+            return;
+        }
+        float maxTurn = ServerConfig.get(ServerConfig.DRONE_TURN_SPEED).floatValue();
+        float step = Mth.clamp(difference * TURN_EASING, -maxTurn, maxTurn);
+        setYRot(getYRot() + step);
+        setYHeadRot(getYRot());
+        setYBodyRot(getYRot());
+        if (Math.abs(difference - step) < TURN_DONE_ANGLE) {
+            turning = false;
+        }
     }
 
     /** Looks up a target loaded from NBT. Gives up at the next staggered tick if it isn't in the level. */
@@ -316,6 +423,7 @@ public class DroneEntity extends PathfinderMob {
             target = found;
             lostSightSince = -1;
             recheckDirectPath = true;
+            resetFollow();
             // Not a new acquisition: no Transmitter message, and the siren keeps its repeat interval.
             nextSirenTick = tickCount + ServerConfig.get(ServerConfig.UPGRADES_SIREN_REPEAT_INTERVAL);
         } else if (staggered) {
@@ -358,6 +466,7 @@ public class DroneEntity extends PathfinderMob {
         target = entity;
         lostSightSince = -1;
         recheckDirectPath = true;
+        resetFollow();
         // A drifting drone that spots a target starts chasing at once (section 2.2). It never comes to rest, so where
         // it spotted the target becomes its rest position (patrol center fallback, section 3.2).
         if (drifting) {
@@ -408,8 +517,21 @@ public class DroneEntity extends PathfinderMob {
     private void loseTarget() {
         target = null;
         lostSightSince = -1;
+        resetFollow();
         stopNavigating();
         setState(DroneState.IDLE);
+    }
+
+    /** Forgets the smoothed target position and the follow position chosen for the previous target. */
+    private void resetFollow() {
+        targetAnchor = null;
+        targetAnchorSpeed = 0;
+        followBearingLocked = false;
+        followHolding = false;
+        followRange = getDroneData().config().followDistance();
+        followHeight = ServerConfig.get(ServerConfig.DRONE_FOLLOW_HEIGHT_OFFSET);
+        // Check the follow position for free space on the first pursuit tick.
+        followSlotStale = true;
     }
 
     private void stopNavigating() {
@@ -425,41 +547,120 @@ public class DroneEntity extends PathfinderMob {
             pursueExplosive(data, staggered);
             return;
         }
-        Vec3 goal = followPosition(data);
-        double speed = DroneStats.chaseSpeed(distanceTo(target), DroneStats.sightRange(data));
-        double goalDistanceSqr = distanceToSqr(goal);
+        updateTargetAnchor();
+        Vec3 goal = followPosition(data, staggered);
+        double goalDistance = Math.sqrt(distanceToSqr(goal));
         // The exit distance is kept above the enter distance so the state can't flip back and forth (hysteresis).
         double enter = ServerConfig.get(ServerConfig.DRONE_FOLLOW_ENTER_DISTANCE);
         double exit = Math.max(enter, ServerConfig.get(ServerConfig.DRONE_FOLLOW_EXIT_DISTANCE));
         DroneState state = getState();
-        if (state != DroneState.FOLLOWING && goalDistanceSqr <= enter * enter) {
+        if (state != DroneState.FOLLOWING && goalDistance <= enter) {
             setState(DroneState.FOLLOWING);
-        } else if (state != DroneState.CHASING && goalDistanceSqr > exit * exit) {
+        } else if (state != DroneState.CHASING && goalDistance > exit) {
             setState(DroneState.CHASING);
         }
-        steerTowards(goal, speed, staggered, true);
-        getLookControl().setLookAt(target);
+        // Leash: once there, the drone holds still until the follow position has moved more than the slack away.
+        double slack = Math.max(enter, ServerConfig.get(ServerConfig.DRONE_FOLLOW_SLACK));
+        if (goalDistance <= enter) {
+            followHolding = true;
+        } else if (goalDistance > slack) {
+            followHolding = false;
+        }
+        double acceleration = ServerConfig.get(ServerConfig.DRONE_ACCELERATION);
+        if (followHolding) {
+            if (pathGoal != null) {
+                stopNavigating();
+            }
+            ((DroneMoveControl) moveControl).hold(acceleration);
+        } else {
+            steerTowards(goal, DroneStats.followSpeed(targetAnchorSpeed), acceleration, goal, staggered, true);
+        }
+    }
+
+    /** Moves the smoothed target position a fraction of the way toward the target (section 3.1). */
+    private void updateTargetAnchor() {
+        Vec3 actual = new Vec3(target.getX(), target.getEyeY(), target.getZ());
+        if (targetAnchor == null) {
+            targetAnchor = actual;
+            targetAnchorSpeed = 0;
+            return;
+        }
+        Vec3 next = targetAnchor.lerp(actual, ServerConfig.get(ServerConfig.DRONE_FOLLOW_SMOOTHING));
+        targetAnchorSpeed = next.distanceTo(targetAnchor);
+        targetAnchor = next;
     }
 
     /**
-     * Where the drone wants to be (section 3.1): at the follow distance from the target along the current bearing,
-     * and {@code followHeightOffset} above the target's eyes. Chasing drones fly toward this position too.
+     * Where the drone wants to be (section 3.1): {@link #followRange} from the smoothed target position along the
+     * bearing, and {@link #followHeight} above its eyes. Chasing drones fly toward this position too. The spot is
+     * checked for free space on the staggered tick, and soon after bumping into a block.
      */
-    private Vec3 followPosition(DroneData data) {
-        double dx = getX() - target.getX();
-        double dz = getZ() - target.getZ();
-        double horizontal = Math.sqrt(dx * dx + dz * dz);
-        if (horizontal > 1.0E-3) {
-            followBearing = new Vec3(dx / horizontal, 0, dz / horizontal);
+    private Vec3 followPosition(DroneData data, boolean staggered) {
+        if (!followBearingLocked) {
+            followBearing = bearingFromAnchor();
         }
-        Vec3 offset = followBearing.scale(data.config().followDistance());
-        double y = target.getEyeY() + ServerConfig.get(ServerConfig.DRONE_FOLLOW_HEIGHT_OFFSET);
-        return new Vec3(target.getX() + offset.x, y, target.getZ() + offset.z);
+        boolean bumped = (horizontalCollision || verticalCollision) && tickCount - followSlotCheckTick >= COLLISION_RECHECK_TICKS;
+        if (staggered || followSlotStale || bumped) {
+            chooseFollowSlot(data);
+        }
+        return followSlot(followBearing, followRange, followHeight);
+    }
+
+    /** The horizontal direction from the smoothed target position to the drone, or the last one if right above it. */
+    private Vec3 bearingFromAnchor() {
+        double dx = getX() - targetAnchor.x;
+        double dz = getZ() - targetAnchor.z;
+        double horizontal = Math.sqrt(dx * dx + dz * dz);
+        return horizontal > 1.0E-3 ? new Vec3(dx / horizontal, 0, dz / horizontal) : followBearing;
+    }
+
+    private Vec3 followSlot(Vec3 bearing, double range, double height) {
+        return new Vec3(targetAnchor.x + bearing.x * range, targetAnchor.y + height, targetAnchor.z + bearing.z * range);
+    }
+
+    /**
+     * Picks a follow position with room for the drone (section 3.1). The ideal one comes first. If it's blocked, the
+     * drone tries lower heights (under a ceiling), then half the distance (against a wall), then other bearings
+     * around the target. If nothing is free, it aims for the ideal spot and path finding gets as close as it can.
+     */
+    private void chooseFollowSlot(DroneData data) {
+        followSlotStale = false;
+        followSlotCheckTick = tickCount;
+        double distance = data.config().followDistance();
+        double[] heights = {ServerConfig.get(ServerConfig.DRONE_FOLLOW_HEIGHT_OFFSET), 0, -target.getEyeHeight() / 2};
+        double[] ranges = {distance, distance / 2};
+        Vec3 base = bearingFromAnchor();
+        for (double turn : FOLLOW_BEARING_TURNS) {
+            Vec3 bearing = base.yRot((float) Math.toRadians(turn));
+            for (double range : ranges) {
+                for (double height : heights) {
+                    if (hasRoomAt(followSlot(bearing, range, height))) {
+                        followBearing = bearing;
+                        followBearingLocked = turn != 0;
+                        followRange = range;
+                        followHeight = height;
+                        return;
+                    }
+                }
+            }
+        }
+        followBearing = base;
+        followBearingLocked = false;
+        followRange = distance;
+        followHeight = heights[0];
+    }
+
+    /** Whether the drone fits at {@code pos} (its feet position) without touching any block, in a loaded chunk. */
+    private boolean hasRoomAt(Vec3 pos) {
+        return level().hasChunkAt(BlockPos.containing(pos)) && level().noBlockCollision(this, getDimensions(getPose()).makeBoundingBox(pos));
     }
 
     // --- Explosive (section 3.1) ---
 
-    /** Explosive drones never follow: they fly straight at the target's center and explode once close enough. */
+    /**
+     * Explosive drones never follow: they fly straight at the target's center and explode once close enough. They
+     * track the target's actual position with a higher acceleration and never brake (section 3.4).
+     */
     private void pursueExplosive(DroneData data, boolean staggered) {
         Vec3 targetCenter = target.getBoundingBox().getCenter();
         double halfHeight = getBbHeight() / 2;
@@ -472,8 +673,8 @@ public class DroneEntity extends PathfinderMob {
             setState(DroneState.CHASING);
         }
         double speed = DroneStats.chaseSpeed(distanceTo(target), DroneStats.sightRange(data));
-        steerTowards(targetCenter.subtract(0, halfHeight, 0), speed, staggered, true);
-        getLookControl().setLookAt(target);
+        steerTowards(targetCenter.subtract(0, halfHeight, 0), speed, ServerConfig.get(ServerConfig.DRONE_EXPLOSIVE_ACCELERATION),
+                null, staggered, true);
     }
 
     /** The drone is consumed: no drop, and the explosion never breaks blocks in v1. */
@@ -561,26 +762,36 @@ public class DroneEntity extends PathfinderMob {
             setState(DroneState.PATROLLING);
             patrolWaypoint = -1;
         }
-        Vec3 centerPos = Vec3.atBottomCenterOf(center.pos());
+        Vec3 centerPos = patrolCenterAtHeight(center, data);
         double radius = DroneStats.patrolRadius(data);
+        if (!centerPos.equals(patrolCircleCenter) || radius != patrolCircleRadius) {
+            // A new center, radius or altitude: start over from the nearest waypoint of the new circle.
+            patrolCircleCenter = centerPos;
+            patrolCircleRadius = radius;
+            patrolWaypoint = -1;
+        }
         int count = patrolWaypointCount(radius);
+        double speed = ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED);
+        double acceleration = ServerConfig.get(ServerConfig.DRONE_ACCELERATION);
         if (patrolWaypoint < 0 || patrolWaypoint >= count) {
             if (!staggered && patrolWaypoint == NO_FREE_WAYPOINT) {
                 // Every waypoint was skipped: hover at the center and look again on the next staggered tick.
-                steerTowards(centerPos, ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED), false, false);
+                steerTowards(centerPos, speed, acceleration, centerPos, false, false);
                 return;
             }
             selectWaypoint(nearestWaypoint(centerPos, count), centerPos, radius, count);
         }
         if (patrolWaypoint == NO_FREE_WAYPOINT) {
-            steerTowards(centerPos, ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED), staggered, false);
+            steerTowards(centerPos, speed, acceleration, centerPos, staggered, false);
             return;
         }
-        Vec3 goal = waypoint(centerPos, radius, count, patrolWaypoint);
-        boolean reached = distanceToSqr(goal) <= WAYPOINT_REACH_DISTANCE * WAYPOINT_REACH_DISTANCE;
+        Vec3 goal = patrolGoal;
+        // Waypoints are flown through, not stopped at. The reach distance covers the drone's turning circle at patrol
+        // speed, so it can't end up circling a waypoint it keeps missing.
+        double reach = Math.max(WAYPOINT_REACH_DISTANCE, speed * speed / acceleration);
+        boolean reached = distanceToSqr(goal) <= reach * reach;
         boolean timedOut = tickCount > waypointDeadline;
-        double speed = ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED);
-        boolean reachable = steerTowards(goal, speed, staggered, false);
+        boolean reachable = steerTowards(goal, speed, acceleration, null, staggered, false);
         if (reached) {
             unreachableWaypoints = 0;
         } else if (!reachable || timedOut) {
@@ -588,12 +799,24 @@ public class DroneEntity extends PathfinderMob {
             if (++unreachableWaypoints >= count) {
                 unreachableWaypoints = 0;
                 patrolWaypoint = NO_FREE_WAYPOINT;
+                patrolGoal = null;
                 return;
             }
         } else {
             return;
         }
         selectWaypoint((patrolWaypoint + 1) % count, centerPos, radius, count);
+    }
+
+    /**
+     * The patrol center at the patrol height (section 3.2): the configured altitude, kept within the build height,
+     * or the center's own height if no altitude is set.
+     */
+    private Vec3 patrolCenterAtHeight(GlobalPos center, DroneData data) {
+        Vec3 pos = Vec3.atBottomCenterOf(center.pos());
+        return data.config().patrolAltitude()
+                .map(altitude -> new Vec3(pos.x, Mth.clamp(altitude, level().getMinBuildHeight(), level().getMaxBuildHeight() - 1), pos.z))
+                .orElse(pos);
     }
 
     private static int patrolWaypointCount(double radius) {
@@ -613,16 +836,25 @@ public class DroneEntity extends PathfinderMob {
     }
 
     /**
-     * Picks the first usable waypoint from {@code start} on, skipping spots that are obstructed or in unloaded chunks.
-     * Sets {@link #NO_FREE_WAYPOINT} if none is usable.
+     * Picks the first usable waypoint from {@code start} on, skipping spots in unloaded chunks and obstacles too tall
+     * to climb over. Sets {@link #NO_FREE_WAYPOINT} if none is usable.
      */
     private void selectWaypoint(int start, Vec3 center, double radius, int count) {
         double speed = ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED);
         for (int i = 0; i < count; i++) {
             int index = (start + i) % count;
-            Vec3 goal = waypoint(center, radius, count, index);
-            if (level().hasChunkAt(BlockPos.containing(goal)) && level().noCollision(this, getDimensions(getPose()).makeBoundingBox(goal))) {
+            Vec3 spot = waypoint(center, radius, count, index);
+            Vec3 goal = patrolHeightAt(spot);
+            if (goal != null) {
+                // Climb before an obstacle on the legs to either neighbor and come down after it, so the drone
+                // crosses it level instead of flying into its face.
+                double legTop = Math.max(legClimbHeight(waypoint(center, radius, count, index - 1), spot),
+                        legClimbHeight(spot, waypoint(center, radius, count, index + 1)));
+                if (legTop > goal.y && hasRoomAt(new Vec3(goal.x, legTop, goal.z))) {
+                    goal = new Vec3(goal.x, legTop, goal.z);
+                }
                 patrolWaypoint = index;
+                patrolGoal = goal;
                 recheckDirectPath = true;
                 // Give up on a waypoint that takes far longer than a straight flight would, e.g. when stuck.
                 waypointDeadline = tickCount + (int) (2 * Math.sqrt(distanceToSqr(goal)) / speed) + WAYPOINT_GRACE_TICKS;
@@ -630,20 +862,73 @@ public class DroneEntity extends PathfinderMob {
             }
         }
         patrolWaypoint = NO_FREE_WAYPOINT;
+        patrolGoal = null;
+    }
+
+    /**
+     * The height the drone must fly at to clear every obstacle on the straight leg between two waypoints at the
+     * patrol height (section 3.2), sampled every {@link #LEG_SAMPLE_SPACING} blocks. Obstacles too tall to climb are
+     * left to path finding.
+     */
+    private double legClimbHeight(Vec3 from, Vec3 to) {
+        double top = from.y;
+        int steps = Math.max(1, Mth.ceil(from.distanceTo(to) / LEG_SAMPLE_SPACING));
+        for (int step = 1; step < steps; step++) {
+            Vec3 raised = patrolHeightAt(from.lerp(to, (double) step / steps));
+            if (raised != null) {
+                top = Math.max(top, raised.y);
+            }
+        }
+        return top;
+    }
+
+    /**
+     * Where the drone flies for a waypoint at {@code spot} (section 3.2): the spot itself if the drone fits there,
+     * otherwise raised over the obstacle to {@code upgrades.patrol.climbClearance} above the highest block under the
+     * drone. It never drops below the spot, so it climbs over hills and buildings rather than diving into caves. Null
+     * if the chunk isn't loaded or the climb would be more than {@code upgrades.patrol.maxClimb}.
+     */
+    @Nullable
+    private Vec3 patrolHeightAt(Vec3 spot) {
+        if (!level().hasChunkAt(BlockPos.containing(spot))) {
+            return null;
+        }
+        EntityDimensions dimensions = getDimensions(getPose());
+        AABB box = dimensions.makeBoundingBox(spot);
+        if (level().noBlockCollision(this, box)) {
+            return spot;
+        }
+        int top = level().getMinBuildHeight();
+        for (int x = Mth.floor(box.minX); x <= Mth.floor(box.maxX); x++) {
+            for (int z = Mth.floor(box.minZ); z <= Mth.floor(box.maxZ); z++) {
+                top = Math.max(top, level().getHeight(Heightmap.Types.MOTION_BLOCKING, x, z));
+            }
+        }
+        Vec3 raised = new Vec3(spot.x, top + ServerConfig.get(ServerConfig.UPGRADES_PATROL_CLIMB_CLEARANCE), spot.z);
+        if (raised.y <= spot.y || raised.y - spot.y > ServerConfig.get(ServerConfig.UPGRADES_PATROL_MAX_CLIMB)) {
+            return null;
+        }
+        return level().noBlockCollision(this, dimensions.makeBoundingBox(raised)) ? raised : null;
     }
 
     /**
      * Flies straight at the goal while the line to it is clear, otherwise follows a path. The straight line is
-     * checked on the staggered tick, or at once after bumping into something. Paths are recomputed when the goal has
+     * checked on the staggered tick, or soon after bumping into something. Paths are recomputed when the goal has
      * moved more than {@code drone.repathDistance}, and on the staggered tick: always for a moving goal (a target),
      * but for a fixed goal (a patrol waypoint) only once the current path has ended, since recomputing it wouldn't
      * change anything and path finding is the most expensive part of a drone's tick.
      *
+     * @param acceleration the max change in velocity per tick (section 3.4)
+     * @param stopAt       where the drone should come to rest, or null to fly through the goal at full speed
      * @return false if a path was computed this tick and it can't reach the goal
      */
-    private boolean steerTowards(Vec3 goal, double speed, boolean staggered, boolean movingGoal) {
-        if (staggered || recheckDirectPath || (directPathClear && (horizontalCollision || verticalCollision))) {
+    private boolean steerTowards(Vec3 goal, double speed, double acceleration, @Nullable Vec3 stopAt, boolean staggered, boolean movingGoal) {
+        ((DroneMoveControl) moveControl).configure(acceleration, stopAt);
+        boolean bumped = directPathClear && (horizontalCollision || verticalCollision)
+                && tickCount - directPathCheckTick >= COLLISION_RECHECK_TICKS;
+        if (staggered || recheckDirectPath || bumped) {
             directPathClear = isClearPath(goal);
+            directPathCheckTick = tickCount;
             recheckDirectPath = false;
         }
         if (directPathClear) {
@@ -651,23 +936,45 @@ public class DroneEntity extends PathfinderMob {
                 stopNavigating();
             }
             moveControl.setWantedPosition(goal.x, goal.y, goal.z, speed);
-        } else if ((staggered && (movingGoal || navigation.isDone())) || pathGoal == null || pathGoal.distanceToSqr(goal) > Mth.square(ServerConfig.get(ServerConfig.DRONE_REPATH_DISTANCE))) {
+            return true;
+        }
+        boolean reachable = true;
+        if ((staggered && (movingGoal || navigation.isDone())) || pathGoal == null || pathGoal.distanceToSqr(goal) > Mth.square(ServerConfig.get(ServerConfig.DRONE_REPATH_DISTANCE))) {
             boolean started = navigation.moveTo(goal.x, goal.y, goal.z, speed);
             pathGoal = goal;
             Path path = navigation.getPath();
-            return started && path != null && path.canReach();
+            reachable = started && path != null && path.canReach();
         } else {
             navigation.setSpeedModifier(speed);
+        }
+        // The navigation already steered this tick before the AI step ran, toward the old path. Steer along the
+        // current one right away, or straight at the goal once the path has ended, so the drone never coasts.
+        Vec3 next = navigation.isDone() ? goal : navigation.getPath().getNextEntityPos(this);
+        moveControl.setWantedPosition(next.x, next.y, next.z, speed);
+        return reachable;
+    }
+
+    /**
+     * Whether the drone's whole box can fly in a straight line to the goal (a position for the drone's feet). Rays
+     * are cast from the box's center and corners, since a single center ray misses ledges that catch the box.
+     */
+    private boolean isClearPath(Vec3 goal) {
+        Vec3 delta = goal.subtract(position());
+        AABB box = getBoundingBox().deflate(CLEAR_PATH_MARGIN);
+        if (!isClearRay(box.getCenter(), delta)) {
+            return false;
+        }
+        for (int corner = 0; corner < 8; corner++) {
+            Vec3 from = new Vec3((corner & 1) == 0 ? box.minX : box.maxX, (corner & 2) == 0 ? box.minY : box.maxY, (corner & 4) == 0 ? box.minZ : box.maxZ);
+            if (!isClearRay(from, delta)) {
+                return false;
+            }
         }
         return true;
     }
 
-    /** Whether the drone's center can fly in a straight line to the goal (a position for the drone's feet). */
-    private boolean isClearPath(Vec3 goal) {
-        double halfHeight = getBbHeight() / 2;
-        Vec3 from = position().add(0, halfHeight, 0);
-        Vec3 to = goal.add(0, halfHeight, 0);
-        return level().clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this))
+    private boolean isClearRay(Vec3 from, Vec3 delta) {
+        return level().clip(new ClipContext(from, from.add(delta), ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this))
                 .getType() == HitResult.Type.MISS;
     }
 

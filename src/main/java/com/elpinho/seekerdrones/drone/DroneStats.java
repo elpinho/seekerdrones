@@ -109,8 +109,16 @@ public final class DroneStats {
     }
 
     /**
-     * Chase speed in blocks/tick at the given distance to the target (section 3.4). The distance is clamped to the
-     * sight range, so the speed stays within [cruiseSpeed, maxSpeed].
+     * Top speed in blocks/tick of a non-Explosive drone chasing or following (section 3.4): the cruise speed plus the
+     * target's own speed, so it keeps up with fast targets, capped at maxSpeed.
+     */
+    public static double followSpeed(double targetSpeed) {
+        return Math.min(ServerConfig.get(ServerConfig.DRONE_MAX_SPEED), ServerConfig.get(ServerConfig.DRONE_CRUISE_SPEED) + targetSpeed);
+    }
+
+    /**
+     * Explosive chase speed in blocks/tick at the given distance to the target (section 3.4). The distance is clamped
+     * to the sight range, so the speed stays within [cruiseSpeed, maxSpeed].
      */
     public static double chaseSpeed(double distance, double sightRange) {
         double cruise = ServerConfig.get(ServerConfig.DRONE_CRUISE_SPEED);

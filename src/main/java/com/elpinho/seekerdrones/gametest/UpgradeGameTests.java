@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
+import javax.annotation.Nullable;
+
 import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneConfig;
@@ -309,6 +311,191 @@ public class UpgradeGameTests {
         });
     }
 
+    // --- 4b. Patrol altitude (DESIGN.md section 3.2, 9) ---
+
+    // skyAccess=true: vanilla GameTestInfo normally encases every test with an invisible barrier ceiling exactly at
+    // the top of the structure's bounding box (StructureUtils.encaseStructure), which this test would otherwise fly
+    // into when patrolling well above the structure's nominal height.
+    @GameTest(template = "empty", timeoutTicks = 260, skyAccess = true)
+    public static void patrolAltitudeSetsFlightHeightAndClearingReturnsToCenterHeight(GameTestHelper helper) {
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
+        double centerHeight = drone.getY();
+        DroneData base = dataWithUpgrades(DroneData.createNew(), Map.of(UpgradeType.PATROL, 1));
+        DroneData withAltitude = base.withConfig(base.config().withPatrolRadius(Optional.of(4))
+                .withPatrolAltitude(Optional.of((int) centerHeight + 6)));
+        drone.setDroneData(withAltitude);
+
+        helper.runAfterDelay(120, () -> {
+            helper.assertTrue(drone.getState() == DroneState.PATROLLING, "Sanity: drone should be patrolling, state=" + drone.getState());
+            helper.assertTrue(Math.abs(drone.getY() - (centerHeight + 6)) <= 1.0,
+                    "Drone should patrol at the configured altitude, y=" + drone.getY());
+
+            // Changing/clearing the altitude mid-patrol restarts from the nearest waypoint of the new circle,
+            // moving the drone to the new height.
+            drone.setDroneData(withAltitude.withConfig(withAltitude.config().withPatrolAltitude(Optional.empty())));
+
+            helper.runAfterDelay(120, () -> {
+                helper.assertTrue(Math.abs(drone.getY() - centerHeight) <= 1.0,
+                        "Clearing the patrol altitude should return the drone to the patrol center's height, y=" + drone.getY());
+                helper.succeed();
+            });
+        });
+    }
+
+    // --- 4c. Patrol climbing over obstacles (DESIGN.md section 3.2) ---
+
+    // skyAccess=true: the raised waypoint sits right at the top of the structure's bounding box, which vanilla
+    // GameTestInfo otherwise seals with an invisible barrier (StructureUtils.encaseStructure).
+    @GameTest(template = "empty", timeoutTicks = 300, skyAccess = true)
+    public static void patrolDroneClimbsOverObstacleBelowMaxClimb(GameTestHelper helper) {
+        // A 2-tall wall exactly at the east waypoint (patrol center (4,3,4), radius 4 -> waypoint at x=8,z=4):
+        // its top is 2 blocks above the patrol height, well below the default maxClimb (16).
+        buildPatrolWall(helper, 2);
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
+        // GameTest worlds place structures at large, arbitrary absolute Y offsets, so the drone's actual getY() is
+        // not the same as the structure-relative coordinates used to build the wall; capture patrol height here.
+        double patrolHeight = drone.getY();
+        DroneData base = dataWithUpgrades(DroneData.createNew(), Map.of(UpgradeType.PATROL, 1));
+        drone.setDroneData(base.withConfig(base.config().withPatrolRadius(Optional.of(4))));
+
+        double[] maxY = {drone.getY()};
+        trackPatrolClimb(helper, drone, 220, maxY, () -> {
+            // Wall top (patrolHeight+2) + climbClearance (1.0 default) = patrolHeight+3, with some tolerance.
+            helper.assertTrue(maxY[0] >= patrolHeight + 2.5,
+                    "Drone should have climbed to about climbClearance above the wall's top, max observed Y=" + maxY[0]
+                            + " patrolHeight=" + patrolHeight);
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 300, skyAccess = true)
+    public static void patrolDroneSkipsWaypointTallerThanMaxClimbAndKeepsPatrolling(GameTestHelper helper) {
+        // Same wall as above (climb of 3 blocks needed), but maxClimb is lowered below that, so the waypoint should
+        // be skipped outright rather than climbed.
+        buildPatrolWall(helper, 2);
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
+        double patrolHeight = drone.getY();
+        DroneData base = dataWithUpgrades(DroneData.createNew(), Map.of(UpgradeType.PATROL, 1));
+
+        double originalMaxClimb = ServerConfig.get(ServerConfig.UPGRADES_PATROL_MAX_CLIMB);
+        ServerConfig.UPGRADES_PATROL_MAX_CLIMB.set(1.0);
+        drone.setDroneData(base.withConfig(base.config().withPatrolRadius(Optional.of(4))));
+
+        double[] maxY = {drone.getY()};
+        trackPatrolClimb(helper, drone, 250, maxY, () -> {
+            ServerConfig.UPGRADES_PATROL_MAX_CLIMB.set(originalMaxClimb);
+            helper.assertTrue(maxY[0] <= patrolHeight + 1.0,
+                    "Drone should never have tried to climb a waypoint taller than maxClimb, max observed Y=" + maxY[0]
+                            + " patrolHeight=" + patrolHeight);
+            helper.assertTrue(drone.getState() == DroneState.PATROLLING,
+                    "Drone should keep patrolling the rest of the circle, state=" + drone.getState());
+            helper.succeed();
+        });
+    }
+
+    /** A wall {@code height} blocks tall at the east patrol waypoint (center (4,3,4), radius 4 -> x=8, z=3..5). */
+    private static void buildPatrolWall(GameTestHelper helper, int height) {
+        for (int y = 3; y < 3 + height; y++) {
+            for (int z = 3; z <= 5; z++) {
+                helper.setBlock(new BlockPos(8, y, z), Blocks.STONE);
+            }
+        }
+    }
+
+    // --- 4d. Climbing ahead of an obstacle on a leg between waypoints (DESIGN.md section 3.2) ---
+
+    @GameTest(template = "empty", timeoutTicks = 300, skyAccess = true)
+    public static void patrolDroneClimbsAheadOfWallBetweenWaypoints(GameTestHelper helper) {
+        // A wall crossing the straight leg between waypoint0 (east, angle 0) and waypoint1 (angle 45), not sitting
+        // on either waypoint itself (patrol center (4,3,4), radius 4, waypointSpacing default -> 8 waypoints, 45
+        // degrees apart). Its top is patrol height + 4. Per "Climbing ahead" (section 3.2), both waypoint0 and
+        // waypoint1 should already be raised (the leg check runs both ways), so the drone should already be at climb
+        // height by the time it's flying directly over the wall, and back at patrol height by waypoint2.
+        buildLegWall(helper);
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
+        // GameTest worlds place structures at large, arbitrary absolute Y offsets; capture patrol height (and the
+        // spawn point, used as the patrol center) to translate the wall's structure-relative footprint below.
+        double patrolHeight = drone.getY();
+        Vec3 spawnPos = drone.position();
+        DroneData base = dataWithUpgrades(DroneData.createNew(), Map.of(UpgradeType.PATROL, 1));
+        drone.setDroneData(base.withConfig(base.config().withPatrolRadius(Optional.of(4))));
+
+        // The wall's footprint (relative x=6..8, z=1..5), offset from the drone's spawn point (the patrol center).
+        double wallMinX = spawnPos.x + 2;
+        double wallMaxX = spawnPos.x + 4;
+        double wallMinZ = spawnPos.z - 3;
+        double wallMaxZ = spawnPos.z + 1;
+        // Wall top (patrolHeight+4) + climbClearance (1.0 default) - 0.5 tolerance, per the requested behavior.
+        double minYOverWall = patrolHeight + 4 + ServerConfig.get(ServerConfig.UPGRADES_PATROL_CLIMB_CLEARANCE) - 0.5;
+
+        boolean[] everOverWall = {false};
+        trackLegClimb(helper, drone, 260, wallMinX, wallMaxX, wallMinZ, wallMaxZ, minYOverWall, everOverWall, () -> {
+            helper.assertTrue(everOverWall[0],
+                    "Sanity: the drone should have flown directly over the wall's footprint at some point, so this test actually exercises the behavior");
+            helper.succeed();
+        });
+    }
+
+    /**
+     * A wall crossing the leg between waypoint0 and waypoint1 (center (4,3,4), radius 4, 8 waypoints), 4 blocks tall
+     * (patrol height (y=3) up to patrol height + 4) so the drone must climb about that much to clear it. 2 blocks
+     * thick along x (x=6,7): the leg is a diagonal chord (from (8,3,4) to about (6.83,3,1.17)), and its straight-line
+     * samples (taken every 0.5 blocks, section 3.2) land at x between about 6.99 and 7.83 depending on z, so a
+     * single x=7 slice would just barely miss the sample closest to waypoint1.
+     */
+    private static void buildLegWall(GameTestHelper helper) {
+        for (int x = 6; x <= 7; x++) {
+            for (int z = 1; z <= 4; z++) {
+                for (int y = 3; y <= 6; y++) {
+                    helper.setBlock(new BlockPos(x, y, z), Blocks.STONE);
+                }
+            }
+        }
+    }
+
+    /**
+     * Every tick: asserts the drone never ends up inside a block, and, whenever it's horizontally within
+     * [{@code minX}, {@code maxX}] x [{@code minZ}, {@code maxZ}] (the wall's footprint), that its Y is already at
+     * least {@code minY} (records that into {@code everOverWall[0]} so the caller can sanity-check the test actually
+     * flew over the wall). See {@link #trackPatrolClimb} for why each step must reschedule with a fresh lambda.
+     */
+    private static void trackLegClimb(GameTestHelper helper, DroneEntity drone, int ticksRemaining, double minX, double maxX,
+            double minZ, double maxZ, double minY, boolean[] everOverWall, Runnable onDone) {
+        helper.assertTrue(helper.getLevel().noBlockCollision(drone, drone.getBoundingBox()),
+                "Drone should never end up inside a block while patrolling, pos=" + drone.position());
+        if (drone.getX() >= minX && drone.getX() <= maxX && drone.getZ() >= minZ && drone.getZ() <= maxZ) {
+            everOverWall[0] = true;
+            helper.assertTrue(drone.getY() >= minY,
+                    "Drone should already be at climb height while directly above the wall (climbing ahead of it, "
+                            + "section 3.2), y=" + drone.getY() + " required>=" + minY + " pos=" + drone.position());
+        }
+        if (ticksRemaining <= 1) {
+            onDone.run();
+            return;
+        }
+        helper.runAtTickTime(helper.getTick() + 1,
+                () -> trackLegClimb(helper, drone, ticksRemaining - 1, minX, maxX, minZ, maxZ, minY, everOverWall, onDone));
+    }
+
+    /**
+     * Samples the drone's max Y each tick, and asserts it's never inside a block.
+     * <p>
+     * Note: each step must reschedule itself with a <em>fresh</em> lambda, not a reused one. {@code GameTestInfo}
+     * keys its {@code runAtTickTime} map by the {@code Runnable}'s identity and removes the fired entry by iterator
+     * right after running it; re-registering the very same instance for a future tick from inside its own call gets
+     * silently cancelled by that same removal, so the chain would only ever fire once.
+     */
+    private static void trackPatrolClimb(GameTestHelper helper, DroneEntity drone, int ticksRemaining, double[] maxY, Runnable onDone) {
+        maxY[0] = Math.max(maxY[0], drone.getY());
+        helper.assertTrue(helper.getLevel().noBlockCollision(drone, drone.getBoundingBox()),
+                "Drone should never end up inside a block while patrolling, pos=" + drone.position());
+        if (ticksRemaining <= 1) {
+            onDone.run();
+            return;
+        }
+        helper.runAtTickTime(helper.getTick() + 1, () -> trackPatrolClimb(helper, drone, ticksRemaining - 1, maxY, onDone));
+    }
+
     // --- 5. Explosive (DESIGN.md sections 2.5, 3.1) ---
 
     @GameTest(template = "empty", timeoutTicks = 100)
@@ -344,6 +531,67 @@ public class UpgradeGameTests {
             helper.assertBlockPresent(Blocks.STONE, guardA);
             helper.assertBlockPresent(Blocks.STONE, guardB);
         });
+    }
+
+    // --- 5b. Explosive inertia (DESIGN.md 3.4) ---
+
+    @GameTest(template = "empty", timeoutTicks = 120)
+    public static void explosiveDroneVelocityChangesByAtMostExplosiveAccelerationEachTick(GameTestHelper helper) {
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(1, 3, 4));
+        Zombie zombie = helper.spawn(EntityType.ZOMBIE, new BlockPos(7, 1, 4));
+        zombie.setNoAi(true);
+        zombie.setNoGravity(true);
+        // Shade the column so the undead target doesn't burn and die before the explosion (well above the drone's
+        // line-of-sight raycast to its eyes).
+        helper.setBlock(new BlockPos(7, 5, 4), Blocks.STONE);
+        float startHealth = zombie.getHealth();
+
+        DroneData data = dataWithUpgrades(droneTargetingZombieEntity(), Map.of(UpgradeType.EXPLOSIVE, 1));
+        drone.setDroneData(data);
+
+        double maxDelta = ServerConfig.get(ServerConfig.DRONE_EXPLOSIVE_ACCELERATION) + 1.0E-3;
+        boolean[] everFollowing = {false};
+        trackVelocityChanges(helper, drone, 100, maxDelta, null, () -> {
+            if (!drone.isRemoved() && drone.getState() == DroneState.FOLLOWING) {
+                everFollowing[0] = true;
+            }
+        }, () -> {
+            helper.assertFalse(everFollowing[0], "Explosive drone should never enter FOLLOWING while pursuing its target");
+            helper.assertTrue(drone.isRemoved(), "Explosive drone should have reached its target and exploded by now");
+            helper.assertTrue(zombie.getHealth() < startHealth,
+                    "Target should take damage from the explosion, health=" + zombie.getHealth() + " (started at " + startHealth + ")");
+            helper.succeed();
+        });
+    }
+
+    /**
+     * Samples the drone's velocity every tick, asserting it never changes by more than {@code maxDelta} between
+     * consecutive ticks (skipping ticks where the drone is touching a block, per section 3.4's inertia rule).
+     * {@code perTick} runs once per tick, whether or not the drone is still alive.
+     * <p>
+     * Note: each step must reschedule itself with a <em>fresh</em> lambda, not a reused one; see
+     * {@link SeekingGameTests#trackVelocityChanges} for why.
+     */
+    private static void trackVelocityChanges(GameTestHelper helper, DroneEntity drone, int ticksRemaining, double maxDelta,
+            @Nullable Vec3 previous, Runnable perTick, Runnable onDone) {
+        Vec3 velocity = null;
+        if (!drone.isRemoved()) {
+            velocity = drone.getDeltaMovement();
+            if (previous != null && !drone.horizontalCollision && !drone.verticalCollision) {
+                double delta = velocity.subtract(previous).length();
+                helper.assertTrue(delta <= maxDelta,
+                        "Velocity should change by at most " + maxDelta + " blocks/tick, changed by " + delta
+                                + " (from " + previous + " to " + velocity + ") at tick " + helper.getTick());
+            }
+        }
+        perTick.run();
+        if (ticksRemaining <= 1 || drone.isRemoved()) {
+            onDone.run();
+            return;
+        }
+        Vec3 nextPrevious = velocity;
+        helper.runAtTickTime(helper.getTick() + 1,
+                () -> trackVelocityChanges(helper, drone, ticksRemaining - 1, maxDelta, nextPrevious, perTick, onDone));
     }
 
     // --- 6. Transmitter (DESIGN.md section 4) ---

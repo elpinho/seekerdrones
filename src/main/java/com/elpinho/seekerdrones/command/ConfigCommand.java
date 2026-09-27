@@ -41,14 +41,17 @@ import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Debug command for a drone's targets, follow distance (DESIGN.md section 2.6), patrol center and patrol radius
- * (section 3.2), acting on the held drone item or on drone entities. Requires permission level 2. Kept after M7 as an
+ * Debug command for a drone's targets, follow distance (DESIGN.md section 2.6), patrol center, patrol radius and
+ * patrol altitude (section 3.2), acting on the held drone item or on drone entities. Requires permission level 2. Kept after M7 as an
  * admin/testing tool alongside the Programming Station.
  */
 public final class ConfigCommand {
     private static final String KEY = "commands.seekerdrones.config.";
     /** Upper bound for the follow distance argument, matching the {@code drone.defaultFollowDistance} config range. */
     private static final int MAX_FOLLOW_DISTANCE = 64;
+    /** Bounds for the patrol altitude argument: vanilla's limits for a dimension's build height. */
+    private static final int MIN_ALTITUDE = -2032;
+    private static final int MAX_ALTITUDE = 2031;
 
     private static final DynamicCommandExceptionType UNKNOWN_TAG =
             new DynamicCommandExceptionType(tag -> Component.translatable(KEY + "unknown_tag", String.valueOf(tag)));
@@ -110,7 +113,12 @@ public final class ConfigCommand {
                         .then(Commands.literal("set")
                                 .then(onDrones(Commands.argument("radius", IntegerArgumentType.integer(1)),
                                         (ctx, drones) -> setPatrolRadius(ctx, drones, Optional.of(IntegerArgumentType.getInteger(ctx, "radius"))))))
-                        .then(onDrones(Commands.literal("clear"), (ctx, drones) -> setPatrolRadius(ctx, drones, Optional.empty()))));
+                        .then(onDrones(Commands.literal("clear"), (ctx, drones) -> setPatrolRadius(ctx, drones, Optional.empty()))))
+                .then(Commands.literal("patrolaltitude")
+                        .then(Commands.literal("set")
+                                .then(onDrones(Commands.argument("y", IntegerArgumentType.integer(MIN_ALTITUDE, MAX_ALTITUDE)),
+                                        (ctx, drones) -> setPatrolAltitude(ctx, drones, Optional.of(IntegerArgumentType.getInteger(ctx, "y"))))))
+                        .then(onDrones(Commands.literal("clear"), (ctx, drones) -> setPatrolAltitude(ctx, drones, Optional.empty()))));
     }
 
     /** Runs {@code runner} on the held drone, or on the drones picked by an optional trailing selector. */
@@ -188,6 +196,17 @@ public final class ConfigCommand {
                 count -> radius
                         .map(r -> Component.translatable(KEY + "patrolradius.set", count, r))
                         .orElseGet(() -> Component.translatable(KEY + "patrolradius.cleared", count)));
+    }
+
+    /**
+     * Sets the Y level to patrol at, or clears it so the drone patrols at its patrol center's height (section 3.2). It
+     * is kept within the dimension's build height at runtime.
+     */
+    private static int setPatrolAltitude(CommandContext<CommandSourceStack> ctx, Collection<DroneEntity> drones, Optional<Integer> altitude) throws CommandSyntaxException {
+        return apply(ctx.getSource(), drones, data -> data.withConfig(data.config().withPatrolAltitude(altitude)),
+                count -> altitude
+                        .map(y -> Component.translatable(KEY + "patrolaltitude.set", count, y))
+                        .orElseGet(() -> Component.translatable(KEY + "patrolaltitude.cleared", count)));
     }
 
     /**
