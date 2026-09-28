@@ -27,6 +27,7 @@ Status: `idea` | `decided`
 
 ## Drone GUI and visuals
 
+- **Improve the Drone Factory GUI** (`idea`): rework the Factory screen (DESIGN.md §7.1), taking inspiration from Industrial Foregoing's machines (e.g. how they lay out the energy bar, fluid tanks, progress and side tabs). Which elements to borrow is still open. The Operator list tab must stay.
 - **Increase drone size** (`idea`): make drones bigger. Undecided whether that means a larger base size, or a drone that grows with its upgrade count. The size affects more than the model: the hitbox, path finding (the flying node size), the box clear-path raycasts (§3.4 and §8.4), fitting at follow and patrol positions, and deploy obstruction checks. A size that changes with upgrades would also need to update the entity's dimensions whenever upgrades change.
 - **Drone animations** (`idea`): animate the drone entity (for example rotors and idle or chase states).
 
