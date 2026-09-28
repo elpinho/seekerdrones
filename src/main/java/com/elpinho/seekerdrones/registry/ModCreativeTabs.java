@@ -24,6 +24,7 @@ public class ModCreativeTabs {
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.DRONE.get());
                         output.accept(ModItems.DRONE_FACTORY.get());
+                        output.accept(ModItems.PROGRAMMING_STATION.get());
                         output.accept(ModItems.CHARGING_STATION.get());
                         output.accept(ModItems.DRONE_ROTOR.get());
                         output.accept(ModItems.SEEKER_CORE.get());

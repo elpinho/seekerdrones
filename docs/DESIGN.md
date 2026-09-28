@@ -314,25 +314,42 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 
 ### 7.2 Drone Programming Station
 
-- **Slots:** one drone slot, an upgrade input inventory, and a refund output buffer for removed upgrades.
-- **Program:** the station stores a desired configuration:
-  - the target count for each upgrade type,
-  - per-upgrade config (patrol center, patrol radius),
-  - base config: the targets list (sized by the programmed Multi-target count, section 2.7), follow distance, **Label**, and **Color** (a button that cycles through the 16 dye colors on each click).
-- **Operation:** with a drone in the slot, the station works toward the program one step at a time:
-  - It installs a missing upgrade from the input inventory, paying FE.
-  - It writes the configured settings (targets, follow distance, patrol center, patrol radius, label, color) onto the drone.
-  - If required upgrades are missing from the input inventory, it waits.
-- **Manual removal (v1):** a player can remove installed upgrades one at a time from the GUI. Removed upgrades go into the refund buffer (a full refund), and removal costs no FE. The station does **not** automatically remove upgrades beyond the program in v1. A drone with more upgrades than the program asks for doesn't match, so it is never auto-output, and the GUI shows a warning.
-- **Refund buffer output:** the refund buffer can be set to push into an adjacent inventory on one configured face. It can also always be extracted through the item capability.
+The station works in two modes: **Direct** mode is for a player upgrading and configuring one drone by hand, and **Template** mode is for automation. Anyone can use it (no access control, section 6.2).
+
+- **Block:** it faces the player when placed. The facing only decides where the front texture is.
+- **Slots:** one drone slot and an **upgrade input** of 9 slots that only accepts upgrade items. There are no output slots: the station never pushes items out (see *Automation* below).
+- **Energy:** an FE buffer of `programmingStation.energyCapacity`, filled on every side.
+- **Mode** (a GUI button, default **Direct**):
+  - **Direct:** the editor always shows the drone in the slot. Inserting a drone loads its upgrades and settings into the editor, and every edit applies to that drone:
+    - **+** on an upgrade row starts installing one upgrade of that type (an install step, below). It is only enabled while the upgrade input holds one of that type, the per-type cap and the total slot limit allow it, and no other step is running.
+    - **−** removes one installed upgrade (manual removal, below).
+    - Settings edits are written to the drone at once.
+    - Without a drone in the slot, the editor is empty and disabled.
+  - **Template:** the station stores a **program** (template) that persists without a drone. Every drone in the slot is brought to match it, one step at a time. The upgrade rows show *installed / programmed* counts and **+**/**−** change the programmed count. A **Copy from drone** button sets the program to the current drone's upgrades and settings.
+  - Switching modes cancels a running install step and **never changes the drone in the slot**. The template only applies to drones inserted while Template mode is active: a drone that was already in the slot is left alone (the GUI says so) until it is taken out and inserted again. The template is kept while in Direct mode.
+- **Program** (the template in Template mode, the drone's own values in Direct mode):
+  - the count for each upgrade type,
+  - **Targets:** the target list (section 2.6). The editor shows one row per slot, sized by the programmed Multi-target count (section 2.7). Each row has a kind button (entity type / tag / player name) and a text field. Unknown entity types and tags and duplicates are rejected. Player-name entries need Player Seek in the program. Clearing a row's text removes the entry. Stored entries beyond the slots, or player names without Player Seek (e.g. after removing an upgrade), are shown as ignored and can only be removed.
+  - **Follow distance:** 1 to `drone.maxFollowDistance` blocks.
+  - **Patrol center** (x, y, z, in the station's dimension; optional, with a **Here** button for the block above the station and a **Clear** button) and **patrol radius** (optional; the max for the programmed Patrol count is shown). Only shown with Patrol in the program.
+  - **Label:** up to 32 characters.
+  - **Color:** a button that cycles through the 16 dye colors (left-click forward, right-click back).
+- **Validation:** a program that would exceed the per-type caps or the total slot limit can't be saved: **+** is disabled at the cap. The server re-checks every edit. If the server config later lowers a cap below a saved template, the station stops and shows a warning until the template is fixed.
+- **Operation (Template mode):** with a drone in the slot, the station works toward the program one step at a time:
+  - It writes the configured settings (targets, follow distance, patrol center, patrol radius, label, color) onto the drone. This is instant and costs no FE.
+  - It installs a missing upgrade from the upgrade input (an install step). Types are tried in a fixed order, skipping types with none in the input.
+  - If required upgrades are missing from the input, it waits and the GUI shows a warning.
+- **Install step:** takes `programmingStation.installTime` ticks. Its FE cost is spent evenly over that time, and the step pauses while FE runs short. The upgrade item is taken from the input when the step finishes. The step is cancelled, and the FE already spent is lost, if the drone leaves the slot, the mode changes, the program no longer wants the upgrade, or no matching upgrade is left in the input when it finishes.
 - **FE cost per upgrade installed:**
-  - The base cost is `baseCost[type] × n`, where `n` is the index of the upgrade being installed within its type (1st, 2nd…). The scaling is configurable.
-  - Installing an **Energy** upgrade also costs the FE capacity that the upgrade adds. That FE goes into the drone, so the new capacity arrives full.
-  - Removing an Energy upgrade lowers capacity, and any charge above the new capacity is lost.
-- **Output mode:**
-  - **Manual** (default): the drone stays in the slot and a player takes it out.
-  - **Auto-output when complete:** once the drone matches the program exactly, the station pushes it into an adjacent inventory on configured faces. Until then it is never output.
-- A drone that would exceed the slot or per-type caps under the program is invalid, and the GUI must prevent saving that program.
+  - The base cost is `baseCost[type] × n`, where `n` is the index of the upgrade being installed within its type (1st, 2nd…).
+  - Installing an **Energy** upgrade also costs the FE capacity that the upgrade adds (`upgrades.energy.perUpgrade`). That FE goes into the drone, so the new capacity arrives full.
+- **Manual removal:** a player removes installed upgrades one at a time from the GUI: with **−** in Direct mode, or with the **Remove** button that Template mode shows on rows where the drone has more than the program asks for. The removed upgrade goes into **that player's inventory** (a full refund), or drops at their feet if it is full. Removal is instant and costs no FE. Removing an Energy or Health upgrade lowers the max, and anything above the new max is lost. The station **never** removes upgrades on its own. In Template mode, a drone with more upgrades than the program asks for doesn't match, so it is never complete, and the GUI shows a warning.
+- **Complete:** in Template mode, a drone inserted in Template mode is complete once its upgrades and settings match the program exactly.
+- **Automation** (item capability, every side):
+  - Drones can be inserted into the drone slot while it's empty, and upgrade items into the upgrade input.
+  - The drone can be **extracted only in Template mode, and only once it is complete**. The station never pushes it out: a hopper below or an extracting pipe pulls it, like the Factory's output (section 7.1). In Direct mode automation can never extract the drone. Players can always take it out by hand.
+  - The upgrade input can't be extracted by automation.
+- **Breaking the station** drops the drone and the upgrade input. The item keeps the mode and the template in a data component (`seekerdrones:programming_station`), so placing it again restores them.
 
 ### 7.3 Drone Deploying Station
 
@@ -466,7 +483,8 @@ All values below are placeholders.
 | `drone.explosiveAcceleration` | 0.15 blocks/tick² | Same, for an Explosive drone chasing its target |
 | `drone.turnSpeed` | 12 °/tick | Max turn rate of the drone's facing |
 | `drone.facingTolerance` | 20° | How far the drone may face away from where it wants to face before it turns |
-| `drone.defaultFollowDistance` | 4 blocks | |
+| `drone.defaultFollowDistance` | 4 blocks | At most 48 |
+| `drone.maxFollowDistance` | 48 blocks | Largest follow distance the Programming Station and the debug command accept |
 | `drone.followHeightOffset` | 1.5 blocks | Height above the target's eyes while following |
 | `drone.followEnterDistance` | 1.0 block | Distance to the follow position at which a chasing drone starts following |
 | `drone.followExitDistance` | 3.0 blocks | Distance to the follow position at which a following drone goes back to chasing; kept at least `followEnterDistance` |
@@ -495,6 +513,8 @@ All values below are placeholders.
 | `upgrades.health.perUpgrade` | 10 | |
 | `upgrades.multiTarget.perUpgrade` | 1 | Extra target slots per upgrade |
 | `programmingStation.baseCost.<type>` | 10 000 FE | Multiplied by index `n` |
+| `programmingStation.energyCapacity` | 200 000 FE | FE the station can store |
+| `programmingStation.installTime` | 20 ticks | Duration of one install step |
 | `chargingStation.capacity` | 100 000 FE | FE the station can store |
 | `chargingStation.chargeRate` | 1 000 FE/tick | |
 | `chargingStation.healPerTick` | 0.1 HP/tick | |
@@ -524,6 +544,5 @@ These are agreed ideas for later versions. **Do not implement, stub or scaffold 
 - **Chunk loading** by drones (in any form, including behind a config).
 - **Target Tagger** item to mark one specific entity as a target.
 - **Operator Group ownership transfer.**
-- **Automatic upgrade removal** by the Programming Station program (removing upgrades beyond the programmed counts). v1 only supports manual removal.
 - Charging Stations that charge more than one drone at a time.
 - Final upgrade and Charging Station recipes and materials (TBD, balancing pass). The Factory, component and drone assembly recipes are decided (section 7.5).

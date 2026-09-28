@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.IntFunction;
 
+import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.drone.DroneItem;
@@ -49,8 +50,6 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class ConfigCommand {
     private static final String KEY = "commands.seekerdrones.config.";
-    /** Upper bound for the follow distance argument, matching the {@code drone.defaultFollowDistance} config range. */
-    private static final int MAX_FOLLOW_DISTANCE = 64;
 
     private static final DynamicCommandExceptionType UNKNOWN_TAG =
             new DynamicCommandExceptionType(tag -> Component.translatable(KEY + "unknown_tag", String.valueOf(tag)));
@@ -58,6 +57,8 @@ public final class ConfigCommand {
             new DynamicCommandExceptionType(entry -> Component.translatable(KEY + "duplicate_target", String.valueOf(entry)));
     private static final DynamicCommandExceptionType UNKNOWN_COLOR =
             new DynamicCommandExceptionType(color -> Component.translatable(KEY + "unknown_color", String.valueOf(color)));
+    private static final DynamicCommandExceptionType FOLLOW_DISTANCE_TOO_LARGE =
+            new DynamicCommandExceptionType(max -> Component.translatable(KEY + "followdistance.too_large", max));
     private static final Dynamic2CommandExceptionType NO_SUCH_INDEX =
             new Dynamic2CommandExceptionType((index, size) -> Component.translatable(KEY + "no_such_index", index, size));
 
@@ -104,7 +105,7 @@ public final class ConfigCommand {
                         .then(onDrones(Commands.literal("clear"), ConfigCommand::clearTargets))
                         .then(onDrones(Commands.literal("list"), ConfigCommand::listTargets)))
                 .then(Commands.literal("followdistance")
-                        .then(onDrones(Commands.argument("distance", IntegerArgumentType.integer(1, MAX_FOLLOW_DISTANCE)),
+                        .then(onDrones(Commands.argument("distance", IntegerArgumentType.integer(1)),
                                 (ctx, drones) -> setFollowDistance(ctx, drones, IntegerArgumentType.getInteger(ctx, "distance")))))
                 .then(Commands.literal("patrolcenter")
                         .then(Commands.literal("set")
@@ -152,17 +153,13 @@ public final class ConfigCommand {
     private static int addTarget(CommandContext<CommandSourceStack> ctx, Collection<DroneEntity> drones, TargetEntry entry) throws CommandSyntaxException {
         return apply(ctx.getSource(), drones, data -> {
             List<TargetEntry> targets = data.config().targets();
-            if (targets.stream().anyMatch(existing -> sameEntry(existing, entry))) {
+            if (targets.stream().anyMatch(existing -> existing.sameAs(entry))) {
                 throw DUPLICATE_TARGET.create(entry.displayString());
             }
             List<TargetEntry> updated = new ArrayList<>(targets);
             updated.add(entry);
             return data.withConfig(data.config().withTargets(updated));
         }, count -> Component.translatable(KEY + "target.added", entry.displayString(), count));
-    }
-
-    private static boolean sameEntry(TargetEntry a, TargetEntry b) {
-        return a.kind() == b.kind() && (a.kind() == TargetEntry.Kind.PLAYER_NAME ? a.value().equalsIgnoreCase(b.value()) : a.value().equals(b.value()));
     }
 
     /** Removes the entry at a 1-based index into the stored list, as shown by {@code target list}. */
@@ -184,6 +181,10 @@ public final class ConfigCommand {
     }
 
     private static int setFollowDistance(CommandContext<CommandSourceStack> ctx, Collection<DroneEntity> drones, int distance) throws CommandSyntaxException {
+        int max = ServerConfig.get(ServerConfig.DRONE_MAX_FOLLOW_DISTANCE);
+        if (distance > max) {
+            throw FOLLOW_DISTANCE_TOO_LARGE.create(max);
+        }
         return apply(ctx.getSource(), drones, data -> data.withConfig(data.config().withFollowDistance(distance)),
                 count -> Component.translatable(KEY + "followdistance.set", count, distance));
     }

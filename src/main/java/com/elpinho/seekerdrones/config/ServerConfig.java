@@ -33,6 +33,7 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue DRONE_TURN_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_FACING_TOLERANCE;
     public static final ModConfigSpec.IntValue DRONE_DEFAULT_FOLLOW_DISTANCE;
+    public static final ModConfigSpec.IntValue DRONE_MAX_FOLLOW_DISTANCE;
     public static final ModConfigSpec.DoubleValue DRONE_FOLLOW_HEIGHT_OFFSET;
     public static final ModConfigSpec.DoubleValue DRONE_FOLLOW_ENTER_DISTANCE;
     public static final ModConfigSpec.DoubleValue DRONE_FOLLOW_EXIT_DISTANCE;
@@ -97,6 +98,8 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_MULTI_TARGET;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_XRAY;
+    public static final ModConfigSpec.IntValue PROGRAMMING_STATION_ENERGY_CAPACITY;
+    public static final ModConfigSpec.IntValue PROGRAMMING_STATION_INSTALL_TIME;
 
     // === chargingStation ===
     public static final ModConfigSpec.IntValue CHARGING_STATION_CAPACITY;
@@ -186,7 +189,10 @@ public class ServerConfig {
                 .defineInRange("facingTolerance", 20.0, 0.0, 180.0);
         DRONE_DEFAULT_FOLLOW_DISTANCE = BUILDER
                 .comment("Default follow distance (blocks) for a new drone's base config.")
-                .defineInRange("defaultFollowDistance", 4, 1, 64);
+                .defineInRange("defaultFollowDistance", 4, 1, 48);
+        DRONE_MAX_FOLLOW_DISTANCE = BUILDER
+                .comment("Largest follow distance (blocks) the Programming Station and the debug command accept.")
+                .defineInRange("maxFollowDistance", 48, 1, 48);
         DRONE_FOLLOW_HEIGHT_OFFSET = BUILDER
                 .comment("Minimum height (blocks) above the target's eyes while following.")
                 .defineInRange("followHeightOffset", 1.5, 0.0, 16.0);
@@ -304,6 +310,12 @@ public class ServerConfig {
         PROGRAMMING_STATION_BASE_COST_MULTI_TARGET = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("multiTarget", 10_000, 0, Integer.MAX_VALUE);
         PROGRAMMING_STATION_BASE_COST_XRAY = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("xray", 10_000, 0, Integer.MAX_VALUE);
         BUILDER.pop();
+        PROGRAMMING_STATION_ENERGY_CAPACITY = BUILDER
+                .comment("FE a Programming Station can store.")
+                .defineInRange("energyCapacity", 200_000, 1, Integer.MAX_VALUE);
+        PROGRAMMING_STATION_INSTALL_TIME = BUILDER
+                .comment("Ticks one upgrade install step takes. Its FE cost is spent evenly over this time.")
+                .defineInRange("installTime", 20, 1, Integer.MAX_VALUE);
         BUILDER.pop(); // programmingStation
 
         BUILDER.push("chargingStation");

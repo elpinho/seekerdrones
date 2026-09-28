@@ -15,16 +15,16 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  * Drone upgrade types (DESIGN.md section 4).
  */
 public enum UpgradeType implements StringRepresentable {
-    PATROL("patrol", ServerConfig.UPGRADES_PATROL_MAX_COUNT),
-    SIGHT("sight", ServerConfig.UPGRADES_SIGHT_MAX_COUNT),
-    EXPLOSIVE("explosive", ServerConfig.UPGRADES_EXPLOSIVE_MAX_COUNT),
-    SIREN("siren", ServerConfig.UPGRADES_SIREN_MAX_COUNT),
-    TRANSMITTER("transmitter", ServerConfig.UPGRADES_TRANSMITTER_MAX_COUNT),
-    ENERGY("energy", ServerConfig.UPGRADES_ENERGY_MAX_COUNT),
-    HEALTH("health", ServerConfig.UPGRADES_HEALTH_MAX_COUNT),
-    PLAYER_SEEK("player_seek", ServerConfig.UPGRADES_PLAYER_SEEK_MAX_COUNT),
-    MULTI_TARGET("multi_target", ServerConfig.UPGRADES_MULTI_TARGET_MAX_COUNT),
-    XRAY("xray", ServerConfig.UPGRADES_XRAY_MAX_COUNT);
+    PATROL("patrol", ServerConfig.UPGRADES_PATROL_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_PATROL),
+    SIGHT("sight", ServerConfig.UPGRADES_SIGHT_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_SIGHT),
+    EXPLOSIVE("explosive", ServerConfig.UPGRADES_EXPLOSIVE_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_EXPLOSIVE),
+    SIREN("siren", ServerConfig.UPGRADES_SIREN_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_SIREN),
+    TRANSMITTER("transmitter", ServerConfig.UPGRADES_TRANSMITTER_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_TRANSMITTER),
+    ENERGY("energy", ServerConfig.UPGRADES_ENERGY_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_ENERGY),
+    HEALTH("health", ServerConfig.UPGRADES_HEALTH_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_HEALTH),
+    PLAYER_SEEK("player_seek", ServerConfig.UPGRADES_PLAYER_SEEK_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK),
+    MULTI_TARGET("multi_target", ServerConfig.UPGRADES_MULTI_TARGET_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_MULTI_TARGET),
+    XRAY("xray", ServerConfig.UPGRADES_XRAY_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_XRAY);
 
     public static final StringRepresentable.EnumCodec<UpgradeType> CODEC = StringRepresentable.fromEnum(UpgradeType::values);
     private static final IntFunction<UpgradeType> BY_ID = ByIdMap.continuous(Enum::ordinal, values(), ByIdMap.OutOfBoundsStrategy.ZERO);
@@ -32,10 +32,12 @@ public enum UpgradeType implements StringRepresentable {
 
     private final String name;
     private final ModConfigSpec.IntValue maxCount;
+    private final ModConfigSpec.IntValue baseCost;
 
-    UpgradeType(String name, ModConfigSpec.IntValue maxCount) {
+    UpgradeType(String name, ModConfigSpec.IntValue maxCount, ModConfigSpec.IntValue baseCost) {
         this.name = name;
         this.maxCount = maxCount;
+        this.baseCost = baseCost;
     }
 
     @Override
@@ -50,5 +52,10 @@ public enum UpgradeType implements StringRepresentable {
     /** The per-type cap (section 4). */
     public int maxCount() {
         return ServerConfig.get(maxCount);
+    }
+
+    /** The Programming Station's base FE cost to install one, multiplied by the install index (section 7.2). */
+    public int baseCost() {
+        return ServerConfig.get(baseCost);
     }
 }

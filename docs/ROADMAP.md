@@ -62,8 +62,9 @@ Each milestone ends in something playable or testable. The drone and its AI come
 ### M7 — Drone Programming Station
 - Program editing: upgrade counts, targets (sized by Multi-target), patrol center, follow distance, label and color.
 - Upgrades installed one step at a time with FE costs, including the Energy upgrade's extra fill.
-- Manual upgrade removal into the refund buffer, which can push out on a configured face.
-- Auto-output once the drone matches the program.
+- Direct mode (edit the drone in the slot by hand) and Template mode (bring every inserted drone to a stored program).
+- Manual upgrade removal, refunded into the player's inventory.
+- Automation can pull the drone out once it matches the template.
 - The M4 debug upgrade command stays as an admin/testing tool.
 - **Done when:** a drone fed in by automation comes out programmed and upgraded exactly as configured.
 
@@ -82,6 +83,6 @@ Each milestone ends in something playable or testable. The drone and its AI come
 
 ## Post-v1 — outlook only, DO NOT IMPLEMENT YET
 
-- **v1.x — Quality of life:** final recipes and balance, server-safety configs, automatic upgrade removal in the Programming Station, queued Transmitter notifications, charging stations for multiple drones.
+- **v1.x — Quality of life:** final recipes and balance, server-safety configs, queued Transmitter notifications, charging stations for multiple drones.
 - **v2 — Visibility:** Camera upgrade, drone dashboard with POV and a map of drone positions.
 - **v3 — Spectacle and depth:** 3×3×3 Drone Factory multiblock with animation, Target Tagger, Operator Group ownership transfer, and chunk loading (to be decided).

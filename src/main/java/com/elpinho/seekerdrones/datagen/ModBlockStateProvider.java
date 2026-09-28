@@ -24,5 +24,11 @@ public class ModBlockStateProvider extends BlockStateProvider {
                 ResourceLocation.withDefaultNamespace("block/crafter_east"),
                 ResourceLocation.withDefaultNamespace("block/crafter_bottom"),
                 ResourceLocation.withDefaultNamespace("block/crafter_top")));
+        horizontalBlock(ModBlocks.PROGRAMMING_STATION.get(), models().orientableWithBottom("programming_station",
+                ResourceLocation.withDefaultNamespace("block/iron_block"),
+                ResourceLocation.withDefaultNamespace("block/observer_front"),
+                ResourceLocation.withDefaultNamespace("block/smooth_stone"),
+                ResourceLocation.withDefaultNamespace("block/lodestone_top")));
+        simpleBlockItem(ModBlocks.PROGRAMMING_STATION.get(), models().getExistingFile(modLoc("block/programming_station")));
     }
 }

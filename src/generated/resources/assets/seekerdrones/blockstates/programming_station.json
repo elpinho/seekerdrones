@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=east": {
+      "model": "seekerdrones:block/programming_station",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "seekerdrones:block/programming_station"
+    },
+    "facing=south": {
+      "model": "seekerdrones:block/programming_station",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "seekerdrones:block/programming_station",
+      "y": 270
+    }
+  }
+}

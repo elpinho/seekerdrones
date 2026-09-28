@@ -22,5 +22,10 @@ public final class ModCapabilities {
                 (factory, side) -> factory.getFluidHandler());
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.DRONE_FACTORY.get(),
                 (factory, side) -> factory.getAutomationItems());
+
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.PROGRAMMING_STATION.get(),
+                (station, side) -> station.getEnergyStorage());
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.PROGRAMMING_STATION.get(),
+                (station, side) -> station.getAutomationItems());
     }
 }

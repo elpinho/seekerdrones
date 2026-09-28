@@ -7,6 +7,7 @@ import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.UpgradeItem;
 import com.elpinho.seekerdrones.drone.UpgradeType;
+import com.elpinho.seekerdrones.programming.ProgrammingStationItem;
 
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
@@ -20,6 +21,8 @@ public class ModItems {
 
     public static final DeferredItem<BlockItem> CHARGING_STATION = ITEMS.registerSimpleBlockItem(ModBlocks.CHARGING_STATION);
     public static final DeferredItem<BlockItem> DRONE_FACTORY = ITEMS.registerSimpleBlockItem(ModBlocks.DRONE_FACTORY);
+    public static final DeferredItem<ProgrammingStationItem> PROGRAMMING_STATION = ITEMS.register("programming_station",
+            () -> new ProgrammingStationItem(ModBlocks.PROGRAMMING_STATION.get(), new Item.Properties()));
 
     // Intermediate components (DESIGN.md section 7.5).
     public static final DeferredItem<Item> DRONE_ROTOR = ITEMS.registerSimpleItem("drone_rotor");

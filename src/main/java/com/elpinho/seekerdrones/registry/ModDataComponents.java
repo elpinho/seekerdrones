@@ -2,6 +2,7 @@ package com.elpinho.seekerdrones.registry;
 
 import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.drone.DroneData;
+import com.elpinho.seekerdrones.programming.ProgrammingStationSettings;
 
 import java.util.UUID;
 
@@ -29,4 +30,12 @@ public class ModDataComponents {
                     .persistent(UUIDUtil.CODEC)
                     .networkSynchronized(UUIDUtil.STREAM_CODEC)
                     .build());
+
+    /** The mode and template a broken Programming Station keeps on its item (DESIGN.md section 7.2). */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<ProgrammingStationSettings>> PROGRAMMING_STATION =
+            DATA_COMPONENT_TYPES.register("programming_station",
+                    () -> DataComponentType.<ProgrammingStationSettings>builder()
+                            .persistent(ProgrammingStationSettings.CODEC)
+                            .networkSynchronized(ProgrammingStationSettings.STREAM_CODEC)
+                            .build());
 }

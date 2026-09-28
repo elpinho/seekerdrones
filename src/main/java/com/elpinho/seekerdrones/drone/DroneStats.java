@@ -38,7 +38,12 @@ public final class DroneStats {
 
     /** How many target entries the drone actually uses (section 2.7 runtime fail-safe). */
     public static int allowedTargetCount(DroneData data) {
-        long count = 1L + (long) data.upgradeCount(UpgradeType.MULTI_TARGET) * ServerConfig.get(ServerConfig.UPGRADES_MULTI_TARGET_PER_UPGRADE);
+        return allowedTargetCount(data.upgradeCount(UpgradeType.MULTI_TARGET));
+    }
+
+    /** Target slots for a Multi-target count (section 2.7): {@code 1 + count × perUpgrade}. */
+    public static int allowedTargetCount(int multiTargetCount) {
+        long count = 1L + (long) multiTargetCount * ServerConfig.get(ServerConfig.UPGRADES_MULTI_TARGET_PER_UPGRADE);
         return (int) Math.min(count, Integer.MAX_VALUE);
     }
 
@@ -71,7 +76,11 @@ public final class DroneStats {
 
     /** The largest patrol radius the Patrol upgrades allow (section 3.2): {@code base + perUpgrade × (count − 1)}. */
     public static int maxPatrolRadius(DroneData data) {
-        int count = data.upgradeCount(UpgradeType.PATROL);
+        return maxPatrolRadius(data.upgradeCount(UpgradeType.PATROL));
+    }
+
+    /** The largest patrol radius for a Patrol upgrade count. */
+    public static int maxPatrolRadius(int count) {
         long max = ServerConfig.get(ServerConfig.UPGRADES_PATROL_BASE_RADIUS)
                 + (long) ServerConfig.get(ServerConfig.UPGRADES_PATROL_PER_UPGRADE_RADIUS) * Math.max(0, count - 1);
         return (int) Math.min(max, Integer.MAX_VALUE);

@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "C": {
+      "item": "minecraft:comparator"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "O": {
+      "item": "minecraft:observer"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "S": {
+      "item": "seekerdrones:seeker_core"
+    }
+  },
+  "pattern": [
+    "IOI",
+    "RSR",
+    "ICI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "seekerdrones:programming_station"
+  }
+}

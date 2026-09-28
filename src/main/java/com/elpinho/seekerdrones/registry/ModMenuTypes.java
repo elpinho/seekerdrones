@@ -2,6 +2,7 @@ package com.elpinho.seekerdrones.registry;
 
 import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.factory.DroneFactoryMenu;
+import com.elpinho.seekerdrones.programming.ProgrammingStationMenu;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.inventory.MenuType;
@@ -15,4 +16,6 @@ public class ModMenuTypes {
 
     public static final DeferredHolder<MenuType<?>, MenuType<DroneFactoryMenu>> DRONE_FACTORY =
             MENU_TYPES.register("drone_factory", () -> IMenuTypeExtension.create(DroneFactoryMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<ProgrammingStationMenu>> PROGRAMMING_STATION =
+            MENU_TYPES.register("programming_station", () -> IMenuTypeExtension.create(ProgrammingStationMenu::new));
 }

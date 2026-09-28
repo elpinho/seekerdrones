@@ -30,6 +30,13 @@ public class ModBlockLootProvider extends BlockLootSubProvider {
                 .add(LootItem.lootTableItem(factory)
                         .apply(CopyComponentsFunction.copyComponents(CopyComponentsFunction.Source.BLOCK_ENTITY)
                                 .include(ModDataComponents.OPERATOR_GROUP.get()))))));
+        // The Programming Station item keeps its mode and template (DESIGN.md section 7.2).
+        Block programmingStation = ModBlocks.PROGRAMMING_STATION.get();
+        add(programmingStation, LootTable.lootTable().withPool(applyExplosionCondition(programmingStation, LootPool.lootPool()
+                .setRolls(ConstantValue.exactly(1))
+                .add(LootItem.lootTableItem(programmingStation)
+                        .apply(CopyComponentsFunction.copyComponents(CopyComponentsFunction.Source.BLOCK_ENTITY)
+                                .include(ModDataComponents.PROGRAMMING_STATION.get()))))));
     }
 
     @Override

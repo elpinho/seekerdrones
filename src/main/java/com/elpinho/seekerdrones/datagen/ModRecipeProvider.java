@@ -80,6 +80,19 @@ public class ModRecipeProvider extends RecipeProvider {
                 .unlockedBy(getHasName(Items.REDSTONE_BLOCK), has(Items.REDSTONE_BLOCK))
                 .save(output);
 
+        // Placeholder Programming Station recipe until the final recipes (section 11).
+        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ModItems.PROGRAMMING_STATION.get())
+                .pattern("IOI")
+                .pattern("RSR")
+                .pattern("ICI")
+                .define('I', Items.IRON_INGOT)
+                .define('O', Items.OBSERVER)
+                .define('R', Items.REDSTONE)
+                .define('S', ModItems.SEEKER_CORE.get())
+                .define('C', Items.COMPARATOR)
+                .unlockedBy(getHasName(ModItems.SEEKER_CORE.get()), has(ModItems.SEEKER_CORE.get()))
+                .save(output);
+
         buildBaseRecipes(output.withConditions(new NotCondition(new ModLoadedCondition(RepairFluid.MEKANISM))));
         buildMekanismAssembly(output.withConditions(new ModLoadedCondition(RepairFluid.MEKANISM)));
     }

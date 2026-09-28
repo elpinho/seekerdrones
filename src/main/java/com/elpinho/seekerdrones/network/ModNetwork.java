@@ -6,7 +6,7 @@ import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class ModNetwork {
-    private static final String PROTOCOL_VERSION = "2";
+    private static final String PROTOCOL_VERSION = "3";
 
     private ModNetwork() {}
 
@@ -25,5 +25,9 @@ public final class ModNetwork {
                 (payload, context) -> ClientPayloadHandlers.handleFactoryOperators(payload));
         registrar.playToServer(EditFactoryOperatorsPayload.TYPE, EditFactoryOperatorsPayload.STREAM_CODEC,
                 EditFactoryOperatorsPayload::handle);
+        registrar.playToClient(ProgramTemplatePayload.TYPE, ProgramTemplatePayload.STREAM_CODEC,
+                (payload, context) -> ClientPayloadHandlers.handleProgramTemplate(payload));
+        registrar.playToServer(EditProgramPayload.TYPE, EditProgramPayload.STREAM_CODEC,
+                EditProgramPayload::handle);
     }
 }
