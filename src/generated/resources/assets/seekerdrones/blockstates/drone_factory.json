@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "seekerdrones:block/drone_factory"
+    }
+  }
+}

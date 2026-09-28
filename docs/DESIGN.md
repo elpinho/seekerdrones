@@ -242,7 +242,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 - Each Charging Station charges **one drone at a time**. A drone claims the station once it is within a few blocks of it and renews the claim every tick until it is done. A claim that isn't renewed (the drone was picked up, destroyed or unloaded) lapses after a second.
 - If the chosen station is busy, the drone checks for another free usable station within 10 blocks of it and goes there. If there is none, it waits by hovering very close to the busy station.
-- While docked, the drone also regains `chargingStation.healPerTick` HP per tick, up to its max HP. Healing costs no FE, but only happens while the station has FE stored. Charging finishes when the drone is at full energy **and** full health.
+- While docked, the drone also regains `chargingStation.healPerTick` HP per tick, up to its max HP. Healing costs no FE, but only happens while the station has FE stored **and** repair fluid in its tank (section 7.4). It drains `chargingStation.repairFluidPerHp` mB per HP restored. Fractional mB carry over between ticks, so the tank is always drained in whole mB. Charging finishes when the drone is at full energy **and** either full health or the station's repair fluid tank is empty. A drone is never held just to wait for repair fluid: it leaves damaged.
 - A docked drone has no hover drain. If the station runs out of FE, the drone stays docked and waits, charging again as soon as FE arrives.
 - When charging finishes, the drone returns to its patrol center and resumes patrolling, or hovers if it has no Patrol upgrade. A drone without a Patrol upgrade returns to where it was when it left.
 
@@ -256,6 +256,7 @@ Drone Operators control who can interact with drones. A drone's operators come f
 
 - Each **Drone Factory** owns one **Operator Group**. The group is stored in world saved data (section 8.3) under a unique group ID.
 - The **group owner** is the player who first placed the Factory. The owner is always an operator.
+- A Factory placed without a player (e.g. by a command or a block placer) and without a group ID on its item has **no group**. Its drones are then built with no group, so they are unowned (section 6.3).
 - Only the **group owner** can edit the operator list, from the Factory GUI. Operators are added by player name, which is resolved to a UUID, and stored by UUID.
 - Every drone built by a Factory records that Factory's **group ID**. Permissions are checked against the group's **current** membership, so changes to the list apply at once to all existing drones, including revoking access.
 - Breaking the Factory **does not delete the group**. The Factory item keeps the group ID in a data component, so placing it again reconnects to the same group.
@@ -303,9 +304,12 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 
 - v1 is a **single block**.
 - It consumes **items + fluid + FE** over a processing time to build one Drone.
-- Recipes use a custom, data-driven recipe type `seekerdrones:drone_assembly`, which defines item ingredients, a fluid ingredient and amount, total FE and processing time. The materials and the fluid are TBD.
+- Recipes use a custom, data-driven recipe type `seekerdrones:drone_assembly`, which defines item ingredients (with counts), a fluid ingredient and amount, total FE and processing time. The shipped recipes are in section 7.5.
+- Buffers: `factory.energyCapacity` FE and a fluid tank of `factory.tankCapacity` mB. The tank accepts any fluid; recipe matching decides whether it is used.
 - The output drone is **fully charged** at base capacity, has no upgrades and has default config. It is linked to this Factory's Operator Group and gets a new persistent drone ID.
 - The GUI has input slots, a fluid tank, an energy bar, progress, an output slot and an **Operator list** tab (owner only).
+- **Operation:** six input slots and one output slot. Automation can only insert into the inputs and only extract from the output. The tank accepts fluid on every side and can also be filled or emptied with a bucket. The recipe is looked up again only when the inputs, the tank or the loaded recipes change. FE is spent evenly over the processing time and the build pauses while FE runs short. Items and fluid are taken only when the drone is done. A build only runs while the output slot is empty. If the inputs stop matching the recipe, progress resets and the FE already spent is lost.
+- The Operator list adds players by name. Only players who are online or who have joined the server before (its profile cache) can be added.
 
 ### 7.2 Drone Programming Station
 
@@ -338,14 +342,58 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 
 ### 7.4 Drone Charging Station
 
-- It accepts FE and charges one docked drone at a time at a configurable FE/tick rate. It also restores the docked drone's HP (section 5.3).
+- It accepts FE and charges one docked drone at a time at a configurable FE/tick rate. It also restores the docked drone's HP using **repair fluid** (section 5.3).
+- It has a fluid tank (`chargingStation.tankCapacity`), fillable with a bucket or by pipes, that only accepts the repair fluid: **Ethene** (fluid tag `c:ethene`) when Mekanism is loaded, otherwise **Lava**. The choice is made in code at startup, never both (section 7.5).
 - It records its placer's UUID and registers itself in the station registry on placement. It unregisters when broken.
 - Drone docking and queuing follow section 5.3.
 - **GUI:** right-clicking the station opens a read-only status screen. Anyone can open it, since stations have no access control in v1 (section 6.2). It refreshes about once a second and shows:
   - **Status:** Idle, Drone docking (a drone has claimed the station but hasn't docked yet), Charging, Repairing (full energy, still healing), or Out of power (a drone is docked but the station has 0 FE).
   - The station's **stored FE / capacity** with a bar, and its **charge rate** (`chargingStation.chargeRate` FE/t).
+  - The **repair fluid** stored / tank capacity with a bar, labeled with the fluid's name.
   - The **owner** (the placer's name), or "None" if a non-player placed it. This decides which drones may use the station (section 5.2).
   - The **drone** holding the station: its label and ID in its color, and its energy and health, each with a bar. "None" if no drone holds it.
+
+### 7.5 Materials and recipes
+
+Drones are a **mid-late game** item. Recipes use `c:` common tags wherever possible, so materials from any mod work. Several recipes have two variants: a **base** variant (vanilla materials) and a **Mekanism** variant. The variants are **exclusive**: the base one carries the condition `neoforge:not(neoforge:mod_loaded mekanism)` and the Mekanism one `neoforge:mod_loaded mekanism`, so only one is ever loaded. Mekanism is never a code dependency. Modpacks can override any recipe with a datapack.
+
+**Intermediate components** (plain shaped crafting recipes, both variants):
+
+| Item | Base | Mekanism |
+|---|---|---|
+| **Drone Rotor** `seekerdrones:drone_rotor` | 1 Phantom Membrane, 2 `c:ingots/iron`, 1 `c:dusts/redstone` | 1 Phantom Membrane, 2 `c:ingots/steel`, 1 HDPE Sheet (`mekanism:hdpe_sheet`) |
+| **Seeker Core** `seekerdrones:seeker_core` | 1 Eye of Ender, 1 Observer, 2 `c:gems/diamond`, 1 `c:storage_blocks/redstone` | 1 Eye of Ender, 1 Observer, 2 `c:gems/diamond`, 1 `c:circuits/elite` |
+
+Patterns (`M` = Phantom Membrane, `I`/`S` = iron/steel ingot, `R` = redstone dust, `H` = HDPE Sheet; `O` = Observer, `D` = Diamond, `E` = Eye of Ender, `B` = Redstone Block, `C` = elite circuit):
+
+```
+Rotor:  I M I  /  S M S        Seeker Core:   . O .
+        . R .  /  . H .                       D E D
+                                              . B .  /  . C .
+```
+
+**Drone Factory block** (shaped crafting):
+
+```
+Base:           Mekanism:
+D R D           A C A      D = Diamond, R = Redstone Block, I = Iron Block
+I C I           D S D      C = Crafter, P = Piston
+D P D           A P A      A = Atomic Alloy (mekanism:alloy_atomic), S = Steel Casing (mekanism:steel_casing)
+```
+
+**Drone assembly** (`seekerdrones:drone_assembly`, in the Factory):
+
+| | Base | Mekanism |
+|---|---|---|
+| Items | 4 Drone Rotor, 1 Seeker Core, 4 `c:ingots/iron` | 4 Drone Rotor, 1 Seeker Core, 4 `c:ingots/steel`, 2 Atomic Alloy |
+| Fluid | 1000 mB Lava | 500 mB Ethene (`c:ethene`) |
+| FE / time | 50 000 FE / 200 ticks | 100 000 FE / 300 ticks |
+
+The FE and time values are placeholders in the recipe JSON (they are recipe data, not server config).
+
+**Repair fluid** for the Charging Station (section 7.4) follows the same split: Ethene with Mekanism, Lava without.
+
+Upgrade and Charging Station recipes stay placeholders until the balance pass (section 11).
 
 ---
 
@@ -448,6 +496,10 @@ All values below are placeholders.
 | `chargingStation.capacity` | 100 000 FE | FE the station can store |
 | `chargingStation.chargeRate` | 1 000 FE/tick | |
 | `chargingStation.healPerTick` | 0.1 HP/tick | |
+| `chargingStation.tankCapacity` | 4 000 mB | Repair fluid tank |
+| `chargingStation.repairFluidPerHp` | 10 mB | Repair fluid used per HP restored |
+| `factory.energyCapacity` | 200 000 FE | |
+| `factory.tankCapacity` | 4 000 mB | |
 | `deployingStation.energyPerDeploy` | 5 000 FE | |
 
 ---
@@ -472,4 +524,4 @@ These are agreed ideas for later versions. **Do not implement, stub or scaffold 
 - **Operator Group ownership transfer.**
 - **Automatic upgrade removal** by the Programming Station program (removing upgrades beyond the programmed counts). v1 only supports manual removal.
 - Charging Stations that charge more than one drone at a time.
-- Final upgrade/factory recipes and materials (TBD, balancing pass).
+- Final upgrade and Charging Station recipes and materials (TBD, balancing pass). The Factory, component and drone assembly recipes are decided (section 7.5).

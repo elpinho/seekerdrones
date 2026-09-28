@@ -23,6 +23,9 @@ public class ModLanguageProvider extends LanguageProvider {
         addItem(ModItems.DRONE, "Drone");
         addEntityType(ModEntityTypes.DRONE, "Drone");
         addBlock(ModBlocks.CHARGING_STATION, "Drone Charging Station");
+        addBlock(ModBlocks.DRONE_FACTORY, "Drone Factory");
+        addItem(ModItems.DRONE_ROTOR, "Drone Rotor");
+        addItem(ModItems.SEEKER_CORE, "Seeker Core");
 
         add("tooltip.seekerdrones.drone.unassigned", "Unassigned");
         add("tooltip.seekerdrones.drone.owner", "Owner: %s");
@@ -91,6 +94,23 @@ public class ModLanguageProvider extends LanguageProvider {
 
         add("screen.seekerdrones.charging_station", "Drone Charging Station");
         add("screen.seekerdrones.charging_station.status", "Status:");
+        add("screen.seekerdrones.charging_station.repair_fluid", "Repair fluid:");
+        add("screen.seekerdrones.charging_station.repair_fluid_value", "%s %s / %s mB");
+
+        add("screen.seekerdrones.drone_factory.operators", "Operators");
+        add("screen.seekerdrones.drone_factory.empty", "Empty");
+        add("screen.seekerdrones.drone_factory.fluid_value", "%s / %s mB");
+        add("screen.seekerdrones.drone_factory.progress_value", "%s%%");
+        add("screen.seekerdrones.drone_factory.operators.title", "Drone Factory Operators");
+        add("screen.seekerdrones.drone_factory.operators.none", "No operators besides you.");
+        add("screen.seekerdrones.drone_factory.operators.name", "Player name");
+        add("screen.seekerdrones.drone_factory.operators.add", "Add");
+        add("screen.seekerdrones.drone_factory.operators.remove", "Remove");
+        add("screen.seekerdrones.drone_factory.operators.added", "Added %s.");
+        add("screen.seekerdrones.drone_factory.operators.removed", "Removed %s.");
+        add("screen.seekerdrones.drone_factory.operators.unknown_player", "Unknown player: %s");
+        add("screen.seekerdrones.drone_factory.operators.already_operator", "%s is already an operator.");
+        add("screen.seekerdrones.drone_factory.operators.not_operator", "%s is not an operator.");
         add("screen.seekerdrones.charging_station.energy", "Energy:");
         add("screen.seekerdrones.charging_station.charge_rate", "Charge rate:");
         add("screen.seekerdrones.charging_station.charge_rate_value", "%s FE/t");

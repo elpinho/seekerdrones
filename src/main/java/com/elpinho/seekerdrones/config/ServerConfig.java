@@ -101,6 +101,11 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue CHARGING_STATION_CAPACITY;
     public static final ModConfigSpec.IntValue CHARGING_STATION_CHARGE_RATE;
     public static final ModConfigSpec.DoubleValue CHARGING_STATION_HEAL_PER_TICK;
+    public static final ModConfigSpec.IntValue CHARGING_STATION_TANK_CAPACITY;
+    public static final ModConfigSpec.IntValue CHARGING_STATION_REPAIR_FLUID_PER_HP;
+
+    public static final ModConfigSpec.IntValue FACTORY_ENERGY_CAPACITY;
+    public static final ModConfigSpec.IntValue FACTORY_TANK_CAPACITY;
 
     // === deployingStation ===
     public static final ModConfigSpec.IntValue DEPLOYING_STATION_ENERGY_PER_DEPLOY;
@@ -307,6 +312,21 @@ public class ServerConfig {
         CHARGING_STATION_HEAL_PER_TICK = BUILDER
                 .comment("HP/tick a Charging Station restores to its docked drone.")
                 .defineInRange("healPerTick", 0.1, 0.0, 1024.0);
+        CHARGING_STATION_TANK_CAPACITY = BUILDER
+                .comment("mB of repair fluid a Charging Station can store.")
+                .defineInRange("tankCapacity", 4_000, 1, Integer.MAX_VALUE);
+        CHARGING_STATION_REPAIR_FLUID_PER_HP = BUILDER
+                .comment("mB of repair fluid used per HP restored. 0 makes healing free and not need any fluid.")
+                .defineInRange("repairFluidPerHp", 10, 0, Integer.MAX_VALUE);
+        BUILDER.pop();
+
+        BUILDER.push("factory");
+        FACTORY_ENERGY_CAPACITY = BUILDER
+                .comment("FE a Drone Factory can store.")
+                .defineInRange("energyCapacity", 200_000, 1, Integer.MAX_VALUE);
+        FACTORY_TANK_CAPACITY = BUILDER
+                .comment("mB of fluid a Drone Factory can store.")
+                .defineInRange("tankCapacity", 4_000, 1, Integer.MAX_VALUE);
         BUILDER.pop();
 
         BUILDER.push("deployingStation");

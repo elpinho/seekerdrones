@@ -22,7 +22,9 @@
 param(
     [string]$Task = "runServer",
     [int]$TimeoutSeconds = 180,
-    [string]$DoneMarker = "Done \("
+    [string]$DoneMarker = "Done \(",
+    # Extra Gradle arguments, e.g. -GradleArgs '-PwithMekanism' to boot with Mekanism.
+    [string[]]$GradleArgs = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,7 +52,7 @@ function Stop-GameProcesses($gradleProcess) {
 }
 
 Write-Host "Starting 'gradlew $Task' (log: $logFile)..."
-$gradle = Start-Process -FilePath "$repoRoot\gradlew.bat" -ArgumentList @($Task, "--console=plain") `
+$gradle = Start-Process -FilePath "$repoRoot\gradlew.bat" -ArgumentList (@($Task, "--console=plain") + $GradleArgs) `
     -RedirectStandardOutput $logFile -RedirectStandardError "$logFile.err" -PassThru -WindowStyle Hidden
 
 $booted = $false

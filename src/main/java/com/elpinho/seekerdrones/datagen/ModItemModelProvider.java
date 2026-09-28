@@ -21,6 +21,9 @@ public class ModItemModelProvider extends ItemModelProvider {
                 .texture("layer0", modLoc("item/drone"))
                 .texture("layer1", modLoc("item/drone_tint"));
 
+        basicItem(modLoc("drone_rotor"));
+        basicItem(modLoc("seeker_core"));
+
         for (UpgradeType type : UpgradeType.values()) {
             basicItem(modLoc(UpgradeItem.itemName(type)));
         }

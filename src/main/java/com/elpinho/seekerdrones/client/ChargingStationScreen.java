@@ -36,6 +36,7 @@ public class ChargingStationScreen extends Screen {
     private static final int BAR_BACKGROUND_COLOR = 0xFF2A2A38;
     private static final int ENERGY_BAR_COLOR = 0xFFD83A2E;
     private static final int HEALTH_BAR_COLOR = 0xFF3FB950;
+    private static final int FLUID_BAR_COLOR = 0xFFE07A1A;
 
     /** A line of text, optionally with a fill bar under it ({@code fill} below 0 means no bar). */
     private record Row(Component text, float fill, int barColor) {
@@ -74,6 +75,9 @@ public class ChargingStationScreen extends Screen {
         rows.add(new Row(field("energy", Component.translatable("screen.seekerdrones.drone_status.energy_value", status.energy(), status.capacity())),
                 fraction(status.energy(), status.capacity()), ENERGY_BAR_COLOR));
         rows.add(Row.text(field("charge_rate", Component.translatable("screen.seekerdrones.charging_station.charge_rate_value", status.chargeRate()))));
+        rows.add(new Row(field("repair_fluid", Component.translatable("screen.seekerdrones.charging_station.repair_fluid_value",
+                status.fluid().getFluidType().getDescription(), status.fluidAmount(), status.tankCapacity())),
+                fraction(status.fluidAmount(), status.tankCapacity()), FLUID_BAR_COLOR));
         rows.add(Row.text(field("owner", status.ownerName().isEmpty()
                 ? Component.translatable("screen.seekerdrones.drone_status.none")
                 : Component.literal(status.ownerName()))));

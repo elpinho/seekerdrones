@@ -19,6 +19,11 @@ public class ModItems {
     public static final DeferredItem<DroneItem> DRONE = ITEMS.register("drone", () -> new DroneItem(new Item.Properties().stacksTo(1)));
 
     public static final DeferredItem<BlockItem> CHARGING_STATION = ITEMS.registerSimpleBlockItem(ModBlocks.CHARGING_STATION);
+    public static final DeferredItem<BlockItem> DRONE_FACTORY = ITEMS.registerSimpleBlockItem(ModBlocks.DRONE_FACTORY);
+
+    // Intermediate components (DESIGN.md section 7.5).
+    public static final DeferredItem<Item> DRONE_ROTOR = ITEMS.registerSimpleItem("drone_rotor");
+    public static final DeferredItem<Item> SEEKER_CORE = ITEMS.registerSimpleItem("seeker_core");
 
     public static final Map<UpgradeType, DeferredItem<UpgradeItem>> UPGRADES = registerUpgrades();
 

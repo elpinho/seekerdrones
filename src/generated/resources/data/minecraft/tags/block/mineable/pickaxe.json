@@ -1,5 +1,6 @@
 {
   "values": [
-    "seekerdrones:charging_station"
+    "seekerdrones:charging_station",
+    "seekerdrones:drone_factory"
   ]
 }

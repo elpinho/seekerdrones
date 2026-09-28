@@ -1,6 +1,8 @@
 package com.elpinho.seekerdrones.client;
 
+import com.elpinho.seekerdrones.factory.DroneFactoryMenu;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
+import com.elpinho.seekerdrones.network.FactoryOperatorsPayload;
 import com.elpinho.seekerdrones.network.StationStatusPayload;
 
 import net.minecraft.client.Minecraft;
@@ -23,6 +25,16 @@ public final class ClientPayloadHandlers {
             minecraft.setScreen(new ChargingStationScreen(payload));
         } else if (minecraft.screen instanceof ChargingStationScreen screen && screen.getPos().equals(payload.pos())) {
             screen.update(payload);
+        }
+    }
+
+    public static void handleFactoryOperators(FactoryOperatorsPayload payload) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player != null && minecraft.player.containerMenu instanceof DroneFactoryMenu menu && menu.containerId == payload.containerId()) {
+            menu.setOperators(payload);
+            if (minecraft.screen instanceof FactoryOperatorsScreen screen) {
+                screen.update(payload);
+            }
         }
     }
 }

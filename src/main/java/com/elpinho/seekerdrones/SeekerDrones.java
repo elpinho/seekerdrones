@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import com.elpinho.seekerdrones.command.SeekerDronesCommand;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
+import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.network.ModNetwork;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModBlocks;
@@ -23,6 +24,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 @Mod(SeekerDrones.MODID)
@@ -49,6 +51,12 @@ public class SeekerDrones {
         modEventBus.addListener(ModNetwork::registerPayloads);
         modEventBus.addListener(SeekerDronesDataGenerators::gatherData);
 
+        // A null player means a /reload for everyone, so Factories must look their recipes up again.
+        NeoForge.EVENT_BUS.addListener((OnDatapackSyncEvent event) -> {
+            if (event.getPlayer() == null) {
+                DroneFactoryBlockEntity.onRecipesReloaded();
+            }
+        });
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> SeekerDronesCommand.register(event.getDispatcher(), event.getBuildContext()));
 
         LOGGER.info("Seeker Drones initializing");

@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.registry;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.factory.DroneFactoryBlock;
 import com.elpinho.seekerdrones.station.ChargingStationBlock;
 
 import net.minecraft.world.level.block.SoundType;
@@ -16,6 +17,13 @@ public class ModBlocks {
             () -> new ChargingStationBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.METAL)
                     .strength(3.5F, 6.0F)
+                    .requiresCorrectToolForDrops()
+                    .sound(SoundType.METAL)));
+
+    public static final DeferredBlock<DroneFactoryBlock> DRONE_FACTORY = BLOCKS.register("drone_factory",
+            () -> new DroneFactoryBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(5.0F, 6.0F)
                     .requiresCorrectToolForDrops()
                     .sound(SoundType.METAL)));
 }

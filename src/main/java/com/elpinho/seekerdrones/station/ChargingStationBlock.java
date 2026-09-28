@@ -11,7 +11,9 @@ import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -21,6 +23,7 @@ import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
+import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
@@ -68,6 +71,18 @@ public class ChargingStationBlock extends BaseEntityBlock {
             station.setOwner(player.getUUID());
             ChargingStationRegistry.get(serverLevel).add(pos, Optional.of(player.getUUID()));
         }
+    }
+
+    /** Buckets and other fluid containers fill the repair fluid tank. */
+    @Override
+    protected ItemInteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player, InteractionHand hand,
+            BlockHitResult hitResult) {
+        if (FluidUtil.getFluidHandler(stack).isPresent()) {
+            return FluidUtil.interactWithFluidHandler(player, hand, level, pos, hitResult.getDirection())
+                    ? ItemInteractionResult.sidedSuccess(level.isClientSide())
+                    : ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+        }
+        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
     }
 
     /** Opens the read-only status screen. Anyone may look: stations have no access control in v1 (section 6.2). */

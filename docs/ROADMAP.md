@@ -52,6 +52,8 @@ Each milestone ends in something playable or testable. The drone and its AI come
 
 ### M6 — Drone Factory
 - Single-block machine taking items, fluid and FE, with the `seekerdrones:drone_assembly` recipe type.
+- Intermediate components (Drone Rotor, Seeker Core) and the Factory block, with exclusive base / Mekanism recipe variants (DESIGN.md §7.5).
+- Charging Station repair fluid: a tank taking Lava, or Ethene with Mekanism, that healing now consumes (DESIGN.md §5.3, §7.4).
 - Output drones are fully charged, get a new drone ID and are linked to the Factory's Operator Group.
 - The GUI has an Operator list tab (owner only), and the Factory item keeps its group ID when broken.
 - The M2 debug group command stays as an admin/testing tool.

@@ -1,0 +1,30 @@
+{
+  "type": "minecraft:block",
+  "pools": [
+    {
+      "bonus_rolls": 0.0,
+      "conditions": [
+        {
+          "condition": "minecraft:survives_explosion"
+        }
+      ],
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "functions": [
+            {
+              "function": "minecraft:copy_components",
+              "include": [
+                "seekerdrones:operator_group"
+              ],
+              "source": "block_entity"
+            }
+          ],
+          "name": "seekerdrones:drone_factory"
+        }
+      ],
+      "rolls": 1.0
+    }
+  ],
+  "random_sequence": "seekerdrones:blocks/drone_factory"
+}

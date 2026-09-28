@@ -6,12 +6,14 @@ import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
 import com.elpinho.seekerdrones.registry.ModItems;
+import com.elpinho.seekerdrones.registry.ModMenuTypes;
 
 import net.minecraft.util.FastColor;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 
 @Mod(value = SeekerDrones.MODID, dist = Dist.CLIENT)
@@ -23,6 +25,11 @@ public class SeekerDronesClient {
         modEventBus.addListener(SeekerDronesClient::registerRenderers);
         modEventBus.addListener(SeekerDronesClient::registerLayerDefinitions);
         modEventBus.addListener(SeekerDronesClient::registerItemColors);
+        modEventBus.addListener(SeekerDronesClient::registerScreens);
+    }
+
+    private static void registerScreens(RegisterMenuScreensEvent event) {
+        event.register(ModMenuTypes.DRONE_FACTORY.get(), DroneFactoryScreen::new);
     }
 
     private static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {

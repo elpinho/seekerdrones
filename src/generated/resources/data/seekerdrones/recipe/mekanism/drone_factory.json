@@ -1,0 +1,36 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "mekanism"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "A": {
+      "tag": "c:alloys/ultimate"
+    },
+    "C": {
+      "item": "minecraft:crafter"
+    },
+    "D": {
+      "tag": "c:gems/diamond"
+    },
+    "P": {
+      "item": "minecraft:piston"
+    },
+    "S": {
+      "item": "mekanism:steel_casing"
+    }
+  },
+  "pattern": [
+    "ACA",
+    "DSD",
+    "APA"
+  ],
+  "result": {
+    "count": 1,
+    "id": "seekerdrones:drone_factory"
+  }
+}

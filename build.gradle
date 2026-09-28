@@ -20,6 +20,11 @@ group = mod_group_id
 
 repositories {
     mavenLocal()
+    maven {
+        name = 'ModMaven (Mekanism)'
+        url = 'https://modmaven.dev/'
+        content { includeGroup 'mekanism' }
+    }
 }
 
 base {
@@ -97,6 +102,12 @@ dependencies {
     // And its provides the option to then use net.minecraft as the group, and one of; client, server or joined as the module name, plus the game version as version.
     // For all intends and purposes: You can treat this dependency as if it is a normal library you would use.
     implementation "net.neoforged:neoforge:${neo_version}"
+
+    // Mekanism is optional: only its recipe variants depend on it, through load conditions (DESIGN.md section 7.5).
+    // Run the dev game with it using -PwithMekanism. It is never a published dependency.
+    if (project.hasProperty('withMekanism')) {
+        localRuntime "mekanism:Mekanism:${mekanism_version}"
+    }
 
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime

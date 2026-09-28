@@ -12,10 +12,13 @@ import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.drone.DroneState;
 import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
+import com.elpinho.seekerdrones.station.RepairFluid;
 import com.mojang.authlib.GameProfile;
 
 import io.netty.buffer.ByteBuf;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -23,22 +26,26 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.ByIdMap;
+import net.minecraft.world.level.material.Fluid;
 
 /**
  * Server to client: a snapshot of a Charging Station for its read-only screen (DESIGN.md section 7.4).
  *
  * @param open      true to open the screen, false to refresh one that is already open
+ * @param fluid     the fluid in the tank, or the repair fluid it takes if the tank is empty
  * @param ownerName the placer's name (or UUID if it can't be resolved), empty if a non-player placed the station
  * @param drone     the drone holding the station, if any
  */
-public record StationStatusPayload(BlockPos pos, boolean open, Status status, int energy, int capacity, int chargeRate, String ownerName,
-        Optional<DockedDrone> drone) implements CustomPacketPayload {
+public record StationStatusPayload(BlockPos pos, boolean open, Status status, int energy, int capacity, int chargeRate, Fluid fluid,
+        int fluidAmount, int tankCapacity, String ownerName, Optional<DockedDrone> drone) implements CustomPacketPayload {
     public static final Type<StationStatusPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "station_status"));
 
     private static final StreamCodec<ByteBuf, Optional<DockedDrone>> DRONE_CODEC = ByteBufCodecs.optional(DockedDrone.STREAM_CODEC);
 
     /** Written by hand: {@link StreamCodec#composite} only goes up to six fields. */
-    public static final StreamCodec<ByteBuf, StationStatusPayload> STREAM_CODEC = StreamCodec.of(
+    private static final StreamCodec<RegistryFriendlyByteBuf, Fluid> FLUID_CODEC = ByteBufCodecs.registry(Registries.FLUID);
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, StationStatusPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
                 BlockPos.STREAM_CODEC.encode(buf, payload.pos());
                 ByteBufCodecs.BOOL.encode(buf, payload.open());
@@ -46,6 +53,9 @@ public record StationStatusPayload(BlockPos pos, boolean open, Status status, in
                 ByteBufCodecs.VAR_INT.encode(buf, payload.energy());
                 ByteBufCodecs.VAR_INT.encode(buf, payload.capacity());
                 ByteBufCodecs.VAR_INT.encode(buf, payload.chargeRate());
+                FLUID_CODEC.encode(buf, payload.fluid());
+                ByteBufCodecs.VAR_INT.encode(buf, payload.fluidAmount());
+                ByteBufCodecs.VAR_INT.encode(buf, payload.tankCapacity());
                 ByteBufCodecs.STRING_UTF8.encode(buf, payload.ownerName());
                 DRONE_CODEC.encode(buf, payload.drone());
             },
@@ -54,6 +64,9 @@ public record StationStatusPayload(BlockPos pos, boolean open, Status status, in
                     ByteBufCodecs.BOOL.decode(buf),
                     Status.STREAM_CODEC.decode(buf),
                     ByteBufCodecs.VAR_INT.decode(buf),
+                    ByteBufCodecs.VAR_INT.decode(buf),
+                    ByteBufCodecs.VAR_INT.decode(buf),
+                    FLUID_CODEC.decode(buf),
                     ByteBufCodecs.VAR_INT.decode(buf),
                     ByteBufCodecs.VAR_INT.decode(buf),
                     ByteBufCodecs.STRING_UTF8.decode(buf),
@@ -66,8 +79,10 @@ public record StationStatusPayload(BlockPos pos, boolean open, Status status, in
                 .map(entity -> DockedDrone.of((DroneEntity) entity));
         Status status = drone.map(docked -> docked.status(station.getEnergy())).orElse(Status.IDLE);
         String ownerName = station.getOwner().map(uuid -> playerName(level.getServer(), uuid)).orElse("");
+        Fluid fluid = station.getFluid().isEmpty() ? RepairFluid.displayFluid() : station.getFluid().getFluid();
         return new StationStatusPayload(station.getBlockPos(), open, status, station.getEnergy(), station.getEnergyStorage().getMaxEnergyStored(),
-                ServerConfig.get(ServerConfig.CHARGING_STATION_CHARGE_RATE), ownerName, drone);
+                ServerConfig.get(ServerConfig.CHARGING_STATION_CHARGE_RATE), fluid, station.getFluid().getAmount(), station.getTankCapacity(),
+                ownerName, drone);
     }
 
     private static String playerName(MinecraftServer server, UUID uuid) {

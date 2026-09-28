@@ -3,6 +3,9 @@ package com.elpinho.seekerdrones.registry;
 import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.drone.DroneData;
 
+import java.util.UUID;
+
+import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -17,5 +20,13 @@ public class ModDataComponents {
             () -> DataComponentType.<DroneData>builder()
                     .persistent(DroneData.CODEC)
                     .networkSynchronized(DroneData.STREAM_CODEC)
+                    .build());
+
+    /** The Operator Group ID a broken Drone Factory keeps on its item (DESIGN.md section 6.1). */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<UUID>> OPERATOR_GROUP = DATA_COMPONENT_TYPES.register(
+            "operator_group",
+            () -> DataComponentType.<UUID>builder()
+                    .persistent(UUIDUtil.CODEC)
+                    .networkSynchronized(UUIDUtil.STREAM_CODEC)
                     .build());
 }

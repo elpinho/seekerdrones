@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.registry;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
 
 import net.minecraft.core.registries.Registries;
@@ -15,4 +16,8 @@ public class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ChargingStationBlockEntity>> CHARGING_STATION =
             BLOCK_ENTITY_TYPES.register("charging_station",
                     () -> BlockEntityType.Builder.of(ChargingStationBlockEntity::new, ModBlocks.CHARGING_STATION.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<DroneFactoryBlockEntity>> DRONE_FACTORY =
+            BLOCK_ENTITY_TYPES.register("drone_factory",
+                    () -> BlockEntityType.Builder.of(DroneFactoryBlockEntity::new, ModBlocks.DRONE_FACTORY.get()).build(null));
 }

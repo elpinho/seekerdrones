@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.registry;
 
+import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
 
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -12,5 +13,14 @@ public final class ModCapabilities {
     public static void register(RegisterCapabilitiesEvent event) {
         event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.CHARGING_STATION.get(),
                 (station, side) -> station.getEnergyStorage());
+        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, ModBlockEntities.CHARGING_STATION.get(),
+                (station, side) -> station.getFluidHandler());
+
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.DRONE_FACTORY.get(),
+                (factory, side) -> factory.getEnergyStorage());
+        event.registerBlockEntity(Capabilities.FluidHandler.BLOCK, ModBlockEntities.DRONE_FACTORY.get(),
+                (factory, side) -> factory.getFluidHandler());
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.DRONE_FACTORY.get(),
+                (factory, side) -> factory.getAutomationItems());
     }
 }

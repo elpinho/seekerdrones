@@ -16,9 +16,12 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.energy.IEnergyStorage;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
 
 /**
- * Drone Charging Station (DESIGN.md section 7.4). Stores FE and its placer's UUID, and holds a claim by the one drone
+ * Drone Charging Station (DESIGN.md section 7.4). Stores FE, repair fluid and its placer's UUID, and holds a claim by the one drone
  * it serves at a time (section 5.3). The drone does the charging: it renews its claim every tick and pulls FE from
  * here, so the station needs no ticker. A claim that isn't renewed expires, so a drone that is picked up, destroyed or
  * unloaded never blocks the station.
@@ -26,6 +29,7 @@ import net.neoforged.neoforge.energy.IEnergyStorage;
 public class ChargingStationBlockEntity extends BlockEntity {
     private static final String TAG_ENERGY = "Energy";
     private static final String TAG_OWNER = "Owner";
+    private static final String TAG_TANK = "Tank";
 
     /** A claim not renewed for this many ticks lapses. */
     private static final int CLAIM_TIMEOUT_TICKS = 20;
@@ -33,6 +37,15 @@ public class ChargingStationBlockEntity extends BlockEntity {
     private static final double DOCK_HEIGHT = 0.1;
 
     private final Energy energy = new Energy();
+    private final FluidTank tank = new FluidTank(ServerConfig.get(ServerConfig.CHARGING_STATION_TANK_CAPACITY), RepairFluid::isRepairFluid) {
+        @Override
+        protected void onContentsChanged() {
+            setChanged();
+        }
+    };
+    private final IFluidHandler fluidHandler = new FillOnlyFluidHandler();
+    /** mB already drained from the tank but not yet turned into HP, so the tank is always drained in whole mB. */
+    private double repairCredit;
     @Nullable
     private UUID owner;
 
@@ -51,6 +64,42 @@ public class ChargingStationBlockEntity extends BlockEntity {
 
     public int getEnergy() {
         return energy.stored;
+    }
+
+    /** Accepts the repair fluid on every side, never gives it out. */
+    public IFluidHandler getFluidHandler() {
+        return fluidHandler;
+    }
+
+    public FluidStack getFluid() {
+        return tank.getFluid();
+    }
+
+    public int getTankCapacity() {
+        return tank.getCapacity();
+    }
+
+    /** Whether the station can heal at all: it has repair fluid, or healing is free ({@code repairFluidPerHp} = 0). */
+    public boolean canRepair() {
+        return ServerConfig.get(ServerConfig.CHARGING_STATION_REPAIR_FLUID_PER_HP) == 0 || !tank.isEmpty() || repairCredit > 0;
+    }
+
+    /**
+     * Pays for up to {@code hp} HP of healing with repair fluid (section 5.3). Returns the HP actually paid for, which
+     * is less when the tank runs dry.
+     */
+    public float useRepairFluid(float hp) {
+        int perHp = ServerConfig.get(ServerConfig.CHARGING_STATION_REPAIR_FLUID_PER_HP);
+        if (perHp == 0 || hp <= 0) {
+            return Math.max(hp, 0);
+        }
+        double needed = (double) hp * perHp;
+        if (repairCredit < needed) {
+            repairCredit += tank.drain((int) Math.ceil(needed - repairCredit), IFluidHandler.FluidAction.EXECUTE).getAmount();
+        }
+        double paid = Math.min(needed, repairCredit);
+        repairCredit -= paid;
+        return (float) (paid / perHp);
     }
 
     /** Takes up to {@code amount} FE out of the station for the docked drone. Returns what was taken. */
@@ -116,6 +165,7 @@ public class ChargingStationBlockEntity extends BlockEntity {
     protected void saveAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.saveAdditional(tag, registries);
         tag.putInt(TAG_ENERGY, energy.stored);
+        tag.put(TAG_TANK, tank.writeToNBT(registries, new CompoundTag()));
         if (owner != null) {
             tag.putUUID(TAG_OWNER, owner);
         }
@@ -125,7 +175,46 @@ public class ChargingStationBlockEntity extends BlockEntity {
     protected void loadAdditional(CompoundTag tag, HolderLookup.Provider registries) {
         super.loadAdditional(tag, registries);
         energy.stored = Math.max(0, tag.getInt(TAG_ENERGY));
+        tank.setCapacity(ServerConfig.get(ServerConfig.CHARGING_STATION_TANK_CAPACITY));
+        tank.readFromNBT(registries, tag.getCompound(TAG_TANK));
         owner = tag.hasUUID(TAG_OWNER) ? tag.getUUID(TAG_OWNER) : null;
+    }
+
+    private class FillOnlyFluidHandler implements IFluidHandler {
+        @Override
+        public int getTanks() {
+            return 1;
+        }
+
+        @Override
+        public FluidStack getFluidInTank(int index) {
+            return tank.getFluidInTank(index);
+        }
+
+        @Override
+        public int getTankCapacity(int index) {
+            return tank.getTankCapacity(index);
+        }
+
+        @Override
+        public boolean isFluidValid(int index, FluidStack stack) {
+            return tank.isFluidValid(index, stack);
+        }
+
+        @Override
+        public int fill(FluidStack resource, FluidAction action) {
+            return tank.fill(resource, action);
+        }
+
+        @Override
+        public FluidStack drain(FluidStack resource, FluidAction action) {
+            return FluidStack.EMPTY;
+        }
+
+        @Override
+        public FluidStack drain(int maxDrain, FluidAction action) {
+            return FluidStack.EMPTY;
+        }
     }
 
     /** Accepts FE on every side, never gives it out. The capacity follows the config. */

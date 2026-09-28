@@ -20,5 +20,9 @@ public class ModBlockStateProvider extends BlockStateProvider {
                 ResourceLocation.withDefaultNamespace("block/iron_block"),
                 ResourceLocation.withDefaultNamespace("block/smooth_stone"),
                 ResourceLocation.withDefaultNamespace("block/redstone_block")));
+        simpleBlockWithItem(ModBlocks.DRONE_FACTORY.get(), models().cubeBottomTop("drone_factory",
+                ResourceLocation.withDefaultNamespace("block/crafter_east"),
+                ResourceLocation.withDefaultNamespace("block/crafter_bottom"),
+                ResourceLocation.withDefaultNamespace("block/crafter_top")));
     }
 }

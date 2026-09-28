@@ -1302,7 +1302,8 @@ public class DroneEntity extends PathfinderMob {
 
     /**
      * Docked (section 5.3): renews the claim, takes up to {@code chargingStation.chargeRate} FE per tick, and heals
-     * while the station has FE. With an empty station it waits. Done at full energy and full health.
+     * while the station has FE and repair fluid. With no FE it waits. Done at full energy and either full health or no
+     * repair fluid left: a drone is never held just to wait for fluid.
      */
     private void charge(DroneData data, @Nullable ChargingStationBlockEntity station, Vec3 dock, double distance, boolean staggered) {
         if (station == null || !station.claim(getUUID())) {
@@ -1326,11 +1327,12 @@ public class DroneEntity extends PathfinderMob {
                 data = data.withEnergy(data.energy() + taken);
                 droneData = data;
             }
-            if (getHealth() < getMaxHealth()) {
-                setHealth(Math.min(getMaxHealth(), getHealth() + ServerConfig.get(ServerConfig.CHARGING_STATION_HEAL_PER_TICK).floatValue()));
+            if (getHealth() < getMaxHealth() && station.canRepair()) {
+                float heal = Math.min(getMaxHealth() - getHealth(), ServerConfig.get(ServerConfig.CHARGING_STATION_HEAL_PER_TICK).floatValue());
+                setHealth(Math.min(getMaxHealth(), getHealth() + station.useRepairFluid(heal)));
             }
         }
-        if (data.energy() >= maxEnergy && getHealth() >= getMaxHealth()) {
+        if (data.energy() >= maxEnergy && (getHealth() >= getMaxHealth() || !station.canRepair())) {
             endReturn(data);
         }
     }

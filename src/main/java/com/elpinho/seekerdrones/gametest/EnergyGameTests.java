@@ -39,8 +39,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
@@ -48,7 +51,9 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
  * M5 (energy and charging) GameTests: hover and distance drain (section 5.1), running out of energy (5.2), the
  * dynamic return threshold and usability rules (5.2, 6.2), the Explosive exception, the charging queue and healing
  * (5.3), the Charging Station registry (7.4, 8.3) and the {@code /seekerdrones energy} debug command
- * (DESIGN.md sections 5, 6.2, 7.4, 9).
+ * (DESIGN.md sections 5, 6.2, 7.4, 9). Also covers M6's Charging Station repair fluid (sections 5.3, 7.4): the tank's
+ * fluid capability (accepts lava, rejects water, never drains) and repair fluid consumption while healing, since both
+ * reuse this file's drone-charging helpers ({@link #forceReturning}, {@link #pollUntil}, {@link #placeChargingStation}).
  *
  * All tests share the {@code seekerdrones:empty} structure template.
  *
@@ -310,8 +315,11 @@ public class EnergyGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 250)
     public static void chargingHealsOnlyWhileStationHasEnergyThenResumes(GameTestHelper helper) {
-        BlockPos stationRel = new BlockPos(4, 3, 7); // starts empty
+        BlockPos stationRel = new BlockPos(4, 3, 7); // starts with no FE
         ChargingStationBlockEntity station = placeChargingStation(helper, stationRel);
+        // Repair fluid from the start, so the only thing gating healing in this test is FE (section 5.3: healing
+        // needs both FE and repair fluid; an empty tank is covered separately by chargingWithEmptyTankFinishesWithoutHealing).
+        station.getFluidHandler().fill(new FluidStack(Fluids.LAVA, 4000), IFluidHandler.FluidAction.EXECUTE);
         BlockPos stationAbs = helper.absolutePos(stationRel);
 
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
@@ -338,6 +346,87 @@ public class EnergyGameTests {
                 }, () -> helper.fail("Drone never finished charging after FE arrived, energy=" + drone.getEnergy() + " health=" + drone.getHealth()));
             });
         }, () -> helper.fail("Drone never reached CHARGING at the station, state=" + drone.getState()));
+    }
+
+    // --- 8b. Repair fluid capability: accepts lava, rejects water, never drains (DESIGN.md sections 7.4, M6) ---
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void chargingStationTankAcceptsLavaRejectsWaterAndRefusesDraining(GameTestHelper helper) {
+        ChargingStationBlockEntity station = placeChargingStation(helper, new BlockPos(4, 3, 4));
+        IFluidHandler handler = station.getFluidHandler();
+
+        int filled = handler.fill(new FluidStack(Fluids.LAVA, 1000), IFluidHandler.FluidAction.EXECUTE);
+        helper.assertTrue(filled == 1000, "The tank should accept lava (the repair fluid without Mekanism), filled " + filled);
+        helper.assertTrue(station.getFluid().getAmount() == 1000, "Filled lava should be stored, tank had " + station.getFluid().getAmount());
+
+        int filledWater = handler.fill(new FluidStack(Fluids.WATER, 1000), IFluidHandler.FluidAction.EXECUTE);
+        helper.assertTrue(filledWater == 0, "The tank should reject water, accepted " + filledWater);
+        helper.assertTrue(station.getFluid().getAmount() == 1000,
+                "Water rejection shouldn't change the stored amount, tank had " + station.getFluid().getAmount());
+
+        FluidStack drainedByAmount = handler.drain(500, IFluidHandler.FluidAction.EXECUTE);
+        helper.assertTrue(drainedByAmount.isEmpty(), "The station's fluid handler should refuse draining, drained " + drainedByAmount);
+        FluidStack drainedByStack = handler.drain(new FluidStack(Fluids.LAVA, 500), IFluidHandler.FluidAction.EXECUTE);
+        helper.assertTrue(drainedByStack.isEmpty(), "The station's fluid handler should refuse draining by FluidStack too, drained " + drainedByStack);
+        helper.assertTrue(station.getFluid().getAmount() == 1000,
+                "Refused draining shouldn't change the stored amount, tank had " + station.getFluid().getAmount());
+
+        helper.succeed();
+    }
+
+    // --- 8c. Healing drains repair fluid at repairFluidPerHp mB per HP restored (DESIGN.md sections 5.3, M6) ---
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void healingConsumesRepairFluidPerHpRestored(GameTestHelper helper) {
+        BlockPos stationRel = new BlockPos(4, 3, 7);
+        ChargingStationBlockEntity station = placeChargingStation(helper, stationRel);
+        station.getEnergyStorage().receiveEnergy(Integer.MAX_VALUE, false);
+        station.getFluidHandler().fill(new FluidStack(Fluids.LAVA, ServerConfig.get(ServerConfig.CHARGING_STATION_TANK_CAPACITY)),
+                IFluidHandler.FluidAction.EXECUTE);
+        int fluidBefore = station.getFluid().getAmount();
+        BlockPos stationAbs = helper.absolutePos(stationRel);
+
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
+        int maxEnergy = DroneStats.maxEnergy(drone.snapshotData());
+        // Already fully charged, so only the healing side of docking keeps it CHARGING (section 5.3).
+        drone.setDroneData(drone.snapshotData().withEnergy(maxEnergy));
+        float damage = 3.0F;
+        drone.setHealth(drone.getMaxHealth() - damage);
+        forceReturning(drone, stationAbs);
+
+        pollUntil(helper, () -> drone.getHealth() >= drone.getMaxHealth(), 150, () -> {
+            int fluidAfter = station.getFluid().getAmount();
+            int consumed = fluidBefore - fluidAfter;
+            int perHp = ServerConfig.get(ServerConfig.CHARGING_STATION_REPAIR_FLUID_PER_HP);
+            int expected = Math.round(damage * perHp);
+            helper.assertTrue(Math.abs(consumed - expected) <= 1,
+                    "Healing " + damage + " HP should cost about " + expected + " mB of repair fluid (±1 for rounding), consumed " + consumed);
+            helper.succeed();
+        }, () -> helper.fail("Drone never healed to full while docked with FE and repair fluid, health=" + drone.getHealth() + "/" + drone.getMaxHealth()));
+    }
+
+    // --- 8d. Empty tank: charging still finishes, but without healing (DESIGN.md section 5.3) ---
+
+    @GameTest(template = "empty", timeoutTicks = 150)
+    public static void chargingWithEmptyTankFinishesWithoutHealing(GameTestHelper helper) {
+        BlockPos stationRel = new BlockPos(4, 3, 7);
+        ChargingStationBlockEntity station = placeChargingStation(helper, stationRel); // tank starts empty
+        station.getEnergyStorage().receiveEnergy(Integer.MAX_VALUE, false);
+        BlockPos stationAbs = helper.absolutePos(stationRel);
+
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
+        int maxEnergy = DroneStats.maxEnergy(drone.snapshotData());
+        drone.setDroneData(drone.snapshotData().withEnergy(maxEnergy));
+        float damagedHealth = drone.getMaxHealth() - 3.0F;
+        drone.setHealth(damagedHealth);
+        forceReturning(drone, stationAbs);
+
+        pollUntil(helper, () -> drone.getState() == DroneState.IDLE && drone.getChargingStation() == null, 100, () -> {
+            helper.assertTrue(drone.getHealth() == damagedHealth,
+                    "A drone shouldn't be healed while the station has no repair fluid, health=" + drone.getHealth() + " expected " + damagedHealth);
+            helper.assertTrue(station.getFluid().isEmpty(), "Sanity: the tank should still be empty");
+            helper.succeed();
+        }, () -> helper.fail("Drone never finished its charging cycle with an empty tank, state=" + drone.getState()));
     }
 
     // --- 9. Charging queue (DESIGN.md section 5.3) ---
