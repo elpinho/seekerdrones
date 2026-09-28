@@ -15,7 +15,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
 
     @Override
     protected void registerStatesAndModels() {
-        // Placeholder look from vanilla textures until the M8 polish pass.
+        // Placeholder look from vanilla textures until the M9 polish pass.
         simpleBlockWithItem(ModBlocks.CHARGING_STATION.get(), models().cubeBottomTop("charging_station",
                 ResourceLocation.withDefaultNamespace("block/iron_block"),
                 ResourceLocation.withDefaultNamespace("block/smooth_stone"),

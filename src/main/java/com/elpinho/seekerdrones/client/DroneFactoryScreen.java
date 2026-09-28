@@ -19,7 +19,7 @@ import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtension
 
 /**
  * Drone Factory screen (DESIGN.md section 7.1): input slots, fluid tank, energy bar, progress and output, plus an
- * Operators button for the group owner. Drawn with plain fills until the M8 polish pass adds textures.
+ * Operators button for the group owner. Drawn with plain fills until the M9 polish pass adds textures.
  */
 public class DroneFactoryScreen extends AbstractContainerScreen<DroneFactoryMenu> {
     private static final int PANEL_COLOR = 0xFFC6C6C6;

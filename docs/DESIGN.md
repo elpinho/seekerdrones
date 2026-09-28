@@ -508,7 +508,7 @@ All values below are placeholders.
 
 ## 10. Implementation Order
 
-See [`ROADMAP.md`](ROADMAP.md) for milestones M0–M8 (v1) and the post-v1 outlook.
+See [`ROADMAP.md`](ROADMAP.md) for milestones M0–M9 (v1) and the post-v1 outlook.
 
 ---
 

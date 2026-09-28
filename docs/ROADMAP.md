@@ -2,7 +2,7 @@
 
 This roadmap is broad on purpose. The behavior spec is in [`DESIGN.md`](DESIGN.md).
 
-> **Scope rule:** Milestones **M0–M8** make up **v1**. The **Post-v1** section is only an outlook. **Do not implement anything from it** unless the user explicitly asks (see DESIGN.md §11).
+> **Scope rule:** Milestones **M0–M9** make up **v1**. The **Post-v1** section is only an outlook. **Do not implement anything from it** unless the user explicitly asks (see DESIGN.md §11).
 
 Each milestone ends in something playable or testable. The drone and its AI come before the machines so gameplay can be tested and tuned early, using debug commands in place of the machines. The debug commands (`/seekerdrones ...`, permission level 2) are never removed: they stay as admin/testing tools after the machines exist. The Factory comes before the Programming Station because the Programming Station needs drones as input.
 
@@ -70,8 +70,13 @@ Each milestone ends in something playable or testable. The drone and its AI come
 ### M8 — Deploying Station and full pipeline
 - Drone Deploying Station with auto-deploy and FE per deploy.
 - End-to-end test: Factory → Programming Station → Deploying Station through pipes, with no player involved.
-- Polish pass: real models and textures, sounds, lang, and a basic balance pass on the config defaults.
-- **Done when:** the full automated pipeline works in survival, and **v1.0** is tagged.
+- **Done when:** the full automated pipeline works in survival.
+
+### M9 — Art and polish
+- Commission an artist (paid) to remake the textures of every block, item and GUI.
+- Remake the drone's 3D model and textures (same artist), including animations (e.g. rotors, idle and chase states).
+- Sounds, lang, and a basic balance pass on the config defaults.
+- **Done when:** the commissioned art is in the game, and **v1.0** is tagged.
 
 ---
 

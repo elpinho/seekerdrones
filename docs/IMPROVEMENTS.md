@@ -20,7 +20,7 @@ Status: `idea` | `decided`
 
 ## Upgrades and energy
 
-- **Tune energy usage** (`idea`): rebalance the drone's energy config (`drone.energyPerBlock`, `drone.hoverEnergyPerTick`, `drone.baseMaxEnergy`, `upgrades.energy.perUpgrade`, DESIGN.md §5.1 and §9) so a drone's range and hover time feel right. Overlaps with the M8 balance pass (ROADMAP.md).
+- **Tune energy usage** (`idea`): rebalance the drone's energy config (`drone.energyPerBlock`, `drone.hoverEnergyPerTick`, `drone.baseMaxEnergy`, `upgrades.energy.perUpgrade`, DESIGN.md §5.1 and §9) so a drone's range and hover time feel right. Overlaps with the M9 balance pass (ROADMAP.md).
 - **Tune upgrade recipes** (`idea`): replace the placeholder upgrade recipes with final ones (materials and costs). This is listed as future work in DESIGN.md §11 (final recipes, balancing pass), so it needs the user's go-ahead before it becomes v1 work. It should follow §7.5: `c:` tags, and base and Mekanism variants where it makes sense.
 - **Solar upgrade** (`idea`): a drone upgrade that generates energy from sunlight. Needs decisions on the conditions (daylight, sky access, weather), the rate and the interaction with the energy batching in DESIGN.md §8.4. All values would be config entries.
 - **Charging Station speed upgrades** (`idea`): let Charging Stations accept upgrades that raise their charge rate. Needs a decision on how upgrades are inserted, what the cap is and how it relates to the queue (DESIGN.md §5.3).
@@ -29,7 +29,7 @@ Status: `idea` | `decided`
 
 - **Improve the Drone Factory GUI** (`idea`): rework the Factory screen (DESIGN.md §7.1), taking inspiration from Industrial Foregoing's machines (e.g. how they lay out the energy bar, fluid tanks, progress and side tabs). Which elements to borrow is still open. The Operator list tab must stay.
 - **Increase drone size** (`idea`): make drones bigger. Undecided whether that means a larger base size, or a drone that grows with its upgrade count. The size affects more than the model: the hitbox, path finding (the flying node size), the box clear-path raycasts (§3.4 and §8.4), fitting at follow and patrol positions, and deploy obstruction checks. A size that changes with upgrades would also need to update the entity's dimensions whenever upgrades change.
-- **Drone animations** (`idea`): animate the drone entity (for example rotors and idle or chase states).
+- **Drone animations** (`decided`): animate the drone entity (for example rotors and idle or chase states). Part of the commissioned drone model remake in ROADMAP.md M9.
 
 ## Items and interaction
 

@@ -3,7 +3,7 @@ package com.elpinho.seekerdrones.config;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * All values are placeholder defaults from DESIGN.md section 9, to be tuned in the M8 balance pass.
+ * All values are placeholder defaults from DESIGN.md section 9, to be tuned in the M9 balance pass.
  */
 public class ServerConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
