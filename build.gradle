@@ -72,6 +72,9 @@ runs {
     // The gametest system is also enabled by default for other run configs under the /test command.
     gameTestServer {
         systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
+        // Run a subset of the tests, or repeat them: -PgametestFilter=<regex> -PgametestRepeat=<N> (see GameTestSelection).
+        systemProperty 'seekerdrones.gametest.filter', project.findProperty('gametestFilter') ?: ''
+        systemProperty 'seekerdrones.gametest.repeat', project.findProperty('gametestRepeat') ?: '1'
     }
 
     data {

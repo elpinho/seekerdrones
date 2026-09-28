@@ -6,6 +6,7 @@ import com.elpinho.seekerdrones.command.SeekerDronesCommand;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
+import com.elpinho.seekerdrones.gametest.GameTestSelection;
 import com.elpinho.seekerdrones.network.ModNetwork;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModBlocks;
@@ -26,6 +27,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.gametest.GameTestHooks;
 
 @Mod(SeekerDrones.MODID)
 public class SeekerDrones {
@@ -58,6 +60,9 @@ public class SeekerDrones {
             }
         });
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> SeekerDronesCommand.register(event.getDispatcher(), event.getBuildContext()));
+        if (GameTestHooks.isGametestServer()) {
+            NeoForge.EVENT_BUS.addListener(GameTestSelection::onServerAboutToStart);
+        }
 
         LOGGER.info("Seeker Drones initializing");
     }
