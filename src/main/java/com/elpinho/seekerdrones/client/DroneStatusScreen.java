@@ -61,6 +61,7 @@ public class DroneStatusScreen extends Screen {
         lines.add(field("energy", Component.translatable("screen.seekerdrones.drone_status.energy_value", data.energy(), status.maxEnergy())));
         lines.add(field("health", Component.translatable("screen.seekerdrones.drone_status.health_value",
                 DroneItem.formatHealth(data.health()), DroneItem.formatHealth(status.maxHealth()))));
+        lines.add(field("sight_range", Component.translatable("screen.seekerdrones.drone_status.sight_range_value", status.sightRange())));
         if (DroneStats.isPatrolling(data)) {
             lines.add(field("patrol_center", status.patrolCenter()
                     .<Component>map(center -> Component.literal(center.pos().getX() + ", " + center.pos().getY() + ", " + center.pos().getZ()))

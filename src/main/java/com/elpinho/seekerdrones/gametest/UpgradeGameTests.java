@@ -148,7 +148,8 @@ public class UpgradeGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20)
+    // Own batch: it lowers a global config value, which would leak into tests running concurrently in its batch.
+    @GameTest(template = "empty", timeoutTicks = 20, batch = "config_total_slots")
     public static void upgradeSetOverTotalSlotsFailsAndLeavesDroneUnchanged(GameTestHelper helper) {
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
         DroneData before = drone.snapshotData();
@@ -372,7 +373,9 @@ public class UpgradeGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 300, skyAccess = true)
+    // Own batch: it lowers the global maxClimb, which made the other climb tests skip their waypoints when they ran
+    // concurrently with it.
+    @GameTest(template = "empty", timeoutTicks = 300, skyAccess = true, batch = "config_max_climb")
     public static void patrolDroneSkipsWaypointTallerThanMaxClimbAndKeepsPatrolling(GameTestHelper helper) {
         // Same wall as above (climb of 3 blocks needed), but maxClimb is lowered below that, so the waypoint should
         // be skipped outright rather than climbed.

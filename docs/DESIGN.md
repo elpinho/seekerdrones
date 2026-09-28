@@ -54,7 +54,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 ### 2.4 Drone GUI
 
 - Operators can open a read-only status screen by right-clicking a drone entity, or by right-clicking (without Shift) while holding a drone item. For an item, the state shows as "Not deployed" and the screen doesn't refresh.
-- It shows the drone ID, label, energy, health, installed upgrades, target configuration, current state (idle / patrolling / chasing / following / returning to charge / charging) and, only if the drone has a Patrol upgrade, its patrol center and patrol radius (with the max).
+- It shows the drone ID, label, energy, health, sight range (the total in blocks, including the Sight upgrade bonus, section 3.3), installed upgrades, target configuration, current state (idle / patrolling / chasing / following / returning to charge / charging) and, only if the drone has a Patrol upgrade, its patrol center and patrol radius (with the max).
 - The drone's configuration is **not** editable here. Configuration is done in the Drone Programming Station.
 
 ### 2.5 Health and destruction
@@ -75,7 +75,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 | **Targets** | A list of entries. Each entry has its own kind: an **entity type ID** (e.g. `minecraft:zombie`), an **entity tag** (e.g. `#minecraft:raiders`) or, with Player Seek only, a **player name**. Kinds can be mixed freely within one list. See section 2.7 for how many entries are allowed. |
 | **Follow distance** | How far a non-Explosive drone keeps from its target while following it (blocks). |
 | **Label** | Optional short text label for identification. It is shown in the drone GUI, in Transmitter messages and as the drone's nameplate. Set by the Programming Station. |
-| **Color** | One of the 16 dye colors, which tints part of the drone's model and item. Set by the Programming Station. Defaults to **blue** (the closest dye color to indigo). |
+| **Color** | One of the 16 dye colors, which tints part of the drone's model and item. Set by the Programming Station, or by the debug command `/seekerdrones config color <color> [drones]` (permission level 2). Defaults to **blue** (the closest dye color to indigo). |
 
 ### 2.7 Target slots
 
@@ -144,6 +144,7 @@ The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius =
 
 - **Sight range** is how far away a drone can first spot a target. It is low by default and increased by **Sight upgrades**.
 - A valid target matches one of the drone's **allowed** target entries (section 2.7). Players can only be targeted with the **Player Seek upgrade** (section 4). **The drone's operators (its group, or its owner if it has no group, section 6.3) are never targeted.** Spectators and creative-mode players are ignored.
+- **Invisibility:** an entity that is invisible (e.g. the Invisibility effect) is **hidden** from every drone, including X-ray drones. It is still spotted if it is glowing (Glowing effect or glowing tag), wears any armor piece or holds an item in either hand. This can be turned off with `drone.invisibilityHides`. The check is part of the cheap filtering step, before any raycast.
 - **Line of sight is required** unless the drone has the **X-ray upgrade**. Without X-ray, the drone must have a clear ray to the target's eyes (block collision raycast). A drone with X-ray skips the raycast entirely and detects targets through walls within its sight range.
 - If several valid targets are visible, the drone picks the **nearest**.
 - Targets are **sticky**: while chasing or following, the drone doesn't scan for other targets and never switches to a nearer one. It keeps its target until it loses it (section 3.5).
@@ -179,7 +180,7 @@ The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius =
 The drone loses its target when any of these happen:
 - The target dies, despawns or changes dimension.
 - The target moves beyond the **pursuit range** (`sightRange × pursuitMultiplier`, default 2×).
-- Line of sight is lost continuously for longer than the **lost-sight timeout** (default 5 s). This never happens to X-ray drones.
+- Line of sight is lost continuously for longer than the **lost-sight timeout** (default 5 s). X-ray drones never lose line of sight through walls. A target that becomes hidden by invisibility (section 3.3) counts as out of sight for every drone, X-ray included, so the same timeout applies. If it becomes visible again in time, the chase goes on.
 
 After losing the target, a drone with a Patrol upgrade goes back to patrolling. A drone without one stops and hovers where it is.
 
@@ -207,7 +208,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 | **Health** | Yes | 4 | Increases max HP. | — |
 | **Player Seek** | No | 1 | Allows player names as target entries. Player-name entries use target slots like any other entry. The drone's operators (section 6.3) are still exempt. | — (names go in the Targets list) |
 | **Multi-target** | Yes | 3 | Each upgrade adds target slots (section 2.7). | — |
-| **X-ray** | No | 1 | Detection and tracking ignore line of sight, so targets are found through walls (section 3.3). | — |
+| **X-ray** | No | 1 | Detection and tracking ignore line of sight, so targets are found through walls (section 3.3). It does not reveal invisible entities. | — |
 
 - The default **total slot limit** is 24.
 - The caps are enforced when upgrades are installed (Programming Station, debug command). A flying drone uses its installed counts as they are, even if the config was lowered afterwards.
@@ -457,6 +458,7 @@ All values below are placeholders.
 | `drone.lostSightTimeout` | 100 ticks | |
 | `drone.scanInterval` | 10 ticks | |
 | `drone.maxRaycastsPerScan` | 4 | |
+| `drone.invisibilityHides` | true | Invisible entities are hidden from drones unless they glow, wear armor or hold an item (section 3.3) |
 | `drone.cruiseSpeed` | 0.4 blocks/tick | |
 | `drone.maxSpeed` | 1.2 blocks/tick | Hard ceiling of about 1.5 |
 | `drone.chaseAccelerationK` | 2.0 | Explosive chase speed curve (section 3.4) |

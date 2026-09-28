@@ -77,4 +77,8 @@ public record DroneConfig(List<TargetEntry> targets, int followDistance, Optiona
     public DroneConfig withPatrolRadius(Optional<Integer> patrolRadius) {
         return new DroneConfig(targets, followDistance, patrolCenter, patrolRadius, label, color);
     }
+
+    public DroneConfig withColor(DyeColor color) {
+        return new DroneConfig(targets, followDistance, patrolCenter, patrolRadius, label, color);
+    }
 }

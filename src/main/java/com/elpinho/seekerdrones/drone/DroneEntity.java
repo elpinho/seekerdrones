@@ -35,9 +35,12 @@ import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.MoverType;
@@ -521,7 +524,7 @@ public class DroneEntity extends PathfinderMob {
         double range = DroneStats.sightRange(data);
         double rangeSqr = range * range;
         List<Entity> candidates = level().getEntities(this, getBoundingBox().inflate(range),
-                entity -> targetMatcher.matches(this, entity) && distanceToSqr(entity) <= rangeSqr);
+                entity -> targetMatcher.matches(this, entity) && distanceToSqr(entity) <= rangeSqr && !isHidden(entity));
         if (candidates.isEmpty()) {
             return;
         }
@@ -566,8 +569,29 @@ public class DroneEntity extends PathfinderMob {
     }
 
     /**
-     * Section 3.5. The cheap checks run every tick. Line of sight is re-checked only on the staggered tick, and never
-     * for X-ray drones.
+     * Section 3.3: an invisible entity is hidden from every drone, X-ray included, unless it glows, wears armor or
+     * holds an item.
+     */
+    private static boolean isHidden(Entity entity) {
+        if (!entity.isInvisible() || !ServerConfig.get(ServerConfig.DRONE_INVISIBILITY_HIDES) || entity.hasGlowingTag()) {
+            return false;
+        }
+        if (entity instanceof LivingEntity living) {
+            if (living.hasEffect(MobEffects.GLOWING)) {
+                return false;
+            }
+            for (EquipmentSlot slot : EquipmentSlot.values()) {
+                if (!living.getItemBySlot(slot).isEmpty()) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Section 3.5. The cheap checks run every tick. Line of sight is re-checked only on the staggered tick. X-ray
+     * drones skip the raycast, but a hidden target (invisibility) counts as out of sight for every drone.
      */
     private boolean isTargetLost(DroneData data, boolean staggered) {
         if (target.isRemoved() || target.level() != level() || !targetMatcher.matches(this, target)) {
@@ -577,8 +601,8 @@ public class DroneEntity extends PathfinderMob {
         if (distanceToSqr(target) > pursuitRange * pursuitRange) {
             return true;
         }
-        if (staggered && !DroneStats.hasXray(data)) {
-            if (canSee(target)) {
+        if (staggered) {
+            if (!isHidden(target) && (DroneStats.hasXray(data) || canSee(target))) {
                 lostSightSince = -1;
             } else if (lostSightSince < 0) {
                 lostSightSince = tickCount;

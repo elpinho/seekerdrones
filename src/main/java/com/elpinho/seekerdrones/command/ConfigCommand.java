@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.command;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -38,10 +39,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Debug command for a drone's targets, follow distance (DESIGN.md section 2.6), patrol center and patrol radius
+ * Debug command for a drone's targets, follow distance, color (DESIGN.md section 2.6), patrol center and patrol radius
  * (section 3.2), acting on the held drone item or on drone entities. Requires permission level 2. Kept after M7 as an
  * admin/testing tool alongside the Programming Station.
  */
@@ -54,6 +56,8 @@ public final class ConfigCommand {
             new DynamicCommandExceptionType(tag -> Component.translatable(KEY + "unknown_tag", String.valueOf(tag)));
     private static final DynamicCommandExceptionType DUPLICATE_TARGET =
             new DynamicCommandExceptionType(entry -> Component.translatable(KEY + "duplicate_target", String.valueOf(entry)));
+    private static final DynamicCommandExceptionType UNKNOWN_COLOR =
+            new DynamicCommandExceptionType(color -> Component.translatable(KEY + "unknown_color", String.valueOf(color)));
     private static final Dynamic2CommandExceptionType NO_SUCH_INDEX =
             new Dynamic2CommandExceptionType((index, size) -> Component.translatable(KEY + "no_such_index", index, size));
 
@@ -61,6 +65,8 @@ public final class ConfigCommand {
             SharedSuggestionProvider.suggestResource(BuiltInRegistries.ENTITY_TYPE.getTagNames().map(TagKey::location), builder);
     private static final SuggestionProvider<CommandSourceStack> SUGGEST_PLAYERS = (context, builder) ->
             SharedSuggestionProvider.suggest(context.getSource().getOnlinePlayerNames(), builder);
+    private static final SuggestionProvider<CommandSourceStack> SUGGEST_COLORS = (context, builder) ->
+            SharedSuggestionProvider.suggest(Arrays.stream(DyeColor.values()).map(DyeColor::getSerializedName), builder);
 
     private ConfigCommand() {}
 
@@ -110,7 +116,10 @@ public final class ConfigCommand {
                         .then(Commands.literal("set")
                                 .then(onDrones(Commands.argument("radius", IntegerArgumentType.integer(1)),
                                         (ctx, drones) -> setPatrolRadius(ctx, drones, Optional.of(IntegerArgumentType.getInteger(ctx, "radius"))))))
-                        .then(onDrones(Commands.literal("clear"), (ctx, drones) -> setPatrolRadius(ctx, drones, Optional.empty()))));
+                        .then(onDrones(Commands.literal("clear"), (ctx, drones) -> setPatrolRadius(ctx, drones, Optional.empty()))))
+                .then(Commands.literal("color")
+                        .then(onDrones(Commands.argument("color", StringArgumentType.word()).suggests(SUGGEST_COLORS),
+                                (ctx, drones) -> setColor(ctx, drones, colorArgument(ctx)))));
     }
 
     /** Runs {@code runner} on the held drone, or on the drones picked by an optional trailing selector. */
@@ -127,6 +136,15 @@ public final class ConfigCommand {
             throw UNKNOWN_TAG.create(id);
         }
         return id;
+    }
+
+    private static DyeColor colorArgument(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        String name = StringArgumentType.getString(ctx, "color");
+        DyeColor color = DyeColor.byName(name, null);
+        if (color == null) {
+            throw UNKNOWN_COLOR.create(name);
+        }
+        return color;
     }
 
     // --- Edits ---
@@ -188,6 +206,12 @@ public final class ConfigCommand {
                 count -> radius
                         .map(r -> Component.translatable(KEY + "patrolradius.set", count, r))
                         .orElseGet(() -> Component.translatable(KEY + "patrolradius.cleared", count)));
+    }
+
+    /** Sets the drone's color (section 2.6), which tints its model and item. */
+    private static int setColor(CommandContext<CommandSourceStack> ctx, Collection<DroneEntity> drones, DyeColor color) throws CommandSyntaxException {
+        return apply(ctx.getSource(), drones, data -> data.withConfig(data.config().withColor(color)),
+                count -> Component.translatable(KEY + "color.set", count, Component.translatable("color.minecraft." + color.getName())));
     }
 
     /**

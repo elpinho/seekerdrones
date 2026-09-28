@@ -360,7 +360,8 @@ public class SeekingGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 100)
+    // Own batch: it lowers global config values, which would leak into tests running concurrently in its batch.
+    @GameTest(template = "empty", timeoutTicks = 100, batch = "config_lost_sight_timeout")
     public static void losesTargetAfterLineOfSightTimeout(GameTestHelper helper) {
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
         Zombie zombie = spawnStationaryZombie(helper, 4, 1, 7);

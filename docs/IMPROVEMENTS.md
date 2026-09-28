@@ -4,17 +4,16 @@ Ideas and refinements that are **not tied to a roadmap milestone**. This is a ba
 
 - Nothing here is v1 scope. Do not implement anything from this file unless the user explicitly asks.
 - Items marked `idea` are undecided and may change or be dropped.
-- Once an item is decided, its behavior goes into `DESIGN.md` (and a milestone in `ROADMAP.md` if needed), and the item here is marked `decided` and later `done`.
+- Once an item is decided, its behavior goes into `DESIGN.md` (and a milestone in `ROADMAP.md` if needed), and the item here is marked `decided`. Once it's implemented, the item is **removed** from this file (`DESIGN.md` is the record).
 - Items that are agreed but deliberately postponed belong in `DESIGN.md` section 11 instead.
 
-Status: `idea` | `decided` | `done`
+Status: `idea` | `decided`
 
 ---
 
 ## Drone behavior
 
 - **Shared target claim** (`idea`): if one drone is already tracking an entity, other drones ignore it. Needs a decision on what "tracking" means (chasing only, or also patrol-detected) and on what happens when the claiming drone loses the target or is destroyed. Touches the scan batching rules in DESIGN.md §3.3, so it must stay cheap with dozens of drones.
-- **Invisibility** (`idea`): drones cannot spot entities that have the invisibility effect.
 - **Drones targeting other drones** (`idea`): drones could target enemy drones (drones of another owner or Operator Group). Needs decisions on what counts as "enemy", how damage works and how this interacts with the target slots.
 - **Something that targets drones** (`idea`): a new item, block or mechanic that hunts or counters drones. To be designed. It may overlap with the item above.
 
@@ -25,7 +24,6 @@ Status: `idea` | `decided` | `done`
 
 ## Drone GUI and visuals
 
-- **Show sight range in the Drone GUI** (`idea`): display the drone's current sight range, including the Sight upgrade bonus.
 - **Drone animations** (`idea`): animate the drone entity (for example rotors and idle or chase states).
 
 ## Items and interaction
@@ -36,7 +34,3 @@ Status: `idea` | `decided` | `done`
 
 - **Defuse Industrial Foregoing's Infinity Nuke** (`idea`): drones should be able to defuse the Infinity Nuke somehow. Everything is open: how the drone detects it, what "defusing" means and whether it needs an upgrade. This would be an optional integration, so the mod must keep working when Industrial Foregoing is absent. Mekanism is currently the only optional integration (DESIGN.md §7.5).
 - **ComputerCraft / CC: Tweaked integration** (`idea`): let computers interact with drones and/or the machines, for example through a peripheral. Scope is open: what can be read (drone state, energy, targets), what can be controlled and whether it needs its own permission rules. It would be an optional integration, so the mod must keep working without CC: Tweaked. Note that machines never check operator permissions (`CLAUDE.md`), so any control API needs an explicit decision on this.
-
-## Tooling
-
-- **Debug command to change a drone's color** (`idea`): a dev-only command that changes a drone's color. It should be gated so it does not exist in normal play, or at least require a high permission level.

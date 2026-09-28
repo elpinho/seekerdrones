@@ -85,6 +85,8 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.drone_status.energy_value", "%s / %s FE");
         add("screen.seekerdrones.drone_status.health", "Health:");
         add("screen.seekerdrones.drone_status.health_value", "%s / %s");
+        add("screen.seekerdrones.drone_status.sight_range", "Sight range:");
+        add("screen.seekerdrones.drone_status.sight_range_value", "%s blocks");
         add("screen.seekerdrones.drone_status.patrol_center", "Patrol center:");
         add("screen.seekerdrones.drone_status.upgrades", "Upgrades:");
         add("screen.seekerdrones.drone_status.targets", "Targets:");
@@ -161,6 +163,8 @@ public class ModLanguageProvider extends LanguageProvider {
         add("commands.seekerdrones.config.patrolcenter.cleared", "Cleared the patrol center of %s drone(s)");
         add("commands.seekerdrones.config.patrolradius.set", "Set the patrol radius of %s drone(s) to %s (capped by their Patrol upgrades)");
         add("commands.seekerdrones.config.patrolradius.cleared", "%s drone(s) now patrol at the largest radius their Patrol upgrades allow");
+        add("commands.seekerdrones.config.unknown_color", "Unknown color %s");
+        add("commands.seekerdrones.config.color.set", "Set the color of %s drone(s) to %s");
         add("screen.seekerdrones.drone_status.patrol_radius", "Patrol radius:");
         add("screen.seekerdrones.drone_status.patrol_radius_value", "%s (max %s)");
 
