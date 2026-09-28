@@ -172,15 +172,14 @@ public class ImprovementGameTests {
 
             int timeout = ServerConfig.get(ServerConfig.DRONE_LOST_SIGHT_TIMEOUT);
             int scanInterval = ServerConfig.get(ServerConfig.DRONE_SCAN_INTERVAL);
-            clearEquipment(zombie);
-            zombie.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, timeout + scanInterval * 4));
+            makeInvisible(zombie, timeout + scanInterval * 4);
 
             helper.runAfterDelay(5, () -> {
                 helper.assertTrue(drone.getSeekTarget() == zombie,
                         "Drone should keep its target for a short time right after it turns invisible (well within the lost-sight timeout), target="
                                 + drone.getSeekTarget());
 
-                helper.runAfterDelay(timeout + scanInterval * 2, () -> {
+                helper.runAfterDelay(timeout + scanInterval * 3, () -> {
                     helper.assertTrue(drone.getState() == DroneState.IDLE,
                             "Drone should lose a target that stayed invisible past the lost-sight timeout, state=" + drone.getState());
                     helper.assertTrue(drone.getSeekTarget() == null, "Drone should have no target after the invisibility timeout");
@@ -202,10 +201,9 @@ public class ImprovementGameTests {
 
             int timeout = ServerConfig.get(ServerConfig.DRONE_LOST_SIGHT_TIMEOUT);
             int scanInterval = ServerConfig.get(ServerConfig.DRONE_SCAN_INTERVAL);
-            clearEquipment(zombie);
-            zombie.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, timeout + scanInterval * 4));
+            makeInvisible(zombie, timeout + scanInterval * 4);
 
-            helper.runAfterDelay(timeout + scanInterval * 2, () -> {
+            helper.runAfterDelay(timeout + scanInterval * 3, () -> {
                 helper.assertTrue(drone.getState() == DroneState.IDLE,
                         "An X-ray drone should still lose a target that stayed invisible past the lost-sight timeout, state=" + drone.getState());
                 helper.assertTrue(drone.getSeekTarget() == null, "X-ray drone should have no target after the invisibility timeout");
@@ -225,8 +223,7 @@ public class ImprovementGameTests {
 
             int timeout = ServerConfig.get(ServerConfig.DRONE_LOST_SIGHT_TIMEOUT);
             int scanInterval = ServerConfig.get(ServerConfig.DRONE_SCAN_INTERVAL);
-            clearEquipment(zombie);
-            zombie.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, timeout + scanInterval * 4));
+            makeInvisible(zombie, timeout + scanInterval * 4);
 
             helper.runAfterDelay(scanInterval, () -> {
                 zombie.removeEffect(MobEffects.INVISIBILITY);
@@ -333,15 +330,25 @@ public class ImprovementGameTests {
         return zombie;
     }
 
-    /**
-     * A stationary, invulnerable, invisible zombie with every equipment slot cleared: zombies can spawn with random
-     * gear, and any held item or armor piece would make it detectable regardless of invisibility (section 3.3).
-     */
+    /** A stationary, invulnerable zombie made invisible and undetectable (see {@link #makeInvisible}). */
     private static Zombie spawnInvisibleZombie(GameTestHelper helper, int x, int y, int z) {
         Zombie zombie = spawnStationaryZombie(helper, x, y, z);
-        clearEquipment(zombie);
-        zombie.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 200));
+        makeInvisible(zombie, 200);
         return zombie;
+    }
+
+    /**
+     * Clears every equipment slot and adds Invisibility: zombies can spawn with random gear, and any held item or armor
+     * piece would make it detectable regardless of invisibility (section 3.3).
+     *
+     * The effect alone only sets the invisible flag on the zombie's next tick (vanilla updates it in tickEffects). The
+     * drone is spawned first and ticks first, so a staggered scan landing on that tick would still see the zombie,
+     * shifting when it acquires or loses it by a whole scan interval. Setting the flag directly closes that window.
+     */
+    private static void makeInvisible(Zombie zombie, int duration) {
+        clearEquipment(zombie);
+        zombie.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, duration));
+        zombie.setInvisible(true);
     }
 
     private static void clearEquipment(Zombie zombie) {

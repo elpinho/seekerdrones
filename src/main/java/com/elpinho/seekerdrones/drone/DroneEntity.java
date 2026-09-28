@@ -85,6 +85,7 @@ public class DroneEntity extends PathfinderMob {
     private static final String TAG_HOME_GOAL = "HomeGoal";
     private static final String TAG_DRAIN_DISTANCE = "DrainDistance";
     private static final String TAG_DRAIN_REMAINDER = "DrainRemainder";
+    private static final String TAG_DRAIN_HOVER_TICKS = "DrainHoverTicks";
 
     /** The follow range the path finder's node budget was sized for (vanilla's default follow range). */
     private static final float BASE_FOLLOW_RANGE = 16.0F;
@@ -209,6 +210,8 @@ public class DroneEntity extends PathfinderMob {
     // --- Energy and charging (server only) ---
     /** Distance flown (blocks) since the last energy drain (section 5.1). */
     private double drainDistance;
+    /** Ticks spent airborne (not docked) since the last energy drain (section 5.1). */
+    private int drainHoverTicks;
     /** The fraction of a FE owed at the last drain, carried over so small costs add up. */
     private double drainRemainder;
     /** The station being returned to or charged at. Set only while RETURNING or CHARGING. */
@@ -401,6 +404,8 @@ public class DroneEntity extends PathfinderMob {
 
     @Override
     public void tick() {
+        // Docked for this tick if it starts it docked: a drone that finishes charging during the tick doesn't pay for it.
+        boolean docked = getState() == DroneState.CHARGING;
         super.tick();
         if (!level().isClientSide() && isAlive() && isInWater()) {
             int interval = ServerConfig.get(ServerConfig.DRONE_WATER_DAMAGE_INTERVAL);
@@ -409,7 +414,7 @@ public class DroneEntity extends PathfinderMob {
             }
         }
         if (!level().isClientSide() && isAlive() && !isRemoved()) {
-            tickEnergy();
+            tickEnergy(docked);
         }
     }
 
@@ -1074,26 +1079,28 @@ public class DroneEntity extends PathfinderMob {
     // --- Energy and charging (section 5) ---
 
     /**
-     * Adds up the distance flown each tick, and applies the drain in a batch every {@code drone.energyDrainInterval}
-     * ticks (section 5.1): the distance cost plus the hover cost for the interval. A docked drone doesn't drain. The
-     * return threshold is checked right after each drain.
+     * Adds up the distance flown and the ticks spent airborne, and applies the drain in a batch every
+     * {@code drone.energyDrainInterval} ticks (section 5.1): the distance cost plus the hover cost for those ticks.
+     * Docked ticks don't count. What a drone owes when it docks is applied right away, before it starts charging, so
+     * nothing from before charging is billed after it: a drone leaves its station at full energy. The return threshold
+     * is checked right after each drain.
      */
-    private void tickEnergy() {
-        double step = Math.sqrt(Mth.lengthSquared(getX() - xo, getY() - yo, getZ() - zo));
-        if (step <= MAX_DRAIN_STEP) {
-            drainDistance += step;
+    private void tickEnergy(boolean docked) {
+        if (!docked) {
+            double step = Math.sqrt(Mth.lengthSquared(getX() - xo, getY() - yo, getZ() - zo));
+            if (step <= MAX_DRAIN_STEP) {
+                drainDistance += step;
+            }
+            drainHoverTicks++;
         }
-        int interval = ServerConfig.get(ServerConfig.DRONE_ENERGY_DRAIN_INTERVAL);
-        if (!isStaggeredTick(interval)) {
-            return;
-        }
-        if (getState() == DroneState.CHARGING) {
-            drainDistance = 0;
+        boolean settleOnDocking = getState() == DroneState.CHARGING;
+        if (settleOnDocking ? drainHoverTicks == 0 && drainDistance == 0 : !isStaggeredTick(ServerConfig.get(ServerConfig.DRONE_ENERGY_DRAIN_INTERVAL))) {
             return;
         }
         double cost = drainRemainder + drainDistance * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK)
-                + (double) interval * ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK);
+                + (double) drainHoverTicks * ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK);
         drainDistance = 0;
+        drainHoverTicks = 0;
         long whole = (long) cost;
         drainRemainder = cost - whole;
         DroneData data = getDroneData();
@@ -1566,6 +1573,7 @@ public class DroneEntity extends PathfinderMob {
         }
         tag.putDouble(TAG_DRAIN_DISTANCE, drainDistance);
         tag.putDouble(TAG_DRAIN_REMAINDER, drainRemainder);
+        tag.putInt(TAG_DRAIN_HOVER_TICKS, drainHoverTicks);
     }
 
     @Override
@@ -1591,6 +1599,7 @@ public class DroneEntity extends PathfinderMob {
         homeGoal = tag.contains(TAG_HOME_GOAL) ? Vec3.CODEC.parse(NbtOps.INSTANCE, tag.get(TAG_HOME_GOAL)).result().orElse(null) : null;
         drainDistance = tag.getDouble(TAG_DRAIN_DISTANCE);
         drainRemainder = tag.getDouble(TAG_DRAIN_REMAINDER);
+        drainHoverTicks = tag.getInt(TAG_DRAIN_HOVER_TICKS);
         if (tag.hasUUID(TAG_TARGET) && (state == DroneState.CHASING || state == DroneState.FOLLOWING)) {
             pendingTargetId = tag.getUUID(TAG_TARGET);
             setState(state);
