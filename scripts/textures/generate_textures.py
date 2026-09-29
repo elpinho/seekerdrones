@@ -149,17 +149,16 @@ def drone_entity():
 # --- Drone item (layer0 + tinted layer1) -----------------------------------------------------------------------
 
 # Top-down quadcopter, drawn as one quadrant and mirrored: a rotor ring around each motor and blade, arms to the
-# body, and the lens at the front (bottom edge). Every part pairs dark pixels with light ones, so the icon keeps its
+# body, and the lens at the front (bottom edge). The icon is 14x14, centered in the 16x16 texture. Every part pairs dark pixels with light ones, so the icon keeps its
 # shape on both the grey inventory slots and the near-black hotbar.
 DRONE_ITEM_QUADRANT = [
-    ".ddd....",
-    "dLlrd...",
-    "dlhld...",
-    "drlmd...",
-    ".dddmddd",
-    "....dmmm",
-    "....dmmm",
-    "....dmmm",
+    ".ddd...",
+    "dLlrd..",
+    "dlhld..",
+    "drlmd..",
+    ".dddmdd",
+    "....dmm",
+    "....dmm",
 ]
 
 
@@ -170,8 +169,10 @@ def mirrored(quadrant):
 
 def drone_item():
     rows = mirrored(DRONE_ITEM_QUADRANT)
-    rows[11] = rows[11][:7] + "eE" + rows[11][9:]
-    return grid(rows)
+    rows[9] = rows[9][:6] + "eE" + rows[9][8:]
+    img = Image.new("RGBA", (16, 16))
+    img.alpha_composite(grid(rows), (1, 1))
+    return img
 
 
 # The canopy, tinted with the drone's color.
@@ -181,12 +182,12 @@ DRONE_ITEM_TINT = [
     "................",
     "................",
     "................",
-    ".....wwcccc.....",
-    ".....wccccc.....",
-    ".....cccccc.....",
-    ".....cccccC.....",
-    ".....ccccCC.....",
-    ".....cccCCC.....",
+    "................",
+    "......wwcc......",
+    "......wccc......",
+    "......cccC......",
+    "......ccCC......",
+    "................",
     "................",
     "................",
     "................",
