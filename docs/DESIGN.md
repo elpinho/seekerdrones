@@ -452,6 +452,12 @@ The drone entity saves the same data in its entity NBT. Only the fields the clie
 - Re-profiled after the smooth-flight rework (inertia, box clear-path check, climbing ahead over patrol obstacles): patrolling over open ground about 7–10 µs per drone per tick, patrolling through 7-high walls about 24 µs (climbing ahead removes most path searches), following over open ground about 7 µs and through walls about 13 µs.
 - Profiled in M4 with 100 drones (`scripts/profile-drones.ps1`): patrolling over open ground costs about 7 µs per drone per tick. Patrolling through 7-high walls that cross every circle costs about 45 µs, almost all of it path finding. Each leg that crosses a wall needs a real search over the wall, about 1 ms each, compared with about 0.2 ms for follow paths.
 
+### 8.5 JEI integration
+
+- JEI is an optional dependency: its API is compile-only, and the plugin (`compat.jei`) only loads when JEI is installed. For the dev client, JEI goes in `runs/client/mods`.
+- Crafting recipes show up without any code. The plugin adds a **Drone Assembly** category for `seekerdrones:drone_assembly`: the item inputs with counts, the fluid, FE, processing time and the drone output. The Drone Factory is its catalyst.
+- Clicking the Factory GUI's progress bar opens the category, and JEI's transfer button fills the Factory's input slots from the player's inventory. It never fills the tank.
+
 ---
 
 ## 9. Configuration (server config)

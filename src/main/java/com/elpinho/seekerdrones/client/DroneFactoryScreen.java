@@ -37,10 +37,10 @@ public class DroneFactoryScreen extends AbstractContainerScreen<DroneFactoryMenu
     private static final int BAR_WIDTH = 16;
     private static final int ENERGY_WIDTH = 10;
     private static final int BAR_HEIGHT = 52;
-    private static final int PROGRESS_X = 108;
-    private static final int PROGRESS_Y = 36;
-    private static final int PROGRESS_WIDTH = 22;
-    private static final int PROGRESS_HEIGHT = 6;
+    public static final int PROGRESS_X = 108;
+    public static final int PROGRESS_Y = 36;
+    public static final int PROGRESS_WIDTH = 22;
+    public static final int PROGRESS_HEIGHT = 6;
 
     private Button operatorsButton;
 

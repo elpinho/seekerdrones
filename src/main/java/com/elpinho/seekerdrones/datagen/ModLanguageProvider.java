@@ -171,6 +171,9 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.drone_factory.operators.unknown_player", "Unknown player: %s");
         add("screen.seekerdrones.drone_factory.operators.already_operator", "%s is already an operator.");
         add("screen.seekerdrones.drone_factory.operators.not_operator", "%s is not an operator.");
+        add("jei.seekerdrones.drone_assembly", "Drone Assembly");
+        add("jei.seekerdrones.drone_assembly.energy", "%s FE");
+        add("jei.seekerdrones.drone_assembly.time", "%s s");
         add("screen.seekerdrones.charging_station.energy", "Energy:");
         add("screen.seekerdrones.charging_station.charge_rate", "Charge rate:");
         add("screen.seekerdrones.charging_station.charge_rate_value", "%s FE/t");
