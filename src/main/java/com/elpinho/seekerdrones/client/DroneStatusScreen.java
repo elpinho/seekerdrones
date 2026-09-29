@@ -9,6 +9,7 @@ import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.drone.TargetMatcher;
 import com.elpinho.seekerdrones.drone.UpgradeType;
+import com.elpinho.seekerdrones.energy.EnergyFormat;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
 import com.elpinho.seekerdrones.network.RequestDroneStatusPayload;
 
@@ -34,8 +35,10 @@ public class DroneStatusScreen extends Screen {
     private static final int TEXT_COLOR = 0xFFE0E0E0;
 
     private final int entityId;
+    private DroneStatusPayload status;
     private List<Component> lines = List.of();
     private int ticksOpen;
+    private EnergyUnitButton unitButton;
 
     public DroneStatusScreen(DroneStatusPayload status) {
         super(Component.translatable("screen.seekerdrones.drone_status"));
@@ -48,7 +51,14 @@ public class DroneStatusScreen extends Screen {
     }
 
     public void update(DroneStatusPayload status) {
+        this.status = status;
         this.lines = buildLines(status);
+    }
+
+    @Override
+    protected void init() {
+        // Drawn by render() on top of the panel, which moves with its content.
+        unitButton = addWidget(new EnergyUnitButton(0, 0, () -> update(status)));
     }
 
     private static List<Component> buildLines(DroneStatusPayload status) {
@@ -59,7 +69,7 @@ public class DroneStatusScreen extends Screen {
         lines.add(field("state", status.isDeployed()
                 ? Component.translatable(status.state().getTranslationKey())
                 : Component.translatable("screen.seekerdrones.drone_status.not_deployed")));
-        lines.add(field("energy", Component.translatable("screen.seekerdrones.drone_status.energy_value", data.energy(), status.maxEnergy())));
+        lines.add(field("energy", Component.literal(EnergyFormat.ratio(data.energy(), status.maxEnergy()))));
         lines.add(field("health", Component.translatable("screen.seekerdrones.drone_status.health_value",
                 DroneItem.formatHealth(data.health()), DroneItem.formatHealth(status.maxHealth()))));
         lines.add(field("sight_range", Component.translatable("screen.seekerdrones.drone_status.sight_range_value", status.sightRange())));
@@ -116,6 +126,10 @@ public class DroneStatusScreen extends Screen {
         for (Component line : lines) {
             width = Math.max(width, font.width(line));
         }
+        // The unit button sits at the end of the first line, which is followed by an empty one.
+        if (unitButton.visible && !lines.isEmpty()) {
+            width = Math.max(width, font.width(lines.getFirst()) + PADDING + EnergyUnitButton.WIDTH);
+        }
         int panelWidth = width + PADDING * 2;
         int panelHeight = lines.size() * LINE_HEIGHT + PADDING * 2 - 2;
         int left = (this.width - panelWidth) / 2;
@@ -127,6 +141,8 @@ public class DroneStatusScreen extends Screen {
             graphics.drawString(font, line, left + PADDING, y, TEXT_COLOR, false);
             y += LINE_HEIGHT;
         }
+        unitButton.setPosition(left + panelWidth - PADDING - EnergyUnitButton.WIDTH, top + PADDING - 3);
+        unitButton.render(graphics, mouseX, mouseY, partialTick);
     }
 
     @Override

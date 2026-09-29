@@ -2,6 +2,7 @@ package com.elpinho.seekerdrones.client;
 
 import java.util.List;
 
+import com.elpinho.seekerdrones.energy.EnergyFormat;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.factory.DroneFactoryMenu;
 import com.elpinho.seekerdrones.network.FactoryOperatorsPayload;
@@ -58,6 +59,7 @@ public class DroneFactoryScreen extends AbstractContainerScreen<DroneFactoryMenu
                         button -> minecraft.setScreen(new FactoryOperatorsScreen(this)))
                 .bounds(leftPos + imageWidth - 68, topPos + 60, 62, 16)
                 .build());
+        addRenderableWidget(new EnergyUnitButton(leftPos + imageWidth - 6 - EnergyUnitButton.WIDTH, topPos + 2));
         updateOperatorsButton();
     }
 
@@ -78,8 +80,7 @@ public class DroneFactoryScreen extends AbstractContainerScreen<DroneFactoryMenu
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
         if (isHovering(ENERGY_X, BAR_Y, ENERGY_WIDTH, BAR_HEIGHT, mouseX, mouseY)) {
-            graphics.renderTooltip(font, Component.translatable("screen.seekerdrones.drone_status.energy_value",
-                    menu.getEnergy(), menu.getEnergyCapacity()), mouseX, mouseY);
+            graphics.renderTooltip(font, Component.literal(EnergyFormat.ratio(menu.getEnergy(), menu.getEnergyCapacity())), mouseX, mouseY);
         } else if (isHovering(FLUID_X, BAR_Y, BAR_WIDTH, BAR_HEIGHT, mouseX, mouseY)) {
             Fluid fluid = menu.getFluid();
             Component name = fluid == Fluids.EMPTY

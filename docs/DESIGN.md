@@ -260,6 +260,15 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 - A docked drone has no hover drain. If the station runs out of FE, the drone stays docked and waits, charging again as soon as FE arrives.
 - When charging finishes, the drone returns to its patrol center and resumes patrolling, or hovers if it has no Patrol upgrade. A drone without a Patrol upgrade returns to where it was when it left.
 
+### 5.4 Energy display units
+
+- Energy is always stored, moved and configured in **FE**. The unit only changes how numbers are **shown**.
+- Each player picks a unit: **Auto** (default), **FE** or **Joules** (Mekanism). Auto shows Joules when Mekanism is installed and FE otherwise. Joules use Mekanism's configured FE conversion rate (2.5 J per FE by default), read live when Mekanism is installed. Without Mekanism, energy is always shown in FE.
+- The choice is changed with a small **unit button** in every screen that shows energy: the Drone Factory, Programming Station and Deploying Station GUIs, the Charging Station screen and the drone status screen. The button cycles Auto → FE → Joules and is **hidden without Mekanism**.
+- The choice is **saved server-side per player**, as a player data attachment, so it persists per world/server and survives death. The server sends it to the client on login. The client keeps it until it disconnects.
+- **Formatting:** values are rounded to three significant digits with an SI prefix on the unit (`950 FE`, `12.5 kFE`, `1.25 MJ`). In a stored/capacity pair each side has its own prefix (`950 J / 1.25 kJ`). Drone item tooltips show the exact values (with thousands separators) instead when advanced tooltips (F3+H) are on. The JEI Drone Assembly category uses the player's unit too.
+- `/seekerdrones energy get` shows exact values in the player's unit (Auto for the console). Amounts passed to `/seekerdrones energy set` and all config values stay in FE.
+
 ---
 
 ## 6. Drone Operators
@@ -374,7 +383,7 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
 - It **uses FE per deploy** (`deployingStation.energyPerDeploy`), taken all at once when the deploy succeeds. It won't deploy without enough stored FE, and a failed attempt costs nothing.
 - A drone that can't be deployed yet (not enough FE, or the space isn't clear) waits in the slot. The station retries every `deployingStation.checkInterval` ticks, and at once when the slot changes.
 - **Automation** (item capability, every side): drone items can be inserted while the slot is empty. Automation can never extract the drone. Players can take it out by hand.
-- **GUI:** the drone slot, the stored FE with a bar and the FE per deploy, the auto-deploy toggle, the Deploy button (enabled only with auto-deploy off and a drone in the slot) and a status line: Idle (no drone), Ready (auto-deploy off, waiting for the button or redstone), Not enough FE, or Space blocked.
+- **GUI:** the drone slot, the stored FE with a bar and the FE per deploy, the auto-deploy toggle, the Deploy button (enabled only with auto-deploy off and a drone in the slot) and a status line: Idle (no drone), Ready (auto-deploy off, waiting for the button or redstone), Not enough energy, or Space blocked. Energy is shown in the player's unit (section 5.4).
 - **Breaking the station** drops the drone. The item keeps the auto-deploy setting in a data component (`seekerdrones:deploying_station`), so placing it again restores it.
 
 ### 7.4 Drone Charging Station
@@ -459,6 +468,7 @@ The drone entity saves the same data in its entity NBT. Only the fields the clie
 
 - **Operator Groups:** global `SavedData` stored on the overworld, mapping group ID to owner UUID and the operator UUID set.
 - **Charging Station registry:** a `SavedData` per dimension, mapping block position to owner UUID. The nearest-station search iterates this registry instead of scanning blocks.
+- **Energy display unit:** a player data attachment (`seekerdrones:energy_unit`), copied on death (section 5.4).
 
 ### 8.4 Performance guidelines
 

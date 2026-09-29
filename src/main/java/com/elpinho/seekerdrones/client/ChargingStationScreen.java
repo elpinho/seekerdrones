@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.elpinho.seekerdrones.drone.DroneItem;
+import com.elpinho.seekerdrones.energy.EnergyFormat;
 import com.elpinho.seekerdrones.network.RequestStationStatusPayload;
 import com.elpinho.seekerdrones.network.StationStatusPayload;
 import com.elpinho.seekerdrones.network.StationStatusPayload.DockedDrone;
@@ -18,7 +19,7 @@ import net.minecraft.network.chat.MutableComponent;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * Read-only Charging Station screen (DESIGN.md section 7.4): status, stored FE, charge rate, owner and the drone
+ * Read-only Charging Station screen (DESIGN.md section 7.4): status, stored energy, charge rate, owner and the drone
  * holding the station. Asks the server for fresh values about once a second.
  */
 public class ChargingStationScreen extends Screen {
@@ -50,8 +51,10 @@ public class ChargingStationScreen extends Screen {
     }
 
     private final BlockPos pos;
+    private StationStatusPayload status;
     private List<Row> rows = List.of();
     private int ticksOpen;
+    private EnergyUnitButton unitButton;
 
     public ChargingStationScreen(StationStatusPayload status) {
         super(Component.translatable("screen.seekerdrones.charging_station"));
@@ -64,7 +67,14 @@ public class ChargingStationScreen extends Screen {
     }
 
     public void update(StationStatusPayload status) {
+        this.status = status;
         this.rows = buildRows(status);
+    }
+
+    @Override
+    protected void init() {
+        // Drawn by render() on top of the panel, which moves with its content.
+        unitButton = addWidget(new EnergyUnitButton(0, 0, () -> update(status)));
     }
 
     private List<Row> buildRows(StationStatusPayload status) {
@@ -72,9 +82,9 @@ public class ChargingStationScreen extends Screen {
         rows.add(Row.text(title.copy().withStyle(ChatFormatting.BOLD)));
         rows.add(Row.text(Component.empty()));
         rows.add(Row.text(field("status", Component.translatable(status.status().getTranslationKey()))));
-        rows.add(new Row(field("energy", Component.translatable("screen.seekerdrones.drone_status.energy_value", status.energy(), status.capacity())),
+        rows.add(new Row(field("energy", Component.literal(EnergyFormat.ratio(status.energy(), status.capacity()))),
                 fraction(status.energy(), status.capacity()), ENERGY_BAR_COLOR));
-        rows.add(Row.text(field("charge_rate", Component.translatable("screen.seekerdrones.charging_station.charge_rate_value", status.chargeRate()))));
+        rows.add(Row.text(field("charge_rate", Component.literal(EnergyFormat.rate(status.chargeRate())))));
         rows.add(new Row(field("repair_fluid", Component.translatable("screen.seekerdrones.charging_station.repair_fluid_value",
                 status.fluid().getFluidType().getDescription(), status.fluidAmount(), status.tankCapacity())),
                 fraction(status.fluidAmount(), status.tankCapacity()), FLUID_BAR_COLOR));
@@ -89,8 +99,8 @@ public class ChargingStationScreen extends Screen {
         }
         DockedDrone drone = status.drone().get();
         rows.add(Row.text(field("drone", DroneItem.identity(drone.data()))));
-        rows.add(new Row(indented(field("drone_energy", Component.translatable("screen.seekerdrones.drone_status.energy_value",
-                drone.data().energy(), drone.maxEnergy()))), fraction(drone.data().energy(), drone.maxEnergy()), ENERGY_BAR_COLOR));
+        rows.add(new Row(indented(field("drone_energy", Component.literal(EnergyFormat.ratio(drone.data().energy(), drone.maxEnergy())))),
+                fraction(drone.data().energy(), drone.maxEnergy()), ENERGY_BAR_COLOR));
         rows.add(new Row(indented(field("drone_health", Component.translatable("screen.seekerdrones.drone_status.health_value",
                 DroneItem.formatHealth(drone.data().health()), DroneItem.formatHealth(drone.maxHealth())))),
                 fraction(drone.data().health(), drone.maxHealth()), HEALTH_BAR_COLOR));
@@ -134,6 +144,10 @@ public class ChargingStationScreen extends Screen {
             contentWidth = Math.max(contentWidth, font.width(row.text()));
             contentHeight += row.height();
         }
+        // The unit button sits at the end of the title row, which is followed by an empty one.
+        if (unitButton.visible && !rows.isEmpty()) {
+            contentWidth = Math.max(contentWidth, font.width(rows.getFirst().text()) + PADDING + EnergyUnitButton.WIDTH);
+        }
         int panelWidth = contentWidth + PADDING * 2;
         int panelHeight = contentHeight + PADDING * 2 - 2;
         int left = (this.width - panelWidth) / 2;
@@ -151,6 +165,8 @@ public class ChargingStationScreen extends Screen {
             }
             y += row.height();
         }
+        unitButton.setPosition(left + panelWidth - PADDING - EnergyUnitButton.WIDTH, top + PADDING - 3);
+        unitButton.render(graphics, mouseX, mouseY, partialTick);
     }
 
     @Override

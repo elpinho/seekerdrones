@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.energy.EnergyFormat;
 import com.elpinho.seekerdrones.factory.DroneAssemblyRecipe;
 import com.elpinho.seekerdrones.registry.ModItems;
 
@@ -114,8 +115,7 @@ public class DroneAssemblyCategory implements IRecipeCategory<RecipeHolder<Drone
         graphics.fill(TANK_X + 1, 1, TANK_X + TANK_WIDTH + 1, TANK_HEIGHT + 1, TANK_BACKGROUND_COLOR);
 
         Font font = Minecraft.getInstance().font;
-        graphics.drawString(font, Component.translatable("jei.seekerdrones.drone_assembly.energy", String.format("%,d", recipe.energy())),
-                0, TEXT_Y, TEXT_COLOR, false);
+        graphics.drawString(font, EnergyFormat.amount(recipe.energy()), 0, TEXT_Y, TEXT_COLOR, false);
         graphics.drawString(font, Component.translatable("jei.seekerdrones.drone_assembly.time", SECONDS.format(recipe.time() / 20.0)),
                 0, TEXT_Y + font.lineHeight + 1, TEXT_COLOR, false);
     }

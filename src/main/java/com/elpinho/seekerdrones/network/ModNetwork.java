@@ -1,12 +1,14 @@
 package com.elpinho.seekerdrones.network;
 
 import com.elpinho.seekerdrones.client.ClientPayloadHandlers;
+import com.elpinho.seekerdrones.energy.EnergyFormat;
 
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class ModNetwork {
-    private static final String PROTOCOL_VERSION = "3";
+    private static final String PROTOCOL_VERSION = "4";
 
     private ModNetwork() {}
 
@@ -29,5 +31,8 @@ public final class ModNetwork {
                 (payload, context) -> ClientPayloadHandlers.handleProgramTemplate(payload));
         registrar.playToServer(EditProgramPayload.TYPE, EditProgramPayload.STREAM_CODEC,
                 EditProgramPayload::handle);
+        registrar.playBidirectional(EnergyUnitPayload.TYPE, EnergyUnitPayload.STREAM_CODEC, new DirectionalPayloadHandler<>(
+                (payload, context) -> EnergyFormat.setClientUnit(payload.unit()),
+                EnergyUnitPayload::handleOnServer));
     }
 }

@@ -6,6 +6,9 @@ import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.DroneStats;
+import com.elpinho.seekerdrones.energy.EnergyFormat;
+import com.elpinho.seekerdrones.energy.EnergyUnit;
+import com.elpinho.seekerdrones.registry.ModAttachments;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -52,7 +55,10 @@ public final class EnergyCommand {
         return drones.size();
     }
 
+    /** Exact values, in the player's energy unit (DESIGN.md section 5.4). Amounts set with the command are always FE. */
     private static void get(CommandSourceStack source, DroneData data) {
-        source.sendSuccess(() -> Component.translatable(KEY + "get", DroneItem.identity(data), data.energy(), DroneStats.maxEnergy(data)), false);
+        EnergyUnit unit = source.getPlayer() != null ? source.getPlayer().getData(ModAttachments.ENERGY_UNIT) : EnergyUnit.AUTO;
+        source.sendSuccess(() -> Component.translatable(KEY + "get", DroneItem.identity(data),
+                EnergyFormat.exactRatio(data.energy(), DroneStats.maxEnergy(data), unit)), false);
     }
 }

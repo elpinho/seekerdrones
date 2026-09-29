@@ -9,7 +9,9 @@ import com.elpinho.seekerdrones.drone.TargetBlacklist;
 import com.elpinho.seekerdrones.drone.TargetClaims;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.gametest.GameTestSelection;
+import com.elpinho.seekerdrones.network.EnergyUnitPayload;
 import com.elpinho.seekerdrones.network.ModNetwork;
+import com.elpinho.seekerdrones.registry.ModAttachments;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModCapabilities;
@@ -22,6 +24,7 @@ import com.elpinho.seekerdrones.registry.ModRecipeTypes;
 import com.elpinho.seekerdrones.registry.ModSounds;
 import com.mojang.logging.LogUtils;
 
+import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
@@ -31,6 +34,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.TagsUpdatedEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.gametest.GameTestHooks;
 
@@ -50,6 +54,7 @@ public class SeekerDrones {
         ModRecipeTypes.RECIPE_TYPES.register(modEventBus);
         ModRecipeTypes.RECIPE_SERIALIZERS.register(modEventBus);
         ModSounds.SOUND_EVENTS.register(modEventBus);
+        ModAttachments.ATTACHMENT_TYPES.register(modEventBus);
 
         modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
 
@@ -69,6 +74,12 @@ public class SeekerDrones {
         NeoForge.EVENT_BUS.addListener((OnDatapackSyncEvent event) -> {
             if (event.getPlayer() == null) {
                 DroneFactoryBlockEntity.onRecipesReloaded();
+            }
+        });
+        // The client formats energy in the player's saved unit (DESIGN.md section 5.4).
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerLoggedInEvent event) -> {
+            if (event.getEntity() instanceof ServerPlayer player) {
+                EnergyUnitPayload.sendTo(player);
             }
         });
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> SeekerDronesCommand.register(event.getDispatcher(), event.getBuildContext()));

@@ -3,6 +3,7 @@ package com.elpinho.seekerdrones.client;
 import java.util.List;
 
 import com.elpinho.seekerdrones.deploying.DeployingStationMenu;
+import com.elpinho.seekerdrones.energy.EnergyFormat;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
@@ -56,6 +57,7 @@ public class DeployingStationScreen extends AbstractContainerScreen<DeployingSta
                         button -> click(DeployingStationMenu.BUTTON_DEPLOY))
                 .bounds(leftPos + BUTTON_X, topPos + DEPLOY_Y, BUTTON_WIDTH, BUTTON_HEIGHT)
                 .build());
+        addRenderableWidget(new EnergyUnitButton(leftPos + imageWidth - 6 - EnergyUnitButton.WIDTH, topPos + 2));
         updateButtons();
     }
 
@@ -83,8 +85,8 @@ public class DeployingStationScreen extends AbstractContainerScreen<DeployingSta
         renderTooltip(graphics, mouseX, mouseY);
         if (isHovering(ENERGY_X, ENERGY_Y, ENERGY_WIDTH, ENERGY_HEIGHT, mouseX, mouseY)) {
             graphics.renderComponentTooltip(font, List.of(
-                    Component.translatable("screen.seekerdrones.deploying_station.energy_value", menu.getEnergy(), menu.getEnergyCapacity()),
-                    Component.translatable("screen.seekerdrones.deploying_station.energy_per_deploy", menu.getEnergyPerDeploy())),
+                    Component.literal(EnergyFormat.ratio(menu.getEnergy(), menu.getEnergyCapacity())),
+                    Component.translatable("screen.seekerdrones.deploying_station.energy_per_deploy", EnergyFormat.amount(menu.getEnergyPerDeploy()))),
                     mouseX, mouseY);
         }
     }

@@ -19,6 +19,7 @@ import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.drone.TargetBlacklist;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.drone.UpgradeType;
+import com.elpinho.seekerdrones.energy.EnergyFormat;
 import com.elpinho.seekerdrones.network.EditProgramPayload;
 import com.elpinho.seekerdrones.programming.DroneProgram;
 import com.elpinho.seekerdrones.programming.ProgramRules;
@@ -43,7 +44,7 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * Drone Programming Station screen (DESIGN.md section 7.2). The slots, FE bar and install progress are on the left. The
+ * Drone Programming Station screen (DESIGN.md section 7.2). The slots, energy bar and install progress are on the left. The
  * editor on the right has Upgrades, Targets and Settings tabs, and edits either the drone in the slot (Direct mode) or
  * the template (Template mode). Every edit is sent to the server, which checks it again. Drawn with plain fills until
  * the M9 polish pass adds textures.
@@ -201,6 +202,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
                 .bounds(leftPos + imageWidth - 88, topPos + 3, 80, 14)
                 .tooltip(Tooltip.create(Component.translatable(KEY + "mode.tooltip")))
                 .build());
+        addRenderableWidget(new EnergyUnitButton(leftPos + imageWidth - 88 - 2 - EnergyUnitButton.WIDTH, topPos + 3));
         Tab[] tabs = Tab.values();
         int tabWidth = (EDITOR_WIDTH - (tabs.length - 1) * 2) / tabs.length;
         for (int i = 0; i < tabs.length; i++) {
@@ -694,8 +696,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
         if (isHovering(ENERGY_X, ENERGY_Y, ENERGY_WIDTH, ENERGY_HEIGHT, mouseX, mouseY)) {
-            graphics.renderTooltip(font, Component.translatable("screen.seekerdrones.drone_status.energy_value",
-                    menu.getEnergy(), menu.getEnergyCapacity()), mouseX, mouseY);
+            graphics.renderTooltip(font, Component.literal(EnergyFormat.ratio(menu.getEnergy(), menu.getEnergyCapacity())), mouseX, mouseY);
         } else if (isHovering(PROGRESS_X, PROGRESS_Y - 1, PROGRESS_WIDTH, PROGRESS_HEIGHT + 2, mouseX, mouseY) && menu.getInstalling() != null) {
             graphics.renderTooltip(font, installingText(), mouseX, mouseY);
         } else if (isHovering(STATUS_X, STATUS_Y, statusWidth(), STATUS_LINES * STATUS_LINE_HEIGHT, mouseX, mouseY)) {
@@ -733,7 +734,8 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
             }
             lines.add(Component.translatable(KEY + "upgrade.in_input", menu.inputCount(type)).withStyle(ChatFormatting.GRAY));
             if (installed < type.maxCount()) {
-                lines.add(Component.translatable(KEY + "upgrade.cost", ProgramRules.installCost(type, installed + 1)).withStyle(ChatFormatting.GRAY));
+                lines.add(Component.translatable(KEY + "upgrade.cost", EnergyFormat.amount(ProgramRules.installCost(type, installed + 1)))
+                        .withStyle(ChatFormatting.GRAY));
             }
             graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
             return;
@@ -777,7 +779,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         }
         int percent = menu.getTime() > 0 ? menu.getProgress() * 100 / menu.getTime() : 0;
         return Component.translatable(KEY + "status.installing", Component.translatable(installing.getTranslationKey()), percent,
-                menu.getStepCost());
+                EnergyFormat.amount(menu.getStepCost()));
     }
 
     @Override

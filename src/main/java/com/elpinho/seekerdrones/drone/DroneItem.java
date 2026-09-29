@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Locale;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
+import com.elpinho.seekerdrones.energy.EnergyFormat;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
@@ -119,8 +120,11 @@ public class DroneItem extends Item {
             String name = data.ownerName().isEmpty() ? ownerId.toString() : data.ownerName();
             tooltip.add(Component.translatable("tooltip.seekerdrones.drone.owner", name).withStyle(ChatFormatting.GRAY));
         });
-        tooltip.add(Component.translatable("tooltip.seekerdrones.drone.energy", data.energy(), DroneStats.maxEnergy(data))
-                .withStyle(ChatFormatting.GRAY));
+        // Advanced tooltips (F3+H) show every digit.
+        String energy = flag.isAdvanced()
+                ? EnergyFormat.exactRatio(data.energy(), DroneStats.maxEnergy(data))
+                : EnergyFormat.ratio(data.energy(), DroneStats.maxEnergy(data));
+        tooltip.add(Component.translatable("tooltip.seekerdrones.drone.energy", energy).withStyle(ChatFormatting.GRAY));
         tooltip.add(Component.translatable("tooltip.seekerdrones.drone.health", formatHealth(data.health()), formatHealth(DroneStats.maxHealth(data)))
                 .withStyle(ChatFormatting.GRAY));
         if (!data.upgrades().isEmpty()) {

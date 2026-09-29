@@ -4,6 +4,7 @@ import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.deploying.DeployingStatus;
 import com.elpinho.seekerdrones.drone.DroneState;
 import com.elpinho.seekerdrones.drone.UpgradeType;
+import com.elpinho.seekerdrones.energy.EnergyUnit;
 import com.elpinho.seekerdrones.network.StationStatusPayload;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
@@ -32,12 +33,11 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.deploying_station.auto_deploy.off", "Auto-deploy: Off");
         add("screen.seekerdrones.deploying_station.auto_deploy.tooltip", "On: deploy every inserted drone as soon as possible.\nOff: deploy with the Deploy button or a redstone pulse.");
         add("screen.seekerdrones.deploying_station.deploy", "Deploy");
-        add("screen.seekerdrones.deploying_station.energy_value", "%s / %s FE");
-        add("screen.seekerdrones.deploying_station.energy_per_deploy", "%s FE per deploy");
+        add("screen.seekerdrones.deploying_station.energy_per_deploy", "%s per deploy");
         add("screen.seekerdrones.deploying_station.status", "Status: %s");
         add(DeployingStatus.IDLE.getTranslationKey(), "No drone");
         add(DeployingStatus.READY.getTranslationKey(), "Ready");
-        add(DeployingStatus.NO_ENERGY.getTranslationKey(), "Not enough FE");
+        add(DeployingStatus.NO_ENERGY.getTranslationKey(), "Not enough energy");
         add(DeployingStatus.BLOCKED.getTranslationKey(), "Space above blocked");
         add("tooltip.seekerdrones.programming_station.programmed", "Programmed (%s)");
         add("screen.seekerdrones.programming_station.mode.direct", "Mode: Direct");
@@ -57,7 +57,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.programming_station.upgrade.installed", "Installed: %s (max %s)");
         add("screen.seekerdrones.programming_station.upgrade.programmed", "Template: %s");
         add("screen.seekerdrones.programming_station.upgrade.in_input", "In input: %s");
-        add("screen.seekerdrones.programming_station.upgrade.cost", "Next install: %s FE");
+        add("screen.seekerdrones.programming_station.upgrade.cost", "Next install: %s");
         add("screen.seekerdrones.programming_station.target.header", "Targets: %s (%s slots)");
         add("screen.seekerdrones.programming_station.target.value", "Target");
         add("screen.seekerdrones.programming_station.target.kind.tooltip", "Entity type, entity tag or player name");
@@ -90,8 +90,8 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.programming_station.status.insert_drone", "Insert a drone to edit it.");
         add("screen.seekerdrones.programming_station.status.insert_drone_template", "Insert a drone to program it.");
         add("screen.seekerdrones.programming_station.status.direct_hint", "Put upgrades in the input and press + to install them.");
-        add("screen.seekerdrones.programming_station.status.installing", "Installing %s: %s%% (%s FE)");
-        add("screen.seekerdrones.programming_station.status.no_power", "Not enough FE to install %s");
+        add("screen.seekerdrones.programming_station.status.installing", "Installing %s: %s%% (%s)");
+        add("screen.seekerdrones.programming_station.status.no_power", "Not enough energy to install %s");
         add("screen.seekerdrones.programming_station.status.template_invalid", "The template exceeds the upgrade limits");
         add("screen.seekerdrones.programming_station.status.extra_upgrades", "Remove extra upgrades: %s");
         add("screen.seekerdrones.programming_station.status.missing_upgrades", "Waiting for upgrades: %s");
@@ -103,7 +103,7 @@ public class ModLanguageProvider extends LanguageProvider {
 
         add("tooltip.seekerdrones.drone.unassigned", "Unassigned");
         add("tooltip.seekerdrones.drone.owner", "Owner: %s");
-        add("tooltip.seekerdrones.drone.energy", "Energy: %s / %s FE");
+        add("tooltip.seekerdrones.drone.energy", "Energy: %s");
         add("tooltip.seekerdrones.drone.health", "Health: %s / %s");
         add("tooltip.seekerdrones.drone.upgrades", "Upgrades:");
         add("tooltip.seekerdrones.drone.upgrade_entry", "%s x%s");
@@ -156,7 +156,6 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.drone_status", "Drone Status");
         add("screen.seekerdrones.drone_status.state", "State:");
         add("screen.seekerdrones.drone_status.energy", "Energy:");
-        add("screen.seekerdrones.drone_status.energy_value", "%s / %s FE");
         add("screen.seekerdrones.drone_status.health", "Health:");
         add("screen.seekerdrones.drone_status.health_value", "%s / %s");
         add("screen.seekerdrones.drone_status.sight_range", "Sight range:");
@@ -188,11 +187,9 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.drone_factory.operators.already_operator", "%s is already an operator.");
         add("screen.seekerdrones.drone_factory.operators.not_operator", "%s is not an operator.");
         add("jei.seekerdrones.drone_assembly", "Drone Assembly");
-        add("jei.seekerdrones.drone_assembly.energy", "%s FE");
         add("jei.seekerdrones.drone_assembly.time", "%s s");
         add("screen.seekerdrones.charging_station.energy", "Energy:");
         add("screen.seekerdrones.charging_station.charge_rate", "Charge rate:");
-        add("screen.seekerdrones.charging_station.charge_rate_value", "%s FE/t");
         add("screen.seekerdrones.charging_station.owner", "Owner:");
         add("screen.seekerdrones.charging_station.drone", "Drone:");
         add("screen.seekerdrones.charging_station.drone_energy", "Energy:");
@@ -202,6 +199,14 @@ public class ModLanguageProvider extends LanguageProvider {
         add(StationStatusPayload.Status.CHARGING.getTranslationKey(), "Charging");
         add(StationStatusPayload.Status.HEALING.getTranslationKey(), "Repairing");
         add(StationStatusPayload.Status.NO_POWER.getTranslationKey(), "Out of power");
+
+        add(EnergyUnit.AUTO.getTranslationKey(), "Auto");
+        add(EnergyUnit.FE.getTranslationKey(), "FE");
+        add(EnergyUnit.JOULES.getTranslationKey(), "J");
+        add(EnergyUnit.AUTO.getTranslationKey() + ".name", "Auto (Mekanism Joules)");
+        add(EnergyUnit.FE.getTranslationKey() + ".name", "Forge Energy (FE)");
+        add(EnergyUnit.JOULES.getTranslationKey() + ".name", "Mekanism Joules (J)");
+        add("screen.seekerdrones.energy_unit.tooltip", "Energy unit: %s\nClick to change. Saved for you in this world.");
 
         add("message.seekerdrones.not_operator", "You are not an operator of this drone");
 
@@ -258,6 +263,6 @@ public class ModLanguageProvider extends LanguageProvider {
         add("commands.seekerdrones.upgrade.list.entry", "  %s x%s (max %s)");
 
         add("commands.seekerdrones.energy.set", "Set the energy of %s drone(s)");
-        add("commands.seekerdrones.energy.get", "%s - %s / %s FE");
+        add("commands.seekerdrones.energy.get", "%s - %s");
     }
 }
