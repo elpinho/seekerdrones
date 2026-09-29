@@ -1,5 +1,9 @@
 package com.elpinho.seekerdrones.config;
 
+import java.util.List;
+
+import com.elpinho.seekerdrones.drone.TargetBlacklist;
+
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
@@ -26,6 +30,7 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue DRONE_SCAN_INTERVAL;
     public static final ModConfigSpec.IntValue DRONE_MAX_RAYCASTS_PER_SCAN;
     public static final ModConfigSpec.BooleanValue DRONE_INVISIBILITY_HIDES;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> DRONE_TARGET_BLACKLIST;
     public static final ModConfigSpec.DoubleValue DRONE_CRUISE_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_MAX_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_CHASE_ACCELERATION_K;
@@ -173,6 +178,10 @@ public class ServerConfig {
         DRONE_INVISIBILITY_HIDES = BUILDER
                 .comment("Whether invisible entities are hidden from drones (even with X-ray), unless they glow, wear armor or hold an item.")
                 .define("invisibilityHides", true);
+        DRONE_TARGET_BLACKLIST = BUILDER
+                .comment("Entity type IDs (e.g. \"minecraft:villager\") and entity tags (e.g. \"#minecraft:raiders\") that drones never target.",
+                        "Blacklisted entries can't be added to a drone. Entries a drone already has are kept but ignored.")
+                .defineListAllowEmpty("targetBlacklist", List.of(), () -> "minecraft:villager", TargetBlacklist::isWellFormed);
         DRONE_CRUISE_SPEED = BUILDER
                 .comment("Base chase speed (blocks/tick). Non-Explosive drones chase at this speed plus their target's speed; Explosive drones fly at it at the edge of sight range.")
                 .defineInRange("cruiseSpeed", 0.4, 0.01, 1.5);

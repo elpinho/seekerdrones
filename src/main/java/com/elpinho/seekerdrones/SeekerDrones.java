@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import com.elpinho.seekerdrones.command.SeekerDronesCommand;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
+import com.elpinho.seekerdrones.drone.TargetBlacklist;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.gametest.GameTestSelection;
 import com.elpinho.seekerdrones.network.ModNetwork;
@@ -24,9 +25,11 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.TagsUpdatedEvent;
 import net.neoforged.neoforge.gametest.GameTestHooks;
 
 @Mod(SeekerDrones.MODID)
@@ -52,6 +55,11 @@ public class SeekerDrones {
         modEventBus.addListener(ModCapabilities::register);
         modEventBus.addListener(ModNetwork::registerPayloads);
         modEventBus.addListener(SeekerDronesDataGenerators::gatherData);
+        // The target blacklist is resolved into a set of entity types; redo it when the config or the tags change.
+        modEventBus.addListener((ModConfigEvent.Loading event) -> onConfigChanged(event));
+        modEventBus.addListener((ModConfigEvent.Reloading event) -> onConfigChanged(event));
+        modEventBus.addListener((ModConfigEvent.Unloading event) -> onConfigChanged(event));
+        NeoForge.EVENT_BUS.addListener((TagsUpdatedEvent event) -> TargetBlacklist.invalidate());
 
         // A null player means a /reload for everyone, so Factories must look their recipes up again.
         NeoForge.EVENT_BUS.addListener((OnDatapackSyncEvent event) -> {
@@ -65,5 +73,11 @@ public class SeekerDrones {
         }
 
         LOGGER.info("Seeker Drones initializing");
+    }
+
+    private static void onConfigChanged(ModConfigEvent event) {
+        if (event.getConfig().getSpec() == ServerConfig.SPEC) {
+            TargetBlacklist.invalidate();
+        }
     }
 }

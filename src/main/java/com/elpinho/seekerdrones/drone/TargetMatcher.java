@@ -109,6 +109,10 @@ public final class TargetMatcher {
             return false;
         }
         EntityType<?> type = entity.getType();
+        // Blacklisted types are never targets, whatever the entries say (section 3.3).
+        if (TargetBlacklist.isBlacklisted(type)) {
+            return false;
+        }
         if (entity instanceof Player player) {
             if (!playerSeek || player.isSpectator() || player.isCreative()) {
                 return false;

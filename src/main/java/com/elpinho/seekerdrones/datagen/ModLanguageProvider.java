@@ -70,6 +70,8 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.programming_station.target.needs_player_seek", "Player targets need Player Seek");
         add("screen.seekerdrones.programming_station.target.ignored.no_slot", "Ignored: no free target slot");
         add("screen.seekerdrones.programming_station.target.ignored.player_seek", "Ignored: needs Player Seek");
+        add("screen.seekerdrones.programming_station.target.blacklisted", "%s is blacklisted on this server");
+        add("screen.seekerdrones.programming_station.target.ignored.blacklisted", "Ignored: blacklisted on this server");
         add("screen.seekerdrones.programming_station.follow_distance", "Follow distance");
         add("screen.seekerdrones.programming_station.follow_distance.tooltip", "Blocks kept from the target while following (%s-%s)");
         add("screen.seekerdrones.programming_station.follow_distance.invalid", "The follow distance must be %s-%s");
@@ -221,6 +223,7 @@ public class ModLanguageProvider extends LanguageProvider {
 
         add("commands.seekerdrones.config.unknown_tag", "Unknown entity tag #%s");
         add("commands.seekerdrones.config.duplicate_target", "%s is already a target");
+        add("commands.seekerdrones.config.blacklisted_target", "%s is blacklisted on this server");
         add("commands.seekerdrones.config.no_such_index", "There is no target #%s (the drone has %s)");
         add("commands.seekerdrones.config.target.added", "Added target %s to %s drone(s)");
         add("commands.seekerdrones.config.target.removed", "Removed target #%s from %s drone(s)");
@@ -230,6 +233,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("commands.seekerdrones.config.target.list.entry", "  %s. %s %s");
         add("commands.seekerdrones.config.target.list.ignored_slot", " (ignored: no free target slot)");
         add("commands.seekerdrones.config.target.list.ignored_player_seek", " (ignored: needs Player Seek)");
+        add("commands.seekerdrones.config.target.list.ignored_blacklisted", " (ignored: blacklisted)");
         add("commands.seekerdrones.config.target.kind.entity_type", "Entity");
         add("commands.seekerdrones.config.target.kind.tag", "Tag");
         add("commands.seekerdrones.config.target.kind.player_name", "Player");

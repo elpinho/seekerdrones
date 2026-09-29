@@ -146,6 +146,9 @@ The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius =
 - **Sight range** is how far away a drone can first spot a target. It is low by default and increased by **Sight upgrades**.
 - A valid target matches one of the drone's **allowed** target entries (section 2.7). Players can only be targeted with the **Player Seek upgrade** (section 4). **The drone's operators (its group, or its owner if it has no group, section 6.3) are never targeted.** Spectators and creative-mode players are ignored.
 - **Invisibility:** an entity that is invisible (e.g. the Invisibility effect) is **hidden** from every drone, including X-ray drones. It is still spotted if it is glowing (Glowing effect or glowing tag), wears any armor piece or holds an item in either hand. This can be turned off with `drone.invisibilityHides`. The check is part of the cheap filtering step, before any raycast.
+- **Target blacklist:** `drone.targetBlacklist` lists entity type IDs and entity tags (`#namespace:path`) that drones **never** target, even if they match an entry, so servers and modpacks can protect entities such as villagers or bosses. It only takes entity types and tags, not player names (blacklisting `minecraft:player` protects every player). The list is resolved into one set of entity types when first needed and again after the config or the tags reload, so the check is a single lookup in the cheap filtering step.
+  - New blacklisted entries are refused by the Programming Station (section 7.2) and the debug command: a blacklisted entity type, a blacklisted tag, or a tag whose entity types are all blacklisted.
+  - Entries a drone already has are **kept but ignored**, like the runtime fail-safe (section 2.7), and are shown as ignored. Removing them from the blacklist makes them work again.
 - **Line of sight is required** unless the drone has the **X-ray upgrade**. Without X-ray, the drone must have a clear ray to the target's eyes (block collision raycast). A drone with X-ray skips the raycast entirely and detects targets through walls within its sight range.
 - If several valid targets are visible, the drone picks the **nearest**.
 - Targets are **sticky**: while chasing or following, the drone doesn't scan for other targets and never switches to a nearer one. It keeps its target until it loses it (section 3.5).
@@ -330,7 +333,7 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
   - Switching modes cancels a running install step and **never changes the drone in the slot**. The template only applies to drones inserted while Template mode is active: a drone that was already in the slot is left alone (the GUI says so) until it is taken out and inserted again. The template is kept while in Direct mode.
 - **Program** (the template in Template mode, the drone's own values in Direct mode):
   - the count for each upgrade type,
-  - **Targets:** the target list (section 2.6). The editor shows one row per slot, sized by the programmed Multi-target count (section 2.7). Each row has a kind button (entity type / tag / player name) and a text field. Unknown entity types and tags and duplicates are rejected. Player-name entries need Player Seek in the program. Clearing a row's text removes the entry. Stored entries beyond the slots, or player names without Player Seek (e.g. after removing an upgrade), are shown as ignored and can only be removed.
+  - **Targets:** the target list (section 2.6). The editor shows one row per slot, sized by the programmed Multi-target count (section 2.7). Each row has a kind button (entity type / tag / player name) and a text field. Unknown entity types and tags, blacklisted entries (section 3.3) and duplicates are rejected. Player-name entries need Player Seek in the program. Clearing a row's text removes the entry. Stored entries beyond the slots, player names without Player Seek (e.g. after removing an upgrade) or blacklisted entries are shown as ignored and can only be removed.
   - **Follow distance:** 1 to `drone.maxFollowDistance` blocks.
   - **Patrol center** (x, y, z, in the station's dimension; optional, with a **Here** button for the block above the station and a **Clear** button) and **patrol radius** (optional; the max for the programmed Patrol count is shown). Only shown with Patrol in the program.
   - **Label:** up to 32 characters.
@@ -490,6 +493,7 @@ All values below are placeholders.
 | `drone.scanInterval` | 10 ticks | |
 | `drone.maxRaycastsPerScan` | 4 | |
 | `drone.invisibilityHides` | true | Invisible entities are hidden from drones unless they glow, wear armor or hold an item (section 3.3) |
+| `drone.targetBlacklist` | empty | Entity type IDs and `#tags` drones never target (section 3.3) |
 | `drone.cruiseSpeed` | 0.4 blocks/tick | |
 | `drone.maxSpeed` | 1.2 blocks/tick | Hard ceiling of about 1.5 |
 | `drone.chaseAccelerationK` | 2.0 | Explosive chase speed curve (section 3.4) |

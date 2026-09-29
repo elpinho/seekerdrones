@@ -12,6 +12,7 @@ import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.DroneStats;
+import com.elpinho.seekerdrones.drone.TargetBlacklist;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -55,6 +56,8 @@ public final class ConfigCommand {
             new DynamicCommandExceptionType(tag -> Component.translatable(KEY + "unknown_tag", String.valueOf(tag)));
     private static final DynamicCommandExceptionType DUPLICATE_TARGET =
             new DynamicCommandExceptionType(entry -> Component.translatable(KEY + "duplicate_target", String.valueOf(entry)));
+    private static final DynamicCommandExceptionType BLACKLISTED_TARGET =
+            new DynamicCommandExceptionType(entry -> Component.translatable(KEY + "blacklisted_target", String.valueOf(entry)));
     private static final DynamicCommandExceptionType UNKNOWN_COLOR =
             new DynamicCommandExceptionType(color -> Component.translatable(KEY + "unknown_color", String.valueOf(color)));
     private static final DynamicCommandExceptionType FOLLOW_DISTANCE_TOO_LARGE =
@@ -155,6 +158,9 @@ public final class ConfigCommand {
             List<TargetEntry> targets = data.config().targets();
             if (targets.stream().anyMatch(existing -> existing.sameAs(entry))) {
                 throw DUPLICATE_TARGET.create(entry.displayString());
+            }
+            if (TargetBlacklist.blocks(entry)) {
+                throw BLACKLISTED_TARGET.create(entry.displayString());
             }
             List<TargetEntry> updated = new ArrayList<>(targets);
             updated.add(entry);
@@ -272,6 +278,8 @@ public final class ConfigCommand {
                 line.append(Component.translatable(KEY + "target.list.ignored_slot").withStyle(ChatFormatting.RED));
             } else if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && !playerSeek) {
                 line.append(Component.translatable(KEY + "target.list.ignored_player_seek").withStyle(ChatFormatting.RED));
+            } else if (TargetBlacklist.blocks(entry)) {
+                line.append(Component.translatable(KEY + "target.list.ignored_blacklisted").withStyle(ChatFormatting.RED));
             }
             source.sendSuccess(() -> line, false);
         }

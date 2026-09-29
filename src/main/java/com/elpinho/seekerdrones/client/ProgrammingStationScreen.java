@@ -16,6 +16,7 @@ import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneStats;
+import com.elpinho.seekerdrones.drone.TargetBlacklist;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.network.EditProgramPayload;
@@ -759,8 +760,12 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         if (index >= program.allowedTargetCount()) {
             return Component.translatable(KEY + "target.ignored.no_slot");
         }
-        if (program.config().targets().get(index).kind() == TargetEntry.Kind.PLAYER_NAME && program.upgradeCount(UpgradeType.PLAYER_SEEK) <= 0) {
+        TargetEntry entry = program.config().targets().get(index);
+        if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && program.upgradeCount(UpgradeType.PLAYER_SEEK) <= 0) {
             return Component.translatable(KEY + "target.ignored.player_seek");
+        }
+        if (TargetBlacklist.blocks(entry)) {
+            return Component.translatable(KEY + "target.ignored.blacklisted");
         }
         return null;
     }
