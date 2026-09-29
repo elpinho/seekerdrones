@@ -11,6 +11,10 @@ Status: `idea` | `decided`
 
 ---
 
+## Bugs
+
+- **Drone footstep sounds and ground particles** (`idea`): drones play footstep sounds and spawn block particles under them like walking mobs. Flying drones shouldn't do either; remove both.
+
 ## Drone behavior
 
 - **Separate vertical and horizontal sight ranges** (`idea`): split the sight range into a horizontal (x/z) range and a vertical (y) range, e.g. `drone.baseSightRange` (now 16) plus `drone.baseSightHeight`, with Sight upgrades raising one or both. A drone rarely needs to see as far up or down as it does sideways, especially with many Sight upgrades. A shorter vertical range also makes the scan box much smaller, which helps performance. The scan would use a cylinder or ellipsoid instead of a sphere.
@@ -25,6 +29,8 @@ Status: `idea` | `decided`
 
 - **Tune energy usage** (`idea`): rebalance the drone's energy config (`drone.energyPerBlock`, `drone.hoverEnergyPerTick`, `drone.baseMaxEnergy`, `upgrades.energy.perUpgrade`, DESIGN.md §5.1 and §9) so a drone's range and hover time feel right. Overlaps with the M9 balance pass (ROADMAP.md).
 - **Tune upgrade recipes** (`idea`): replace the placeholder upgrade recipes with final ones (materials and costs). This is listed as future work in DESIGN.md §11 (final recipes, balancing pass), so it needs the user's go-ahead before it becomes v1 work. It should follow §7.5: `c:` tags, and base and Mekanism variants where it makes sense.
+- **Antiprotonic Nucleosynthesizer for late-game recipes** (`idea`): the Mekanism variants of really late-game items (e.g. the most expensive upgrades) should require the Antiprotonic Nucleosynthesizer.
+- **Adjust upgrade descriptions** (`idea`): review and rewrite the upgrade descriptions (tooltips and GUI text).
 - **Solar upgrade** (`idea`, direction agreed): a drone upgrade that generates real energy (FE) from sunlight. The drone's net energy change is the solar output minus its energy usage.
   - **Stacking:** stackable, cap 4. **One upgrade is not enough to make a drone self-sufficient.** Once energy usage depends on the drone's upgrades (see **Upgrade-dependent energy usage** below), whether a drone is self-sufficient will also depend on its other upgrades.
   - **Cost:** it should be **very expensive to craft**.
@@ -37,6 +43,7 @@ Status: `idea` | `decided`
   - It **hides the drone's nameplate** (label), since a floating name tag defeats the point.
   - It's **mutually exclusive with the Siren upgrade**: a drone is either a loud deterrent or a silent watcher. The Programming Station and the debug command must refuse to install one while the other is installed.
   - **Still open:** how much each upgrade lowers the volume, the cap, whether it offsets the extra loudness from having many upgrades, and whether it also quiets the Explosive approach sound (a stealth kamikaze drone is fun but maybe harsh in PvP). All values would be config entries.
+- **Transparent drone upgrade** (`idea`): an upgrade that makes the drone (semi-)transparent or invisible. Could be part of the Quiet upgrade above as one "Stealth" upgrade, or separate.
 - **Charging Station speed upgrades** (`idea`, to reconsider later): let Charging Stations charge (and heal) drones faster. Alternatives to compare:
   - **Upgrade slots:** a "Station Speed Upgrade" item that multiplies the charge rate and heal rate, with 2–4 slots in the station GUI. The GUI is read-only today, so this needs a real menu with slots. It also needs a decision on whether the station's FE buffer grows with the upgrades, and a cap.
   - **Tiered stations:** Basic / Advanced / Elite Charging Stations, each crafted from the previous tier. Simpler, and the GUI doesn't change.
