@@ -1,8 +1,8 @@
 {
   "parent": "minecraft:block/cube_bottom_top",
   "textures": {
-    "bottom": "minecraft:block/crafter_bottom",
-    "side": "minecraft:block/crafter_east",
-    "top": "minecraft:block/crafter_top"
+    "bottom": "seekerdrones:block/machine_bottom",
+    "side": "seekerdrones:block/drone_factory_side",
+    "top": "seekerdrones:block/drone_factory_top"
   }
 }

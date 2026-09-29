@@ -4,7 +4,7 @@ import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 
 import net.minecraft.data.PackOutput;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
 import net.neoforged.neoforge.common.data.ExistingFileHelper;
 
@@ -15,24 +15,23 @@ public class ModBlockStateProvider extends BlockStateProvider {
 
     @Override
     protected void registerStatesAndModels() {
-        // Placeholder look from vanilla textures until the M9 polish pass.
-        simpleBlockWithItem(ModBlocks.CHARGING_STATION.get(), models().cubeBottomTop("charging_station",
-                ResourceLocation.withDefaultNamespace("block/iron_block"),
-                ResourceLocation.withDefaultNamespace("block/smooth_stone"),
-                ResourceLocation.withDefaultNamespace("block/redstone_block")));
-        simpleBlockWithItem(ModBlocks.DRONE_FACTORY.get(), models().cubeBottomTop("drone_factory",
-                ResourceLocation.withDefaultNamespace("block/crafter_east"),
-                ResourceLocation.withDefaultNamespace("block/crafter_bottom"),
-                ResourceLocation.withDefaultNamespace("block/crafter_top")));
+        // Placeholder textures from scripts/textures/generate_textures.py until the M9 art pass. All machines share
+        // the bottom face.
+        machine(ModBlocks.CHARGING_STATION.get(), "charging_station");
+        machine(ModBlocks.DRONE_FACTORY.get(), "drone_factory");
+        machine(ModBlocks.DEPLOYING_STATION.get(), "deploying_station");
         horizontalBlock(ModBlocks.PROGRAMMING_STATION.get(), models().orientableWithBottom("programming_station",
-                ResourceLocation.withDefaultNamespace("block/iron_block"),
-                ResourceLocation.withDefaultNamespace("block/observer_front"),
-                ResourceLocation.withDefaultNamespace("block/smooth_stone"),
-                ResourceLocation.withDefaultNamespace("block/lodestone_top")));
+                modLoc("block/programming_station_side"),
+                modLoc("block/programming_station_front"),
+                modLoc("block/machine_bottom"),
+                modLoc("block/programming_station_top")));
         simpleBlockItem(ModBlocks.PROGRAMMING_STATION.get(), models().getExistingFile(modLoc("block/programming_station")));
-        simpleBlockWithItem(ModBlocks.DEPLOYING_STATION.get(), models().cubeBottomTop("deploying_station",
-                ResourceLocation.withDefaultNamespace("block/iron_block"),
-                ResourceLocation.withDefaultNamespace("block/smooth_stone"),
-                ResourceLocation.withDefaultNamespace("block/dispenser_front_vertical")));
+    }
+
+    private void machine(Block block, String name) {
+        simpleBlockWithItem(block, models().cubeBottomTop(name,
+                modLoc("block/" + name + "_side"),
+                modLoc("block/machine_bottom"),
+                modLoc("block/" + name + "_top")));
     }
 }

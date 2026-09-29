@@ -1,9 +1,9 @@
 {
   "parent": "minecraft:block/orientable_with_bottom",
   "textures": {
-    "bottom": "minecraft:block/smooth_stone",
-    "front": "minecraft:block/observer_front",
-    "side": "minecraft:block/iron_block",
-    "top": "minecraft:block/lodestone_top"
+    "bottom": "seekerdrones:block/machine_bottom",
+    "front": "seekerdrones:block/programming_station_front",
+    "side": "seekerdrones:block/programming_station_side",
+    "top": "seekerdrones:block/programming_station_top"
   }
 }
