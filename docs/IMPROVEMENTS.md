@@ -108,10 +108,6 @@ Status: `idea` | `decided`
 
 ## Items and interaction
 
-- **Creative-mode deploying** (`idea`, direction agreed): in creative mode, `stack.consume(1, player)` (`DroneItem.use`) doesn't consume the item, so a drone item with an ID can be deployed again and again, giving several drones (and later several items) with the same "unique" ID (DESIGN.md §2.8). Proposal, depending on whether the item has an ID:
-  - **The item has a drone ID:** it is consumed in creative mode too, since it's a specific drone.
-  - **The item is "Unassigned"** (from the creative tab or `/give`): it stays in the hand, like a spawn egg. Every deploy already gives the new entity a fresh ID, so there are no duplicates, and it's handy for testing.
-  - Creative players can still duplicate a drone item with middle-click or the creative inventory. That's normal creative behavior and isn't worth blocking. If duplicate IDs ever matter, it should be handled where the ID is used.
 - **Drone Remote** (`idea`): a handheld item for controlling drones remotely, e.g. recalling them or sending them to recharge. Specifics TBD. It's direct player interaction, so it checks operator permissions (DESIGN.md §6.3). It may overlap with the v2 drone dashboard (ROADMAP.md).
 - **Drone Tracker** (`idea`): a compass-like item that points to a specific drone, e.g. to find one that ran out of energy and dropped as an item. Specifics TBD.
 

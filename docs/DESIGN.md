@@ -89,6 +89,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 - The ID is 8 random uppercase letters and digits (A–Z, 0–9), shown with a dash in the middle.
 - It never changes, is kept through every item/entity conversion, and is shown in the drone GUI, the item tooltip and Transmitter messages.
 - A drone item without an ID (e.g. from the creative tab or `/give`) shows "Unassigned" in its tooltip and gets a new ID the first time it is deployed.
+- **Creative mode:** hand-deploying a drone item with an ID uses it up even in creative mode, since it's one specific drone. An "Unassigned" item stays in a creative player's hand, like a spawn egg. Every deploy gets a fresh ID, so no IDs are duplicated. (Creative players can still copy an item with middle-click, which isn't blocked.)
 
 ---
 

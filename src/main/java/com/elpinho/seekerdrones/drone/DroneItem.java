@@ -69,7 +69,13 @@ public class DroneItem extends Item {
         if (!deploy(level, player, data)) {
             return InteractionResultHolder.fail(stack);
         }
-        stack.consume(1, player);
+        // A drone with an ID is one specific drone, so it's used up even in creative mode. An "Unassigned" item stays
+        // in a creative player's hand like a spawn egg: each deploy gets a fresh ID anyway (section 2.8).
+        if (data.hasDroneId()) {
+            stack.shrink(1);
+        } else {
+            stack.consume(1, player);
+        }
         return InteractionResultHolder.consume(stack);
     }
 
