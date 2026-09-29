@@ -139,6 +139,10 @@ public class DroneEntity extends PathfinderMob {
     private DroneData droneData;
     /** The drone's target entries resolved for matching. Rebuilt by {@link #setDroneData}. */
     private TargetMatcher targetMatcher = TargetMatcher.EMPTY;
+    /** The team whose shared target claims this drone counts toward (section 3.3). Kept in step by {@link #setDroneData}. */
+    private TargetClaims.Team claimTeam = TargetClaims.Team.of(DroneData.createNew());
+    /** Whether the drone has an Explosive upgrade. Kept in step by {@link #setDroneData}. */
+    private boolean explosive;
     /** True from hand-deploy or a Deploying Station launch until the drone first comes to rest. */
     private boolean drifting;
     /**
@@ -301,6 +305,7 @@ public class DroneEntity extends PathfinderMob {
         }
         setHealth(Math.min(data.health(), getMaxHealth()));
         targetMatcher = TargetMatcher.of(data);
+        updateClaimTeam(data);
         // Paths may need to span the whole pursuit range. The path finder's node budget was fixed at construction for
         // the default follow range, so scale it along.
         float pursuitRange = (float) DroneStats.pursuitRange(data);
@@ -311,6 +316,35 @@ public class DroneEntity extends PathfinderMob {
         navigation.setMaxVisitedNodesMultiplier(Math.max(1.0F, pursuitRange / BASE_FOLLOW_RANGE));
         entityData.set(DATA_LABEL, data.config().label());
         entityData.set(DATA_COLOR, data.config().color().getId());
+    }
+
+    /**
+     * Keeps the claim team and Explosive flag in step with the data. A drone holding a target whose team or kind
+     * changed moves its claim, and drops the target if the new team's limit is already reached (section 3.3).
+     */
+    private void updateClaimTeam(DroneData data) {
+        TargetClaims.Team team = TargetClaims.Team.of(data);
+        boolean nowExplosive = DroneStats.isExplosive(data);
+        if (team.equals(claimTeam) && nowExplosive == explosive) {
+            return;
+        }
+        boolean reclaim = target != null && !level().isClientSide();
+        if (reclaim) {
+            TargetClaims.release(this);
+        }
+        claimTeam = team;
+        explosive = nowExplosive;
+        if (reclaim && !TargetClaims.claim(this)) {
+            loseTarget();
+        }
+    }
+
+    TargetClaims.Team getClaimTeam() {
+        return claimTeam;
+    }
+
+    boolean isExplosive() {
+        return explosive;
     }
 
     /** The drone's full data with its current health, as it would be stored on the item. */
@@ -421,6 +455,15 @@ public class DroneEntity extends PathfinderMob {
         setDeltaMovement(velocity);
     }
 
+    /** Destroyed, picked up, exploded, unloaded with its chunk or moved to another dimension: free the target (section 3.3). */
+    @Override
+    public void onRemovedFromLevel() {
+        super.onRemovedFromLevel();
+        if (!level().isClientSide()) {
+            TargetClaims.release(this);
+        }
+    }
+
     @Override
     public void tick() {
         // Docked for this tick if it starts it docked: a drone that finishes charging during the tick doesn't pay for it.
@@ -526,6 +569,12 @@ public class DroneEntity extends PathfinderMob {
         if (found != null) {
             pendingTargetId = null;
             target = found;
+            // Claims aren't saved: take the claim again, or drop the target if the team's limit is reached (section 3.3).
+            if (!TargetClaims.claim(this)) {
+                target = null;
+                setState(DroneState.IDLE);
+                return;
+            }
             lostSightSince = -1;
             recheckDirectPath = true;
             resetFollow();
@@ -548,7 +597,8 @@ public class DroneEntity extends PathfinderMob {
         double range = DroneStats.sightRange(data);
         double rangeSqr = range * range;
         List<Entity> candidates = level().getEntities(this, getBoundingBox().inflate(range),
-                entity -> targetMatcher.matches(this, entity) && distanceToSqr(entity) <= rangeSqr && !isHidden(entity));
+                entity -> targetMatcher.matches(this, entity) && distanceToSqr(entity) <= rangeSqr && !isHidden(entity)
+                        && TargetClaims.canClaim(this, entity));
         if (candidates.isEmpty()) {
             return;
         }
@@ -569,6 +619,8 @@ public class DroneEntity extends PathfinderMob {
 
     private void acquireTarget(Entity entity) {
         target = entity;
+        // The scan only offers entities that can be claimed.
+        TargetClaims.claim(this);
         lostSightSince = -1;
         recheckDirectPath = true;
         resetFollow();
@@ -641,6 +693,7 @@ public class DroneEntity extends PathfinderMob {
      * drift drag brings it to a stop (section 3.5).
      */
     private void loseTarget() {
+        TargetClaims.release(this);
         target = null;
         lostSightSince = -1;
         resetFollow();
@@ -1213,6 +1266,7 @@ public class DroneEntity extends PathfinderMob {
 
     /** Drops any target and heads for the station. Where the drone is now is where it comes back to (section 5.3). */
     private void startReturning(BlockPos station) {
+        TargetClaims.release(this);
         target = null;
         pendingTargetId = null;
         lostSightSince = -1;

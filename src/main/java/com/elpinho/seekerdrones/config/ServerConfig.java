@@ -31,6 +31,7 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue DRONE_MAX_RAYCASTS_PER_SCAN;
     public static final ModConfigSpec.BooleanValue DRONE_INVISIBILITY_HIDES;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> DRONE_TARGET_BLACKLIST;
+    public static final ModConfigSpec.IntValue DRONE_MAX_EXPLOSIVE_DRONES_PER_TARGET;
     public static final ModConfigSpec.DoubleValue DRONE_CRUISE_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_MAX_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_CHASE_ACCELERATION_K;
@@ -182,6 +183,10 @@ public class ServerConfig {
                 .comment("Entity type IDs (e.g. \"minecraft:villager\") and entity tags (e.g. \"#minecraft:raiders\") that drones never target.",
                         "Blacklisted entries can't be added to a drone. Entries a drone already has are kept but ignored.")
                 .defineListAllowEmpty("targetBlacklist", List.of(), () -> "minecraft:villager", TargetBlacklist::isWellFormed);
+        DRONE_MAX_EXPLOSIVE_DRONES_PER_TARGET = BUILDER
+                .comment("Max Explosive drones of one team (Operator Group, else owner) going after the same entity. 0 = no limit.",
+                        "Non-Explosive drones are always limited to one per entity and team.")
+                .defineInRange("maxExplosiveDronesPerTarget", 0, 0, 64);
         DRONE_CRUISE_SPEED = BUILDER
                 .comment("Base chase speed (blocks/tick). Non-Explosive drones chase at this speed plus their target's speed; Explosive drones fly at it at the edge of sight range.")
                 .defineInRange("cruiseSpeed", 0.4, 0.01, 1.5);

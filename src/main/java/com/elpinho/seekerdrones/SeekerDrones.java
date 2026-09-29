@@ -6,6 +6,7 @@ import com.elpinho.seekerdrones.command.SeekerDronesCommand;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
 import com.elpinho.seekerdrones.drone.TargetBlacklist;
+import com.elpinho.seekerdrones.drone.TargetClaims;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.gametest.GameTestSelection;
 import com.elpinho.seekerdrones.network.ModNetwork;
@@ -30,6 +31,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.OnDatapackSyncEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.TagsUpdatedEvent;
+import net.neoforged.neoforge.event.level.LevelEvent;
 import net.neoforged.neoforge.gametest.GameTestHooks;
 
 @Mod(SeekerDrones.MODID)
@@ -60,6 +62,8 @@ public class SeekerDrones {
         modEventBus.addListener((ModConfigEvent.Reloading event) -> onConfigChanged(event));
         modEventBus.addListener((ModConfigEvent.Unloading event) -> onConfigChanged(event));
         NeoForge.EVENT_BUS.addListener((TagsUpdatedEvent event) -> TargetBlacklist.invalidate());
+        // Shared target claims are transient and kept per level (DESIGN.md section 3.3).
+        NeoForge.EVENT_BUS.addListener((LevelEvent.Unload event) -> TargetClaims.clear(event.getLevel()));
 
         // A null player means a /reload for everyone, so Factories must look their recipes up again.
         NeoForge.EVENT_BUS.addListener((OnDatapackSyncEvent event) -> {

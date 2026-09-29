@@ -13,14 +13,6 @@ Status: `idea` | `decided`
 
 ## Drone behavior
 
-- **Shared target claim** (`idea`, main points agreed): stops drones from piling onto the same entity. Non-Explosive and Explosive drones follow different rules:
-  - **Non-Explosive drones:** while a non-Explosive drone is chasing or following an entity, other non-Explosive drones ignore that entity. Only one non-Explosive drone tracks each entity.
-  - **Explosive drones:** at most `drone.maxExplosiveDronesPerTarget` Explosive drones go after the same entity. It's the only config entry for this feature (default TBD, e.g. 1). Explosive drones ignore non-Explosive claims: they go after an entity even if a non-Explosive drone is already following it.
-  - **Claiming:** a drone claims an entity when it enters CHASING and holds the claim through FOLLOWING. Only seeing the entity doesn't claim it. The claim is released when the drone loses the target, starts RETURNING for energy, is destroyed or picked up, or its chunk unloads, so another drone can take over.
-  - **Everything claimed:** a non-Explosive drone ignores claimed entities and keeps patrolling or hovering. An Explosive drone goes after an entity anyway, as long as the Explosive limit above isn't reached.
-  - **Siren and Transmitter:** they don't fire for a drone that skips a claimed entity. Only the claiming drone announces.
-  - **Still open:** whether claims only count within the same Operator Group or owner (suggested: yes, so another team's drones can't block yours) and whether anything should change when the entity is a player.
-  - **Performance:** claims can live in a transient per-level map (target entity ID → claiming drones) that isn't saved, since drones re-acquire targets after a reload. The check is one map lookup in the cheap filtering step of the scan (DESIGN.md §3.3), before any raycast, so it stays cheap with dozens of drones.
 - **Separate vertical and horizontal sight ranges** (`idea`): split the sight range into a horizontal (x/z) range and a vertical (y) range, e.g. `drone.baseSightRange` (now 16) plus `drone.baseSightHeight`, with Sight upgrades raising one or both. A drone rarely needs to see as far up or down as it does sideways, especially with many Sight upgrades. A shorter vertical range also makes the scan box much smaller, which helps performance. The scan would use a cylinder or ellipsoid instead of a sphere.
 - **Drones targeting other drones** (`idea`, direction agreed): today `TargetMatcher.matches()` excludes every `DroneEntity`, so drones can never target drones. Proposal:
   - Lift that exclusion for **enemy** drones only: a drone with a different Operator Group or owner. A drone's own allies (same group, or same owner if it has no group) are always exempt, like operators are exempt from Player Seek. Unowned drones count as enemies to everyone.
@@ -66,7 +58,7 @@ Status: `idea` | `decided`
   - Entity tag: entity type tags, which the server syncs to the client.
   - Player: online players, from the client's tab list. Offline names can still be typed, since validation already allows them.
   - **Behavior** (like vanilla command suggestions): a dropdown below the text box with 5–6 entries. Up/Down moves through them, and Tab or a click accepts one. Matching uses the ID's path, not just the prefix (`zomb` → `minecraft:zombie`, `minecraft:zombie_villager`, `mymod:zombie_knight`). Entity types show their display name next to the ID, e.g. `minecraft:zombie (Zombie)`.
-  - Entities blocked by the **target blacklist** (see Drone behavior) shouldn't be suggested. Whether non-living entity types are suggested is up to the **Hide non-living entity types** item below.
+  - Entities blocked by the **target blacklist** (`drone.targetBlacklist`, DESIGN.md §3.3) shouldn't be suggested (`TargetBlacklist.blocks`). Whether non-living entity types are suggested is up to the **Hide non-living entity types** item below.
 - **Hide non-living entity types from targets** (`idea`): decide whether non-living entity types (item frames, arrows, boats, minecarts and so on) can be target entries at all, and whether auto-complete suggests them. Hiding them makes the lists cleaner, but a player might want to target boats or minecarts.
 - **Machine particles** (`idea`, direction agreed): working machines emit particles. Also listed as optional in ROADMAP.md M9.
   - **Working state:** add a `WORKING` boolean block state to the machines. Today only the Deploying Station has a state (`TRIGGERED`). The server sets it **only when it changes** (one block update per start or stop, never per tick).

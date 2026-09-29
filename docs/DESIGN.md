@@ -152,6 +152,15 @@ The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius =
 - **Line of sight is required** unless the drone has the **X-ray upgrade**. Without X-ray, the drone must have a clear ray to the target's eyes (block collision raycast). A drone with X-ray skips the raycast entirely and detects targets through walls within its sight range.
 - If several valid targets are visible, the drone picks the **nearest**.
 - Targets are **sticky**: while chasing or following, the drone doesn't scan for other targets and never switches to a nearer one. It keeps its target until it loses it (section 3.5).
+- **Shared target claims:** drones on the same team don't pile onto the same entity. A drone's team is its Operator Group, or its owner if it has no group (section 6.3). All unowned drones form one team. Claims from other teams are ignored, so another team's drones can never block yours.
+  - A drone **claims** its target when it acquires it (enters CHASING) and holds the claim through FOLLOWING. Only seeing an entity doesn't claim it.
+  - **Non-Explosive drones:** an entity claimed by a non-Explosive drone is skipped by the team's other non-Explosive drones, so only one of them tracks each entity. They ignore Explosive claims.
+  - **Explosive drones:** at most `drone.maxExplosiveDronesPerTarget` of a team's Explosive drones go after the same entity (0 = no limit). They ignore non-Explosive claims, so an Explosive drone still goes after an entity that a non-Explosive drone is following.
+  - A claimed entity is dropped in the cheap filtering step of the scan, before any raycast. The drone picks the nearest unclaimed visible target instead. If there's none, it keeps patrolling or hovering. It plays no siren and sends no Transmitter message for an entity it skips (section 4).
+  - Players (Player Seek) are claimed like any other entity.
+  - The claim is released when the drone loses its target (section 3.5), starts RETURNING, explodes, is destroyed or picked up, or its chunk unloads. Another drone of the team can then take the entity on its next scan. A claimed entity is never handed over to a nearer drone, and a drone never gives up its target because of someone else's claim (except in the two cases below).
+  - Claims aren't saved. After a reload, a drone that gets its saved target back claims it again if the limit allows it. If the limit is already reached, it drops the target as if it had lost it.
+  - If a chasing drone's team changes (e.g. `/seekerdrones group assign`), its claim moves to the new team, and it drops the target if the new team's limit is already reached.
 
 **Performance (required — there may be dozens of drones):**
 - Drones scan for targets every N ticks (default 10), not every tick. Scans are **staggered** using `(tickCount + entityId) % N`, so drones spread the work over different ticks.
@@ -494,6 +503,7 @@ All values below are placeholders.
 | `drone.maxRaycastsPerScan` | 4 | |
 | `drone.invisibilityHides` | true | Invisible entities are hidden from drones unless they glow, wear armor or hold an item (section 3.3) |
 | `drone.targetBlacklist` | empty | Entity type IDs and `#tags` drones never target (section 3.3) |
+| `drone.maxExplosiveDronesPerTarget` | 0 | Max Explosive drones of one team going after the same entity; 0 = no limit (shared target claims, section 3.3) |
 | `drone.cruiseSpeed` | 0.4 blocks/tick | |
 | `drone.maxSpeed` | 1.2 blocks/tick | Hard ceiling of about 1.5 |
 | `drone.chaseAccelerationK` | 2.0 | Explosive chase speed curve (section 3.4) |
