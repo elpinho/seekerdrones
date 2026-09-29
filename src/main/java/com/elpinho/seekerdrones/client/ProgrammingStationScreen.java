@@ -82,6 +82,10 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
     private static final int CONTENT_Y = 36;
     private static final int CONTENT_BOTTOM = 146;
     private static final int STATUS_Y = 149;
+    private static final int STATUS_LINES = 2;
+    private static final int STATUS_LINE_HEIGHT = 10;
+    private static final int STATUS_X = 8;
+    private static final String ELLIPSIS = "…";
 
     private static final int CELL_WIDTH = 92;
     private static final int CELL_HEIGHT = 19;
@@ -141,7 +145,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
     public ProgrammingStationScreen(ProgrammingStationMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = 280;
-        this.imageHeight = 252;
+        this.imageHeight = 262;
         this.inventoryLabelX = ProgrammingStationMenu.INVENTORY_X;
         this.inventoryLabelY = ProgrammingStationMenu.INVENTORY_Y - 11;
     }
@@ -693,6 +697,8 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
                     menu.getEnergy(), menu.getEnergyCapacity()), mouseX, mouseY);
         } else if (isHovering(PROGRESS_X, PROGRESS_Y - 1, PROGRESS_WIDTH, PROGRESS_HEIGHT + 2, mouseX, mouseY) && menu.getInstalling() != null) {
             graphics.renderTooltip(font, installingText(), mouseX, mouseY);
+        } else if (isHovering(STATUS_X, STATUS_Y, statusWidth(), STATUS_LINES * STATUS_LINE_HEIGHT, mouseX, mouseY)) {
+            renderStatusTooltip(graphics, mouseX, mouseY);
         } else if (tab == Tab.UPGRADES) {
             renderUpgradeTooltip(graphics, mouseX, mouseY);
         } else if (tab == Tab.TARGETS) {
@@ -820,7 +826,39 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
             }
         }
         Status status = status();
-        graphics.drawString(font, font.plainSubstrByWidth(status.text().getString(), imageWidth - 16), 8, STATUS_Y, status.color(), false);
+        List<String> lines = statusLines(status.text());
+        for (int i = 0; i < lines.size(); i++) {
+            graphics.drawString(font, lines.get(i), STATUS_X, STATUS_Y + i * STATUS_LINE_HEIGHT, status.color(), false);
+        }
+    }
+
+    private int statusWidth() {
+        return imageWidth - 2 * STATUS_X;
+    }
+
+    /**
+     * The status wrapped into at most {@link #STATUS_LINES} lines. Text that still doesn't fit ends the last line
+     * with an ellipsis, and the full text shows as a tooltip (see {@link #renderStatusTooltip}).
+     */
+    private List<String> statusLines(Component text) {
+        int width = statusWidth();
+        List<String> lines = new ArrayList<>();
+        font.getSplitter().splitLines(text, width, text.getStyle()).forEach(line -> lines.add(line.getString()));
+        if (lines.size() <= STATUS_LINES) {
+            return lines;
+        }
+        List<String> shown = new ArrayList<>(lines.subList(0, STATUS_LINES));
+        String last = font.plainSubstrByWidth(shown.getLast(), width - font.width(ELLIPSIS)).stripTrailing();
+        shown.set(STATUS_LINES - 1, last + ELLIPSIS);
+        return shown;
+    }
+
+    /** The full status text, only when it didn't fit in the status area. */
+    private void renderStatusTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
+        Component text = status().text();
+        if (font.getSplitter().splitLines(text, statusWidth(), text.getStyle()).size() > STATUS_LINES) {
+            graphics.renderTooltip(font, font.split(text, 200), mouseX, mouseY);
+        }
     }
 
     private void renderUpgradeLabels(GuiGraphics graphics, DroneProgram program) {
@@ -889,7 +927,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
 
     private record Status(Component text, int color) {}
 
-    /** The one-line status under the editor: the most important problem or what the station is doing. */
+    /** The status under the editor: the most important problem or what the station is doing. */
     private Status status() {
         if (editError != null) {
             return new Status(editError, ERROR_COLOR);

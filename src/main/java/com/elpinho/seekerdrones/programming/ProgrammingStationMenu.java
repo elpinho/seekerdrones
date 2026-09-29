@@ -48,7 +48,7 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
     public static final int INPUT_X = 26;
     public static final int INPUT_Y = 52;
     public static final int INVENTORY_X = 60;
-    public static final int INVENTORY_Y = 168;
+    public static final int INVENTORY_Y = 178;
 
     private static final int PLAYER_SLOTS_START = ProgrammingStationBlockEntity.SLOT_COUNT;
     private static final int PLAYER_SLOTS_END = PLAYER_SLOTS_START + 36;
