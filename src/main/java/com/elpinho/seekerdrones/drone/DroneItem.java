@@ -134,7 +134,7 @@ public class DroneItem extends Item {
                 }
             }
         }
-        tooltip.add(Component.translatable("tooltip.seekerdrones.drone.targets", data.config().targets().size())
+        tooltip.add(Component.translatable("tooltip.seekerdrones.drone.targets", TargetMatcher.targetableEntries(data).size())
                 .withStyle(ChatFormatting.GRAY));
     }
 

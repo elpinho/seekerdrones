@@ -37,7 +37,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 - The **Drone item** carries all drone state in a custom data component (`seekerdrones:drone_data`, see section 8.2).
 - The **Drone entity** is the deployed, flying form. Converting between item and entity is lossless: energy, health, upgrades, config, operator group, persistent drone ID, label and color are all preserved.
-- **Item tooltip:** the first line is `<label> - <drone ID>` (or just the drone ID if there is no label), drawn in the drone's color using the dye's text color (`DyeColor.getTextColor`) so dark colors stay readable. There is no separate color line. The second line is `Owner: <name>` if the drone has an owner (section 6.3), shown even when the drone has a group. Below it the tooltip lists energy, health, installed upgrades (if any) and the number of target entries.
+- **Item tooltip:** the first line is `<label> - <drone ID>` (or just the drone ID if there is no label), drawn in the drone's color using the dye's text color (`DyeColor.getTextColor`) so dark colors stay readable. There is no separate color line. The second line is `Owner: <name>` if the drone has an owner (section 6.3), shown even when the drone has a group. Below it the tooltip lists energy, health, installed upgrades (if any) and the number of target entries the drone can actually use (entries ignored by the runtime fail-safe, section 2.7, or blocked by the target blacklist, section 3.3, aren't counted).
 
 ### 2.2 Deploying
 
@@ -54,7 +54,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 ### 2.4 Drone GUI
 
 - Operators can open a read-only status screen by right-clicking a drone entity, or by right-clicking (without Shift) while holding a drone item. For an item, the state shows as "Not deployed" and the screen doesn't refresh.
-- It shows the drone ID, label, energy, health, sight range (the total in blocks, including the Sight upgrade bonus, section 3.3), installed upgrades, target configuration, current state (idle / patrolling / chasing / following / returning to charge / charging) and, only if the drone has a Patrol upgrade, its patrol center and patrol radius (with the max).
+- It shows the drone ID, label, energy, health, sight range (the total in blocks, including the Sight upgrade bonus, section 3.3), installed upgrades, the target entries the drone can actually use (entries ignored by the runtime fail-safe, section 2.7, or blocked by the target blacklist, section 3.3, aren't listed; the Programming Station and `/seekerdrones config target list` still show them), current state (idle / patrolling / chasing / following / returning to charge / charging) and, only if the drone has a Patrol upgrade, its patrol center and patrol radius (with the max).
 - The drone's configuration is **not** editable here. Configuration is done in the Drone Programming Station.
 
 ### 2.5 Health and destruction

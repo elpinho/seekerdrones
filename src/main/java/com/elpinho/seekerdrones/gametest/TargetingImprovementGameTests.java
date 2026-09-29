@@ -328,6 +328,75 @@ public class TargetingImprovementGameTests {
         }
     }
 
+    // --- targetableEntries (DESIGN.md 2.1, 2.4, 2.7, 3.3) ---
+
+    private static DroneData targetsData(Map<UpgradeType, Integer> upgrades, TargetEntry... entries) {
+        DroneData base = DroneData.createNew();
+        return new DroneData(base.droneId(), base.groupId(), base.ownerId(), base.ownerName(), base.energy(), base.health(), upgrades,
+                base.config().withTargets(List.of(entries)));
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 5)
+    public static void targetableEntriesRespectsMultiTargetCount(GameTestHelper helper) {
+        TargetEntry skeleton = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton");
+        TargetEntry zombie = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie");
+        helper.assertValueEqual(TargetMatcher.targetableEntries(targetsData(Map.of(), skeleton, zombie)), List.of(skeleton),
+                "targetable entries without Multi-target");
+        helper.assertValueEqual(TargetMatcher.targetableEntries(targetsData(Map.of(UpgradeType.MULTI_TARGET, 1), skeleton, zombie)),
+                List.of(skeleton, zombie), "targetable entries with 1 Multi-target upgrade");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 5)
+    public static void targetableEntriesExcludesPlayerNameWithoutPlayerSeek(GameTestHelper helper) {
+        TargetEntry player = new TargetEntry(TargetEntry.Kind.PLAYER_NAME, "Steve");
+        helper.assertTrue(TargetMatcher.targetableEntries(targetsData(Map.of(), player)).isEmpty(),
+                "player name should be excluded without Player Seek");
+        helper.assertValueEqual(TargetMatcher.targetableEntries(targetsData(Map.of(UpgradeType.PLAYER_SEEK, 1), player)), List.of(player),
+                "player name should be included with Player Seek");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 5)
+    public static void droneItemTooltipCountsTargetableEntries(GameTestHelper helper) {
+        TargetEntry skeleton = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton");
+        TargetEntry zombie = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie");
+        helper.assertValueEqual(tooltipTargetCount(targetsData(Map.of(), skeleton, zombie)), 1, "tooltip count without Multi-target");
+        helper.assertValueEqual(tooltipTargetCount(targetsData(Map.of(UpgradeType.MULTI_TARGET, 1), skeleton, zombie)), 2,
+                "tooltip count with Multi-target");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 10, batch = "config_blacklist_targetable")
+    public static void targetableEntriesExcludesBlacklistedEntries(GameTestHelper helper) {
+        TargetEntry skeleton = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton");
+        TargetEntry zombie = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie");
+        DroneData data = targetsData(Map.of(UpgradeType.MULTI_TARGET, 1), zombie, skeleton);
+        try {
+            withBlacklist(List.of("minecraft:zombie"));
+            helper.assertValueEqual(TargetMatcher.targetableEntries(data), List.of(skeleton), "blacklisted zombie should be excluded");
+            helper.assertValueEqual(tooltipTargetCount(data), 1, "tooltip count should skip the blacklisted entry");
+            withBlacklist(List.of());
+            helper.assertValueEqual(TargetMatcher.targetableEntries(data), List.of(zombie, skeleton), "both entries once not blacklisted");
+            helper.succeed();
+        } finally {
+            withBlacklist(List.of());
+        }
+    }
+
+    private static Object tooltipTargetCount(DroneData data) {
+        List<net.minecraft.network.chat.Component> lines = new ArrayList<>();
+        DroneItem.createStack(data).getItem().appendHoverText(DroneItem.createStack(data), net.minecraft.world.item.Item.TooltipContext.EMPTY,
+                lines, net.minecraft.world.item.TooltipFlag.NORMAL);
+        for (net.minecraft.network.chat.Component line : lines) {
+            if (line.getContents() instanceof net.minecraft.network.chat.contents.TranslatableContents t
+                    && t.getKey().equals("tooltip.seekerdrones.drone.targets")) {
+                return t.getArgs()[0];
+            }
+        }
+        return "missing";
+    }
+
     // --- helpers ---
 
     private static void withBlacklist(List<String> entries) {

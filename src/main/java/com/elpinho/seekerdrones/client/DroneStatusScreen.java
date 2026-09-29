@@ -7,6 +7,7 @@ import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.drone.TargetEntry;
+import com.elpinho.seekerdrones.drone.TargetMatcher;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
 import com.elpinho.seekerdrones.network.RequestDroneStatusPayload;
@@ -78,7 +79,7 @@ public class DroneStatusScreen extends Screen {
             }
         }
 
-        List<TargetEntry> targets = data.config().targets();
+        List<TargetEntry> targets = TargetMatcher.targetableEntries(data);
         lines.add(field("targets", targets.isEmpty() ? Component.translatable("screen.seekerdrones.drone_status.none") : Component.empty()));
         for (TargetEntry target : targets) {
             lines.add(Component.literal("  " + target.displayString()));

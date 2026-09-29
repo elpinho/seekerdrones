@@ -92,6 +92,16 @@ public final class TargetMatcher {
         return active;
     }
 
+    /**
+     * The entries the drone can actually target, for display: {@link #activeEntries} minus entries the target
+     * blacklist blocks (section 3.3).
+     */
+    public static List<TargetEntry> targetableEntries(DroneData data) {
+        List<TargetEntry> entries = activeEntries(data);
+        entries.removeIf(TargetBlacklist::blocks);
+        return entries;
+    }
+
     private static void logInvalid(TargetEntry entry) {
         if (LOGGED_INVALID.add(entry.kind().getSerializedName() + ":" + entry.value())) {
             LOGGER.warn("Ignoring invalid drone target entry {} ({})", entry.displayString(), entry.kind().getSerializedName());
