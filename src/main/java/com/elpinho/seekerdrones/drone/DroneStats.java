@@ -31,9 +31,14 @@ public final class DroneStats {
                 + (double) data.upgradeCount(UpgradeType.SIGHT) * ServerConfig.get(ServerConfig.UPGRADES_SIGHT_PER_UPGRADE);
     }
 
-    /** Beyond this distance a chased target is lost, in blocks (section 3.5). */
+    /**
+     * Beyond this distance a chased target is lost, in blocks (section 3.5): {@code sightRange × pursuitMultiplier},
+     * capped at {@code maxPursuitRange} but never below the sight range.
+     */
     public static double pursuitRange(DroneData data) {
-        return sightRange(data) * ServerConfig.get(ServerConfig.DRONE_PURSUIT_MULTIPLIER);
+        double sight = sightRange(data);
+        double pursuit = Math.min(sight * ServerConfig.get(ServerConfig.DRONE_PURSUIT_MULTIPLIER), ServerConfig.get(ServerConfig.DRONE_MAX_PURSUIT_RANGE));
+        return Math.max(sight, pursuit);
     }
 
     /** How many target entries the drone actually uses (section 2.7 runtime fail-safe). */

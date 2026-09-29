@@ -179,7 +179,7 @@ The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius =
 
 The drone loses its target when any of these happen:
 - The target dies, despawns or changes dimension.
-- The target moves beyond the **pursuit range** (`sightRange × pursuitMultiplier`, default 2×).
+- The target moves beyond the **pursuit range** (`sightRange × pursuitMultiplier`, default 1.5×), capped at `maxPursuitRange` (default 128 blocks). The cap never lowers the pursuit range below the sight range.
 - Line of sight is lost continuously for longer than the **lost-sight timeout** (default 5 s). X-ray drones never lose line of sight through walls. A target that becomes hidden by invisibility (section 3.3) counts as out of sight for every drone, X-ray included, so the same timeout applies. If it becomes visible again in time, the chase goes on.
 
 After losing the target, a drone with a Patrol upgrade goes back to patrolling. A drone without one stops and hovers where it is.
@@ -482,8 +482,9 @@ All values below are placeholders.
 | `drone.chargingAlternateRadius` | 10 blocks | Alternate free station search |
 | `drone.unreachableStationCooldown` | 1200 ticks | How long an unreachable station is skipped (section 5.2) |
 | `drone.baseMaxHealth` | 20 | |
-| `drone.baseSightRange` | 8 blocks | |
-| `drone.pursuitMultiplier` | 2.0 | |
+| `drone.baseSightRange` | 16 blocks | |
+| `drone.pursuitMultiplier` | 1.5 | |
+| `drone.maxPursuitRange` | 128 blocks | Cap on the pursuit range, never below the sight range (section 3.5) |
 | `drone.lostSightTimeout` | 100 ticks | |
 | `drone.scanInterval` | 10 ticks | |
 | `drone.maxRaycastsPerScan` | 4 | |

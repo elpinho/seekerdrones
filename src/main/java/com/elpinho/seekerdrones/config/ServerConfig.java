@@ -21,6 +21,7 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue DRONE_BASE_MAX_HEALTH;
     public static final ModConfigSpec.IntValue DRONE_BASE_SIGHT_RANGE;
     public static final ModConfigSpec.DoubleValue DRONE_PURSUIT_MULTIPLIER;
+    public static final ModConfigSpec.IntValue DRONE_MAX_PURSUIT_RANGE;
     public static final ModConfigSpec.IntValue DRONE_LOST_SIGHT_TIMEOUT;
     public static final ModConfigSpec.IntValue DRONE_SCAN_INTERVAL;
     public static final ModConfigSpec.IntValue DRONE_MAX_RAYCASTS_PER_SCAN;
@@ -153,10 +154,13 @@ public class ServerConfig {
                 .defineInRange("baseMaxHealth", 20.0, 1.0, 1024.0);
         DRONE_BASE_SIGHT_RANGE = BUILDER
                 .comment("Base detection (sight) range in blocks, with no Sight upgrades.")
-                .defineInRange("baseSightRange", 8, 1, 256);
+                .defineInRange("baseSightRange", 16, 1, 256);
         DRONE_PURSUIT_MULTIPLIER = BUILDER
                 .comment("Multiplier applied to sight range to get the pursuit range at which a chased target is lost.")
-                .defineInRange("pursuitMultiplier", 2.0, 1.0, 100.0);
+                .defineInRange("pursuitMultiplier", 1.5, 1.0, 100.0);
+        DRONE_MAX_PURSUIT_RANGE = BUILDER
+                .comment("Hard cap (blocks) on the pursuit range. It never drops below the drone's sight range.")
+                .defineInRange("maxPursuitRange", 128, 1, 1024);
         DRONE_LOST_SIGHT_TIMEOUT = BUILDER
                 .comment("Ticks of continuous lost line of sight before a non-X-ray drone gives up its target.")
                 .defineInRange("lostSightTimeout", 100, 0, Integer.MAX_VALUE);
