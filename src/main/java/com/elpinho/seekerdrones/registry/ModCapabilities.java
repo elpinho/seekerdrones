@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.registry;
 
+import com.elpinho.seekerdrones.deploying.DeployingStationBlockEntity;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
 
@@ -26,6 +27,11 @@ public final class ModCapabilities {
         event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.PROGRAMMING_STATION.get(),
                 (station, side) -> station.getEnergyStorage());
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.PROGRAMMING_STATION.get(),
+                (station, side) -> station.getAutomationItems());
+
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.DEPLOYING_STATION.get(),
+                (station, side) -> station.getEnergyStorage());
+        event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.DEPLOYING_STATION.get(),
                 (station, side) -> station.getAutomationItems());
     }
 }

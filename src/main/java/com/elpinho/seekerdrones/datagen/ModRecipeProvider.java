@@ -93,6 +93,18 @@ public class ModRecipeProvider extends RecipeProvider {
                 .unlockedBy(getHasName(ModItems.SEEKER_CORE.get()), has(ModItems.SEEKER_CORE.get()))
                 .save(output);
 
+        // Placeholder Deploying Station recipe until the final recipes (section 11).
+        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ModItems.DEPLOYING_STATION.get())
+                .pattern("IDI")
+                .pattern("RTR")
+                .pattern("III")
+                .define('I', Items.IRON_INGOT)
+                .define('D', Items.DISPENSER)
+                .define('R', Items.REDSTONE)
+                .define('T', ModItems.DRONE_ROTOR.get())
+                .unlockedBy(getHasName(ModItems.DRONE_ROTOR.get()), has(ModItems.DRONE_ROTOR.get()))
+                .save(output);
+
         buildBaseRecipes(output.withConditions(new NotCondition(new ModLoadedCondition(RepairFluid.MEKANISM))));
         buildMekanismAssembly(output.withConditions(new ModLoadedCondition(RepairFluid.MEKANISM)));
     }

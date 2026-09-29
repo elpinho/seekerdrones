@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.registry;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.deploying.DeployingStationBlock;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlock;
 import com.elpinho.seekerdrones.programming.ProgrammingStationBlock;
 import com.elpinho.seekerdrones.station.ChargingStationBlock;
@@ -30,6 +31,13 @@ public class ModBlocks {
 
     public static final DeferredBlock<ProgrammingStationBlock> PROGRAMMING_STATION = BLOCKS.register("programming_station",
             () -> new ProgrammingStationBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(3.5F, 6.0F)
+                    .requiresCorrectToolForDrops()
+                    .sound(SoundType.METAL)));
+
+    public static final DeferredBlock<DeployingStationBlock> DEPLOYING_STATION = BLOCKS.register("deploying_station",
+            () -> new DeployingStationBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.METAL)
                     .strength(3.5F, 6.0F)
                     .requiresCorrectToolForDrops()

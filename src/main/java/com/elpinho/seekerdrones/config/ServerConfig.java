@@ -113,6 +113,9 @@ public class ServerConfig {
 
     // === deployingStation ===
     public static final ModConfigSpec.IntValue DEPLOYING_STATION_ENERGY_PER_DEPLOY;
+    public static final ModConfigSpec.IntValue DEPLOYING_STATION_ENERGY_CAPACITY;
+    public static final ModConfigSpec.DoubleValue DEPLOYING_STATION_LAUNCH_HEIGHT;
+    public static final ModConfigSpec.IntValue DEPLOYING_STATION_CHECK_INTERVAL;
 
     public static final ModConfigSpec SPEC;
 
@@ -349,6 +352,15 @@ public class ServerConfig {
         DEPLOYING_STATION_ENERGY_PER_DEPLOY = BUILDER
                 .comment("FE consumed by a Deploying Station per drone deployed.")
                 .defineInRange("energyPerDeploy", 5_000, 0, Integer.MAX_VALUE);
+        DEPLOYING_STATION_ENERGY_CAPACITY = BUILDER
+                .comment("FE a Deploying Station can store.")
+                .defineInRange("energyCapacity", 50_000, 1, Integer.MAX_VALUE);
+        DEPLOYING_STATION_LAUNCH_HEIGHT = BUILDER
+                .comment("How far (blocks) the upward boost lifts a drone deployed by a Deploying Station before it comes to rest.")
+                .defineInRange("launchHeight", 0.8, 0.0, 1.0);
+        DEPLOYING_STATION_CHECK_INTERVAL = BUILDER
+                .comment("How often (ticks) a Deploying Station retries a drone that couldn't be deployed yet.")
+                .defineInRange("checkInterval", 10, 1, 1200);
         BUILDER.pop();
 
         SPEC = BUILDER.build();

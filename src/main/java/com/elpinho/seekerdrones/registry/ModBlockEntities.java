@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.registry;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.deploying.DeployingStationBlockEntity;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.programming.ProgrammingStationBlockEntity;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
@@ -25,4 +26,8 @@ public class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<ProgrammingStationBlockEntity>> PROGRAMMING_STATION =
             BLOCK_ENTITY_TYPES.register("programming_station",
                     () -> BlockEntityType.Builder.of(ProgrammingStationBlockEntity::new, ModBlocks.PROGRAMMING_STATION.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<DeployingStationBlockEntity>> DEPLOYING_STATION =
+            BLOCK_ENTITY_TYPES.register("deploying_station",
+                    () -> BlockEntityType.Builder.of(DeployingStationBlockEntity::new, ModBlocks.DEPLOYING_STATION.get()).build(null));
 }

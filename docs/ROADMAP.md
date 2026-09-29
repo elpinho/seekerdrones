@@ -69,7 +69,7 @@ Each milestone ends in something playable or testable. The drone and its AI come
 - **Done when:** a drone fed in by automation comes out programmed and upgraded exactly as configured.
 
 ### M8 — Deploying Station and full pipeline
-- Drone Deploying Station with auto-deploy and FE per deploy.
+- Drone Deploying Station with auto-deploy (or a Deploy button and redstone pulse when it's off), a small upward launch and FE per deploy.
 - End-to-end test: Factory → Programming Station → Deploying Station through pipes, with no player involved.
 - **Done when:** the full automated pipeline works in survival.
 

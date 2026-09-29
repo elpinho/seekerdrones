@@ -89,9 +89,7 @@ public class DroneItem extends Item {
             return false;
         }
 
-        if (!data.hasDroneId()) {
-            data = data.withDroneId(DroneIds.generate(level.getRandom()));
-        }
+        data = data.withIdAssigned(level.getRandom());
         // The first player to hand-deploy a drone becomes its owner for good (section 6.3). The owner redeploying it
         // refreshes the stored name, in case they renamed.
         if (data.ownerId().isEmpty() || data.ownerId().get().equals(player.getUUID())) {

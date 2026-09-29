@@ -37,6 +37,13 @@ public class ModBlockLootProvider extends BlockLootSubProvider {
                 .add(LootItem.lootTableItem(programmingStation)
                         .apply(CopyComponentsFunction.copyComponents(CopyComponentsFunction.Source.BLOCK_ENTITY)
                                 .include(ModDataComponents.PROGRAMMING_STATION.get()))))));
+        // The Deploying Station item keeps its auto-deploy setting (DESIGN.md section 7.3).
+        Block deployingStation = ModBlocks.DEPLOYING_STATION.get();
+        add(deployingStation, LootTable.lootTable().withPool(applyExplosionCondition(deployingStation, LootPool.lootPool()
+                .setRolls(ConstantValue.exactly(1))
+                .add(LootItem.lootTableItem(deployingStation)
+                        .apply(CopyComponentsFunction.copyComponents(CopyComponentsFunction.Source.BLOCK_ENTITY)
+                                .include(ModDataComponents.DEPLOYING_STATION.get()))))));
     }
 
     @Override

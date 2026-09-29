@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.datagen;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.deploying.DeployingStatus;
 import com.elpinho.seekerdrones.drone.DroneState;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.network.StationStatusPayload;
@@ -25,6 +26,19 @@ public class ModLanguageProvider extends LanguageProvider {
         addBlock(ModBlocks.CHARGING_STATION, "Drone Charging Station");
         addBlock(ModBlocks.DRONE_FACTORY, "Drone Factory");
         addBlock(ModBlocks.PROGRAMMING_STATION, "Drone Programming Station");
+        addBlock(ModBlocks.DEPLOYING_STATION, "Drone Deploying Station");
+        add("tooltip.seekerdrones.deploying_station.auto_deploy_off", "Auto-deploy: Off");
+        add("screen.seekerdrones.deploying_station.auto_deploy.on", "Auto-deploy: On");
+        add("screen.seekerdrones.deploying_station.auto_deploy.off", "Auto-deploy: Off");
+        add("screen.seekerdrones.deploying_station.auto_deploy.tooltip", "On: deploy every inserted drone as soon as possible.\nOff: deploy with the Deploy button or a redstone pulse.");
+        add("screen.seekerdrones.deploying_station.deploy", "Deploy");
+        add("screen.seekerdrones.deploying_station.energy_value", "%s / %s FE");
+        add("screen.seekerdrones.deploying_station.energy_per_deploy", "%s FE per deploy");
+        add("screen.seekerdrones.deploying_station.status", "Status: %s");
+        add(DeployingStatus.IDLE.getTranslationKey(), "No drone");
+        add(DeployingStatus.READY.getTranslationKey(), "Ready");
+        add(DeployingStatus.NO_ENERGY.getTranslationKey(), "Not enough FE");
+        add(DeployingStatus.BLOCKED.getTranslationKey(), "Space above blocked");
         add("tooltip.seekerdrones.programming_station.programmed", "Programmed (%s)");
         add("screen.seekerdrones.programming_station.mode.direct", "Mode: Direct");
         add("screen.seekerdrones.programming_station.mode.template", "Mode: Template");

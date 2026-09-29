@@ -139,9 +139,12 @@ public class DroneEntity extends PathfinderMob {
     private DroneData droneData;
     /** The drone's target entries resolved for matching. Rebuilt by {@link #setDroneData}. */
     private TargetMatcher targetMatcher = TargetMatcher.EMPTY;
-    /** True from hand-deploy until the drone first comes to rest. */
+    /** True from hand-deploy or a Deploying Station launch until the drone first comes to rest. */
     private boolean drifting;
-    /** Where a hand-deployed drone came to rest (patrol center fallback, section 3.2). */
+    /**
+     * Where a hand-deployed drone came to rest, or the block above the Deploying Station that launched it (patrol center
+     * fallback, section 3.2).
+     */
     @Nullable
     private GlobalPos restPosition;
 
@@ -362,6 +365,23 @@ public class DroneEntity extends PathfinderMob {
         restPosition = null;
     }
 
+    /**
+     * Called on a Deploying Station launch (section 7.3): the drone drifts like after hand-deploy, but its rest position
+     * is the given spot above the station, wherever it ends up.
+     */
+    public void startDrifting(GlobalPos fixedRestPosition) {
+        drifting = true;
+        restPosition = fixedRestPosition;
+    }
+
+    /** Ends the drift. The rest position is where the drone is now, unless a Deploying Station already fixed it. */
+    private void stopDrifting() {
+        drifting = false;
+        if (restPosition == null) {
+            restPosition = currentPosition();
+        }
+    }
+
     @Override
     public SpawnGroupData finalizeSpawn(ServerLevelAccessor level, DifficultyInstance difficulty, MobSpawnType spawnType, @Nullable SpawnGroupData spawnGroupData) {
         // Summoned by command or spawn egg: give it a complete, fresh data set.
@@ -395,8 +415,7 @@ public class DroneEntity extends PathfinderMob {
         if (velocity.lengthSqr() < restSpeed * restSpeed) {
             velocity = Vec3.ZERO;
             if (drifting) {
-                drifting = false;
-                restPosition = currentPosition();
+                stopDrifting();
             }
         }
         setDeltaMovement(velocity);
@@ -556,8 +575,7 @@ public class DroneEntity extends PathfinderMob {
         // A drifting drone that spots a target starts chasing at once (section 2.2). It never comes to rest, so where
         // it spotted the target becomes its rest position (patrol center fallback, section 3.2).
         if (drifting) {
-            drifting = false;
-            restPosition = currentPosition();
+            stopDrifting();
         }
         patrolWaypoint = -1;
         homeGoal = null;
@@ -1200,8 +1218,7 @@ public class DroneEntity extends PathfinderMob {
         lostSightSince = -1;
         resetFollow();
         if (drifting) {
-            drifting = false;
-            restPosition = currentPosition();
+            stopDrifting();
         }
         patrolWaypoint = -1;
         homeGoal = null;

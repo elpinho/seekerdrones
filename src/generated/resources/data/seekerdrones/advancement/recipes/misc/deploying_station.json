@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_drone_rotor": {
+      "conditions": {
+        "items": [
+          {
+            "items": "seekerdrones:drone_rotor"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "seekerdrones:deploying_station"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_drone_rotor"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "seekerdrones:deploying_station"
+    ]
+  }
+}

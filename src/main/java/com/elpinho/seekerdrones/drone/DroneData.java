@@ -12,6 +12,7 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.util.RandomSource;
 
 /**
  * All drone state, stored as the {@code seekerdrones:drone_data} item component and in the drone entity's NBT
@@ -82,6 +83,11 @@ public record DroneData(String droneId, Optional<UUID> groupId, Optional<UUID> o
 
     public DroneData withDroneId(String droneId) {
         return new DroneData(droneId, groupId, ownerId, ownerName, energy, health, upgrades, config);
+    }
+
+    /** A drone without an ID gets one the first time it is deployed (section 2.8). */
+    public DroneData withIdAssigned(RandomSource random) {
+        return hasDroneId() ? this : withDroneId(DroneIds.generate(random));
     }
 
     public DroneData withGroupId(Optional<UUID> groupId) {

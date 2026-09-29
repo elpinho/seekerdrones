@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "D": {
+      "item": "minecraft:dispenser"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    },
+    "T": {
+      "item": "seekerdrones:drone_rotor"
+    }
+  },
+  "pattern": [
+    "IDI",
+    "RTR",
+    "III"
+  ],
+  "result": {
+    "count": 1,
+    "id": "seekerdrones:deploying_station"
+  }
+}

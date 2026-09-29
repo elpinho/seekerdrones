@@ -44,7 +44,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 | Method | Who | Behavior |
 |---|---|---|
 | **Shift + right-click** with the drone item (hand-deploy) | Operators of the drone only (section 6.3; anyone for an unowned drone) | Spawns in front of the player (`drone.deploySpawnDistance`) and **inherits the player's velocity**, plus a small throw impulse along the look direction (`drone.deployThrowSpeed`). Deploying fails if the spawn spot is obstructed. If the drone has no owner yet, the deploying player becomes its owner (section 6.3). The velocity is multiplied by `drone.deployDrag` each tick until it drops below `drone.deployRestSpeed`, then the drone comes to rest and hovers. Its rest position is recorded (patrol center fallback, section 3.2). If it spots a target while drifting, it starts chasing immediately, and the position where it spotted the target is recorded as its rest position instead. |
-| **Drone Deploying Station** | Anyone / automation (no permission check) | Spawns above the station **with no velocity** and hovers. |
+| **Drone Deploying Station** | Anyone / automation (no permission check) | Spawns resting on the station's top face with a small upward boost (`deployingStation.launchHeight`, at most 1 block), drifts up with the same drag and comes to rest (section 7.3). It never sets the owner, but a drone without an ID gets one (section 2.8). |
 
 ### 2.3 Picking up
 
@@ -126,7 +126,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 The patrol center is chosen in this order:
 1. The position configured on the Patrol upgrade in the Programming Station. It must be in the same dimension as the drone.
 2. Otherwise, where a hand-deployed drone came to rest (or, if it spotted a target while still drifting, where it spotted it).
-3. Otherwise, the Deploying Station's position.
+3. Otherwise, for a drone deployed by a Deploying Station, the block above the station (where it spawned), wherever the upward boost left it and even if it spotted a target while rising.
 4. Otherwise (e.g. a drone spawned by `/summon`), where the drone is when it first needs a patrol center. That position is recorded like a rest position.
 
 The configured center is stored with its dimension. A center in another dimension is ignored and the next fallback applies. The drone's rest position is dimension-bound the same way.
@@ -353,10 +353,16 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
 
 ### 7.3 Drone Deploying Station
 
-- It has one drone input slot and an **auto-deploy** toggle.
-- With auto-deploy on, a drone inserted by a player or automation is deployed above the station, stationary, if the space is clear. With auto-deploy off, a GUI button deploys it manually.
-- It deploys drones as they are and does not charge them.
-- It **uses FE per deploy** (a configurable amount) and won't deploy without enough stored FE.
+- It has one drone input slot, an **auto-deploy** toggle (default **on**) and an FE buffer of `deployingStation.energyCapacity`, filled on every side.
+- With auto-deploy on, a drone inserted by a player or automation is deployed as soon as possible. With auto-deploy off, it is deployed by the GUI's **Deploy** button or by a **redstone pulse** (rising edge). Redstone is ignored while auto-deploy is on.
+- **Deploying:** the drone spawns centered on the station, with the bottom of its box on the station's top face, and gets an upward velocity of `launchHeight × (1 − drone.deployDrag)`. It then drifts with `drone.deployDrag` like a hand-deployed drone, so it rises at most `deployingStation.launchHeight` blocks (at most 1) before it comes to rest and hovers. It can spot targets while rising. Its patrol center fallback is the block above the station (section 3.2).
+- **Clear space:** the drone's box at the spawn spot, stretched up by `launchHeight`, must be free of blocks and of other drones. A drone hovering above the station (e.g. a sentry without Patrol) blocks the next deploy until it moves away or is picked up.
+- It deploys drones as they are and does not charge them. It never sets the drone's owner (section 6.3). A drone without an ID gets one (section 2.8).
+- It **uses FE per deploy** (`deployingStation.energyPerDeploy`), taken all at once when the deploy succeeds. It won't deploy without enough stored FE, and a failed attempt costs nothing.
+- A drone that can't be deployed yet (not enough FE, or the space isn't clear) waits in the slot. The station retries every `deployingStation.checkInterval` ticks, and at once when the slot changes.
+- **Automation** (item capability, every side): drone items can be inserted while the slot is empty. Automation can never extract the drone. Players can take it out by hand.
+- **GUI:** the drone slot, the stored FE with a bar and the FE per deploy, the auto-deploy toggle, the Deploy button (enabled only with auto-deploy off and a drone in the slot) and a status line: Idle (no drone), Ready (auto-deploy off, waiting for the button or redstone), Not enough FE, or Space blocked.
+- **Breaking the station** drops the drone. The item keeps the auto-deploy setting in a data component (`seekerdrones:deploying_station`), so placing it again restores it.
 
 ### 7.4 Drone Charging Station
 
@@ -529,6 +535,9 @@ All values below are placeholders.
 | `factory.energyCapacity` | 200 000 FE | |
 | `factory.tankCapacity` | 4 000 mB | |
 | `deployingStation.energyPerDeploy` | 5 000 FE | |
+| `deployingStation.energyCapacity` | 50 000 FE | FE the station can store |
+| `deployingStation.launchHeight` | 0.8 blocks | How far the upward boost lifts a deployed drone; at most 1 (section 7.3) |
+| `deployingStation.checkInterval` | 10 ticks | How often a waiting drone is retried |
 
 ---
 

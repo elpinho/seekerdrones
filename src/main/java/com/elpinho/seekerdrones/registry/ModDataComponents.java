@@ -6,9 +6,12 @@ import com.elpinho.seekerdrones.programming.ProgrammingStationSettings;
 
 import java.util.UUID;
 
+import com.mojang.serialization.Codec;
+
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.codec.ByteBufCodecs;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -37,5 +40,13 @@ public class ModDataComponents {
                     () -> DataComponentType.<ProgrammingStationSettings>builder()
                             .persistent(ProgrammingStationSettings.CODEC)
                             .networkSynchronized(ProgrammingStationSettings.STREAM_CODEC)
+                            .build());
+
+    /** The auto-deploy setting a broken Deploying Station keeps on its item (DESIGN.md section 7.3). */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Boolean>> DEPLOYING_STATION =
+            DATA_COMPONENT_TYPES.register("deploying_station",
+                    () -> DataComponentType.<Boolean>builder()
+                            .persistent(Codec.BOOL)
+                            .networkSynchronized(ByteBufCodecs.BOOL)
                             .build());
 }

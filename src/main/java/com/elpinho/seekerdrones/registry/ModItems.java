@@ -4,6 +4,7 @@ import java.util.EnumMap;
 import java.util.Map;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.deploying.DeployingStationItem;
 import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.UpgradeItem;
 import com.elpinho.seekerdrones.drone.UpgradeType;
@@ -23,6 +24,8 @@ public class ModItems {
     public static final DeferredItem<BlockItem> DRONE_FACTORY = ITEMS.registerSimpleBlockItem(ModBlocks.DRONE_FACTORY);
     public static final DeferredItem<ProgrammingStationItem> PROGRAMMING_STATION = ITEMS.register("programming_station",
             () -> new ProgrammingStationItem(ModBlocks.PROGRAMMING_STATION.get(), new Item.Properties()));
+    public static final DeferredItem<DeployingStationItem> DEPLOYING_STATION = ITEMS.register("deploying_station",
+            () -> new DeployingStationItem(ModBlocks.DEPLOYING_STATION.get(), new Item.Properties()));
 
     // Intermediate components (DESIGN.md section 7.5).
     public static final DeferredItem<Item> DRONE_ROTOR = ITEMS.registerSimpleItem("drone_rotor");
