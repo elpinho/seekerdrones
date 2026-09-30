@@ -30,6 +30,7 @@ import com.elpinho.seekerdrones.registry.ModItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Tooltip;
@@ -143,6 +144,9 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
     private CommitBox centerZ;
     @Nullable
     private CommitBox radiusBox;
+    /** Auto-complete for the focused target row. Created in {@link #init()}, once the font is set. */
+    @Nullable
+    private TargetSuggestions suggestions;
 
     public ProgrammingStationScreen(ProgrammingStationMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -196,6 +200,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         copyButton = null;
         followBox = labelBox = centerX = centerY = centerZ = radiusBox = null;
         colorButton = null;
+        suggestions = new TargetSuggestions(font, this::acceptSuggestion);
 
         addRenderableWidget(Button.builder(Component.translatable(mode().getTranslationKey()), button -> send(EditProgramPayload.setMode(menu.containerId,
                         mode() == ProgrammingMode.DIRECT ? ProgrammingMode.TEMPLATE : ProgrammingMode.DIRECT)))
@@ -287,6 +292,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
             CommitBox box = addRenderableWidget(new CommitBox(font, x + 46, y, 116, 18, Component.translatable(KEY + "target.value"),
                     self -> commitTarget(index)));
             box.setMaxLength(64);
+            box.setResponder(text -> updateSuggestions());
             addRenderableWidget(Button.builder(Component.literal("x"), b -> removeTarget(index))
                     .bounds(x + 164, y + 2, 14, 14)
                     .tooltip(Tooltip.create(Component.translatable(KEY + "target.remove")))
@@ -345,6 +351,47 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         box.setInvalid(false);
         if (!targets.equals(previous)) {
             sendConfig(program.config().withTargets(targets));
+        }
+    }
+
+    /** The index of the target row being typed in, or -1. */
+    private int focusedTargetRow() {
+        for (Map.Entry<Integer, CommitBox> entry : targetBoxes.entrySet()) {
+            if (entry.getValue() == getFocused()) {
+                return entry.getKey();
+            }
+        }
+        return -1;
+    }
+
+    /** Shows the suggestions for the target row being typed in, or hides them if there is none. */
+    private void updateSuggestions() {
+        if (suggestions == null) {
+            return;
+        }
+        int index = focusedTargetRow();
+        DroneProgram program = program();
+        if (index < 0 || program == null) {
+            suggestions.hide();
+            return;
+        }
+        // Entries in the other rows would be rejected as duplicates.
+        List<TargetEntry> targets = program.config().targets();
+        suggestions.show(targetBoxes.get(index), rowKind(index), entry -> {
+            for (int i = 0; i < targets.size(); i++) {
+                if (i != index && targets.get(i).sameAs(entry)) {
+                    return true;
+                }
+            }
+            return false;
+        }, width);
+    }
+
+    private void acceptSuggestion(String value) {
+        int index = focusedTargetRow();
+        if (index >= 0) {
+            targetBoxes.get(index).setValue(value);
+            commitTarget(index);
         }
     }
 
@@ -642,7 +689,16 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
     // --- Input ---
 
     @Override
+    public void setFocused(@Nullable GuiEventListener listener) {
+        super.setFocused(listener);
+        updateSuggestions();
+    }
+
+    @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (suggestions != null && suggestions.keyPressed(keyCode)) {
+            return true;
+        }
         // Typed keys go to the focused box, so e.g. "E" doesn't close the screen.
         if (keyCode != GLFW.GLFW_KEY_ESCAPE && getFocused() instanceof EditBox box && box.canConsumeInput()) {
             box.keyPressed(keyCode, scanCode, modifiers);
@@ -653,6 +709,9 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (suggestions != null && suggestions.mouseClicked(mouseX, mouseY)) {
+            return true;
+        }
         // Clicking anywhere else commits the focused box.
         if (getFocused() instanceof CommitBox box && !box.isMouseOver(mouseX, mouseY)) {
             setFocused(null);
@@ -667,6 +726,9 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (suggestions != null && suggestions.mouseScrolled(mouseX, mouseY, scrollY)) {
+            return true;
+        }
         if (tab == Tab.TARGETS && isHovering(EDITOR_X, CONTENT_Y, EDITOR_WIDTH, CONTENT_BOTTOM - CONTENT_Y, mouseX, mouseY)) {
             DroneProgram program = program();
             int rows = program != null ? Math.max(program.allowedTargetCount(), program.config().targets().size()) : 0;
@@ -678,6 +740,14 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+    }
+
+    @Override
+    public void mouseMoved(double mouseX, double mouseY) {
+        if (suggestions != null) {
+            suggestions.mouseMoved(mouseX, mouseY);
+        }
+        super.mouseMoved(mouseX, mouseY);
     }
 
     /** Commits the box being typed in before the menu closes. */
@@ -694,6 +764,12 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
+        if (suggestions != null && suggestions.isVisible()) {
+            suggestions.render(graphics);
+            if (suggestions.isMouseOver(mouseX, mouseY)) {
+                return;
+            }
+        }
         renderTooltip(graphics, mouseX, mouseY);
         if (isHovering(ENERGY_X, ENERGY_Y, ENERGY_WIDTH, ENERGY_HEIGHT, mouseX, mouseY)) {
             graphics.renderTooltip(font, Component.literal(EnergyFormat.ratio(menu.getEnergy(), menu.getEnergyCapacity())), mouseX, mouseY);

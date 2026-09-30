@@ -52,16 +52,10 @@ Status: `idea` | `decided`
   - **Programming Station** (DESIGN.md §7.2): it works, but the layout, the plain-fill look and the density of the Upgrades, Targets and Settings tabs need a UX pass. It must keep supporting both Direct mode (manual upgrading) and Template mode (automation). Planned changes:
     - A status area with more room than today's 2 wrapped lines (long statuses end with "…" and show the full text on hover).
     - Upgrades tab: a grid of upgrade icons with count badges (e.g. "3/4") instead of rows of text.
-    - Targets tab: a scrollable list with an icon per entry (spawn egg for entity types, a tag icon for tags, the player's head for players). Target auto-complete (below) plugs in here.
+    - Targets tab: a scrollable list with an icon per entry (spawn egg for entity types, a tag icon for tags, the player's head for players). It must keep the target auto-complete (DESIGN.md §7.2).
     - A clear Direct/Template mode indicator, e.g. a colored header strip. Today the mode only shows through the status line.
   - **Charging and Deploying Stations:** they only pick up the shared style.
-- **Target auto-complete in the Programming Station** (`idea`, direction agreed): suggest completions while typing in a Targets row (DESIGN.md §7.2). Each row already has a kind button, so suggestions are filtered by the row's kind. All sources are client-side, so there's no server round trip:
-  - Entity type: `BuiltInRegistries.ENTITY_TYPE`, including modded entities.
-  - Entity tag: entity type tags, which the server syncs to the client.
-  - Player: online players, from the client's tab list. Offline names can still be typed, since validation already allows them.
-  - **Behavior** (like vanilla command suggestions): a dropdown below the text box with 5–6 entries. Up/Down moves through them, and Tab or a click accepts one. Matching uses the ID's path, not just the prefix (`zomb` → `minecraft:zombie`, `minecraft:zombie_villager`, `mymod:zombie_knight`). Entity types show their display name next to the ID, e.g. `minecraft:zombie (Zombie)`.
-  - Entities blocked by the **target blacklist** (`drone.targetBlacklist`, DESIGN.md §3.3) shouldn't be suggested (`TargetBlacklist.blocks`). Whether non-living entity types are suggested is up to the **Hide non-living entity types** item below.
-- **Hide non-living entity types from targets** (`idea`): decide whether non-living entity types (item frames, arrows, boats, minecarts and so on) can be target entries at all, and whether auto-complete suggests them. Hiding them makes the lists cleaner, but a player might want to target boats or minecarts.
+- **Hide non-living entity types from targets** (`idea`): decide whether non-living entity types (item frames, arrows, boats, minecarts and so on) can be target entries at all, and whether the target auto-complete (DESIGN.md §7.2) suggests them. Today they are valid entries and are suggested. Hiding them makes the lists cleaner, but a player might want to target boats or minecarts.
 - **Drone size by upgrade count** (`idea`, direction agreed): a drone's **model** gets slightly bigger the more upgrades it has. It's **visual only**: the hitbox stays fixed (0.75 × 0.4 today), so path finding (the flying node size), the clear-path raycasts (§3.4 and §8.4), the fit checks at follow and patrol positions and the deploy obstruction checks are all unaffected.
   - The growth is **slight**: a fully upgraded drone must never reach 2.5× the base size.
   - The base model can be slightly smaller than it is now, to make room for the growth.
