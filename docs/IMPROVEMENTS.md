@@ -26,7 +26,6 @@ Status: `idea` | `decided`
 - **Tune energy usage** (`idea`): rebalance the drone's energy config (`drone.energyPerBlock`, `drone.hoverEnergyPerTick`, `drone.baseMaxEnergy`, `upgrades.energy.perUpgrade`, DESIGN.md §5.1 and §9) so a drone's range and hover time feel right. Overlaps with the M9 balance pass (ROADMAP.md).
 - **Tune upgrade recipes** (`idea`): replace the placeholder upgrade recipes with final ones (materials and costs). This is listed as future work in DESIGN.md §11 (final recipes, balancing pass), so it needs the user's go-ahead before it becomes v1 work. It should follow §7.5: `c:` tags, and base and Mekanism variants where it makes sense.
 - **Antiprotonic Nucleosynthesizer for late-game recipes** (`idea`): the Mekanism variants of really late-game items (e.g. the most expensive upgrades) should require the Antiprotonic Nucleosynthesizer.
-- **Adjust upgrade descriptions** (`idea`): review and rewrite the upgrade descriptions (tooltips and GUI text).
 - **Solar upgrade** (`idea`, direction agreed): a drone upgrade that generates real energy (FE) from sunlight. The drone's net energy change is the solar output minus its energy usage.
   - **Stacking:** stackable, cap 4. **One upgrade is not enough to make a drone self-sufficient.** Once energy usage depends on the drone's upgrades (see **Upgrade-dependent energy usage** below), whether a drone is self-sufficient will also depend on its other upgrades.
   - **Cost:** it should be **very expensive to craft**.
