@@ -6,12 +6,14 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
+import com.elpinho.seekerdrones.machine.MachineWorkingState;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -53,6 +55,8 @@ public class ChargingStationBlockEntity extends BlockEntity {
     @Nullable
     private UUID claimant;
     private long claimTime;
+    /** Game time the docked drone last took FE or healed. Starts idle; game time is never negative. */
+    private long lastWork = -MachineWorkingState.IDLE_DELAY - 1;
 
     public ChargingStationBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.CHARGING_STATION.get(), pos, state);
@@ -149,6 +153,39 @@ public class ChargingStationBlockEntity extends BlockEntity {
     public void release(UUID drone) {
         if (drone.equals(claimant)) {
             claimant = null;
+        }
+    }
+
+    /**
+     * Called by the docked drone on each tick it takes FE or heals. Sets the working state (and {@code repairing})
+     * only when it changes, and schedules {@link #checkIdle()} to turn it off once the reports stop.
+     */
+    public void markWorking(boolean repairing) {
+        if (level == null) {
+            return;
+        }
+        lastWork = level.getGameTime();
+        BlockState state = getBlockState();
+        boolean wasWorking = state.getValue(MachineWorkingState.WORKING);
+        if (!wasWorking || state.getValue(ChargingStationBlock.REPAIRING) != repairing) {
+            level.setBlock(worldPosition, state.setValue(MachineWorkingState.WORKING, true).setValue(ChargingStationBlock.REPAIRING, repairing),
+                    Block.UPDATE_CLIENTS);
+        }
+        if (!wasWorking) {
+            level.scheduleTick(worldPosition, state.getBlock(), MachineWorkingState.IDLE_DELAY);
+        }
+    }
+
+    /** Turns the working state off if no work was reported for a while, else checks again later. */
+    void checkIdle() {
+        if (level == null || !getBlockState().getValue(MachineWorkingState.WORKING)) {
+            return;
+        }
+        if (level.getGameTime() - lastWork > MachineWorkingState.IDLE_DELAY) {
+            level.setBlock(worldPosition, getBlockState().setValue(MachineWorkingState.WORKING, false).setValue(ChargingStationBlock.REPAIRING, false),
+                    Block.UPDATE_CLIENTS);
+        } else {
+            level.scheduleTick(worldPosition, getBlockState().getBlock(), MachineWorkingState.IDLE_DELAY);
         }
     }
 

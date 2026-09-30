@@ -2,12 +2,15 @@ package com.elpinho.seekerdrones.programming;
 
 import javax.annotation.Nullable;
 
+import com.elpinho.seekerdrones.machine.MachineWorkingState;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
@@ -37,7 +40,7 @@ public class ProgrammingStationBlock extends BaseEntityBlock {
 
     public ProgrammingStationBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH));
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(MachineWorkingState.WORKING, false));
     }
 
     @Override
@@ -47,7 +50,19 @@ public class ProgrammingStationBlock extends BaseEntityBlock {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(FACING);
+        builder.add(FACING, MachineWorkingState.WORKING);
+    }
+
+    /** While installing: red dust flecks flickering just above the top, like powered redstone. */
+    @Override
+    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
+        if (!state.getValue(MachineWorkingState.WORKING)) {
+            return;
+        }
+        for (int i = 0; i < 4; i++) {
+            level.addParticle(DustParticleOptions.REDSTONE, pos.getX() + 0.15 + random.nextDouble() * 0.7, pos.getY() + 1.05 + random.nextDouble() * 0.1,
+                    pos.getZ() + 0.15 + random.nextDouble() * 0.7, 0, 0, 0);
+        }
     }
 
     @Override

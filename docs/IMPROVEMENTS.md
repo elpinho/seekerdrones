@@ -62,11 +62,6 @@ Status: `idea` | `decided`
   - **Behavior** (like vanilla command suggestions): a dropdown below the text box with 5–6 entries. Up/Down moves through them, and Tab or a click accepts one. Matching uses the ID's path, not just the prefix (`zomb` → `minecraft:zombie`, `minecraft:zombie_villager`, `mymod:zombie_knight`). Entity types show their display name next to the ID, e.g. `minecraft:zombie (Zombie)`.
   - Entities blocked by the **target blacklist** (`drone.targetBlacklist`, DESIGN.md §3.3) shouldn't be suggested (`TargetBlacklist.blocks`). Whether non-living entity types are suggested is up to the **Hide non-living entity types** item below.
 - **Hide non-living entity types from targets** (`idea`): decide whether non-living entity types (item frames, arrows, boats, minecarts and so on) can be target entries at all, and whether auto-complete suggests them. Hiding them makes the lists cleaner, but a player might want to target boats or minecarts.
-- **Machine particles** (`idea`, direction agreed): working machines emit particles. Also listed as optional in ROADMAP.md M9.
-  - **Working state:** add a `WORKING` boolean block state to the machines. Today only the Deploying Station has a state (`TRIGGERED`). The server sets it **only when it changes** (one block update per start or stop, never per tick).
-  - **Particles:** spawned on the client in `Block.animateTick`, which vanilla only calls for blocks near the player, so there is no server cost.
-  - **Per machine:** Factory: sparks or smoke while crafting. Programming Station: enchant-like glyphs or small electric sparks while installing. Charging Station: electric sparks while charging, and a heart or "+" particle while repairing. Deploying Station: a small burst of cloud particles on deploy.
-  - **Lit texture:** the same state can switch the model to an emissive "on" texture. Tell the M9 artist so the textures include it.
 - **Drone size by upgrade count** (`idea`, direction agreed): a drone's **model** gets slightly bigger the more upgrades it has. It's **visual only**: the hitbox stays fixed (0.75 × 0.4 today), so path finding (the flying node size), the clear-path raycasts (§3.4 and §8.4), the fit checks at follow and patrol positions and the deploy obstruction checks are all unaffected.
   - The growth is **slight**: a fully upgraded drone must never reach 2.5× the base size.
   - The base model can be slightly smaller than it is now, to make room for the growth.
@@ -85,7 +80,7 @@ Status: `idea` | `decided`
   - **Siren:** a custom siren to replace the raid horn (DESIGN.md §4). It repeats every `upgrades.siren.repeatInterval` (100 ticks), so it should be a ~3–4 s wail that doesn't overlap itself. It's already a variable-range event, so volume > 1 keeps extending the audible range.
   - **Deploy:** a drone spin-up sound whenever a drone spawns, whether by hand or by a Deploying Station. The Deploying Station adds a mechanical launch clunk on top.
   - **Programming Station:** a soft click for each upgrade installed, and a chime when programming is complete.
-  - **Charging Station:** a docking clamp sound when a drone docks, a faint electric hum loop while charging (a block loop driven by the `WORKING` state from **Machine particles**), and a "charged" chirp when the drone undocks.
+  - **Charging Station:** a docking clamp sound when a drone docks, a faint electric hum loop while charging (a block loop driven by the `working` block state, DESIGN.md §7.6), and a "charged" chirp when the drone undocks.
   - **Damage and destruction:** a metallic clank on hurt, replacing the iron golem placeholder (DESIGN.md §2.5), and an electrical fizzle before the destruction explosion.
   - **Low power:** a descending "power-down" chirp when the drone starts RETURNING to charge.
   - **Others:** a short, quiet lock-on beep when a drone starts chasing (useful for drones without a Siren), a short "scanning" sound when it loses its target, a power-down sound on pickup (replacing the vanilla item pickup), Factory crafting sounds, and sounds for the Jammer block and EMP grenade if those are made.

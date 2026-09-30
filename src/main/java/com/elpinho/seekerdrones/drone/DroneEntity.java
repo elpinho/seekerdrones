@@ -1425,14 +1425,20 @@ public class DroneEntity extends PathfinderMob {
         int maxEnergy = DroneStats.maxEnergy(data);
         if (station.getEnergy() > 0) {
             int missing = maxEnergy - data.energy();
+            int taken = 0;
             if (missing > 0) {
-                int taken = station.drainForDrone(Math.min(missing, ServerConfig.get(ServerConfig.CHARGING_STATION_CHARGE_RATE)));
+                taken = station.drainForDrone(Math.min(missing, ServerConfig.get(ServerConfig.CHARGING_STATION_CHARGE_RATE)));
                 data = data.withEnergy(data.energy() + taken);
                 droneData = data;
             }
+            float healed = 0;
             if (getHealth() < getMaxHealth() && station.canRepair()) {
                 float heal = Math.min(getMaxHealth() - getHealth(), ServerConfig.get(ServerConfig.CHARGING_STATION_HEAL_PER_TICK).floatValue());
-                setHealth(Math.min(getMaxHealth(), getHealth() + station.useRepairFluid(heal)));
+                healed = station.useRepairFluid(heal);
+                setHealth(Math.min(getMaxHealth(), getHealth() + healed));
+            }
+            if (taken > 0 || healed > 0) {
+                station.markWorking(healed > 0);
             }
         }
         if (data.energy() >= maxEnergy && (getHealth() >= getMaxHealth() || !station.canRepair())) {

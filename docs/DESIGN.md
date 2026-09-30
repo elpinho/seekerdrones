@@ -442,6 +442,19 @@ The FE and time values are placeholders in the recipe JSON (they are recipe data
 
 Upgrade and Charging Station recipes stay placeholders until the balance pass (section 11).
 
+### 7.6 Machine visuals
+
+- The Drone Factory, Programming Station and Charging Station have a `working` boolean block state. The server writes it **only when it changes** (one block update per start or stop, never per tick). A machine turns idle only after 20 ticks without work, so a machine that works in bursts (e.g. short on FE) doesn't flicker.
+  - **Factory:** working while a build makes progress.
+  - **Programming Station:** working while an install step makes progress.
+  - **Charging Station:** working while the docked drone takes FE or heals. It has no ticker, so the drone reports the work, and a scheduled block tick (only while working) turns the state off once the reports stop, including when the drone is picked up, destroyed or unloaded. A second state, `repairing`, is set while the drone is also being healed.
+- **Particles** are spawned on the client in `Block.animateTick`, which vanilla only calls for blocks near the player, so they cost the server nothing:
+  - **Factory:** smoke rising from the top.
+  - **Programming Station:** red dust flecks flickering just above the top, like powered redstone.
+  - **Charging Station:** electric sparks around the dock, plus hearts while `repairing`.
+  - **Deploying Station:** it has no working state. Each deploy sends a block event, and clients show a small burst of cloud particles from the top.
+- The `working` state can also switch the model to a lit "on" texture. The blockstates are generated for it, but the placeholder textures don't have one yet (see ROADMAP.md M9).
+
 ---
 
 ## 8. Technical Notes

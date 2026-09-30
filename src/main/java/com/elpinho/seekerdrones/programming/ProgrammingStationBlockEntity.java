@@ -13,6 +13,7 @@ import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.drone.UpgradeItem;
 import com.elpinho.seekerdrones.drone.UpgradeType;
+import com.elpinho.seekerdrones.machine.MachineWorkingState;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModItems;
@@ -83,6 +84,7 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
     private final Energy energy = new Energy();
     private final IItemHandler automationItems = new AutomationItemHandler();
     private final ContainerData data = new StationData();
+    private final MachineWorkingState working = new MachineWorkingState();
 
     private ProgrammingMode mode = ProgrammingMode.DIRECT;
     private DroneProgram template = DroneProgram.createDefault();
@@ -173,20 +175,21 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
     // --- Processing ---
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, ProgrammingStationBlockEntity station) {
-        station.tick();
+        station.working.update(level, pos, station.tick());
     }
 
-    private void tick() {
+    /** Returns whether an install step made progress this tick. */
+    private boolean tick() {
         Optional<DroneData> current = getDrone();
         if (current.isEmpty()) {
             cancelStep();
-            return;
+            return false;
         }
         DroneData drone = current.get();
         if (mode == ProgrammingMode.TEMPLATE) {
             if (!accepted || !isTemplateValid()) {
                 cancelStep();
-                return;
+                return false;
             }
             if (!drone.config().equals(template.config())) {
                 drone = drone.withConfig(template.config());
@@ -202,9 +205,7 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
                 }
             }
         }
-        if (installing != null) {
-            advanceStep(drone);
-        }
+        return installing != null && advanceStep(drone);
     }
 
     /** The first type (in a fixed order) the template wants more of, that is in the input and fits the caps. */
@@ -226,12 +227,13 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         setChanged();
     }
 
-    private void advanceStep(DroneData drone) {
+    /** Returns whether the step made progress. */
+    private boolean advanceStep(DroneData drone) {
         int time = installTime();
         int remainingTicks = time - progress;
         int cost = remainingTicks <= 1 ? stepCost - energySpent : stepCost / time;
         if (energy.stored < cost) {
-            return;
+            return false;
         }
         energy.stored -= cost;
         energySpent += cost;
@@ -240,6 +242,7 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         if (progress >= time) {
             finishStep(drone);
         }
+        return true;
     }
 
     private void finishStep(DroneData drone) {

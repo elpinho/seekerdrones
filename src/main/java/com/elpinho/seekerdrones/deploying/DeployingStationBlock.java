@@ -6,6 +6,7 @@ import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Containers;
 import net.minecraft.world.InteractionResult;
@@ -31,6 +32,8 @@ import net.minecraft.world.phys.BlockHitResult;
 public class DeployingStationBlock extends BaseEntityBlock {
     public static final MapCodec<DeployingStationBlock> CODEC = simpleCodec(DeployingStationBlock::new);
     public static final BooleanProperty TRIGGERED = BlockStateProperties.TRIGGERED;
+    /** Block event sent when a drone is deployed; clients show a burst of cloud particles. */
+    public static final int EVENT_DEPLOYED = 0;
 
     public DeployingStationBlock(Properties properties) {
         super(properties);
@@ -63,6 +66,24 @@ public class DeployingStationBlock extends BaseEntityBlock {
         if (powered && level.getBlockEntity(pos) instanceof DeployingStationBlockEntity station) {
             station.requestDeploy();
         }
+    }
+
+    /** A deploy: a small burst of clouds from the top, under the launched drone. */
+    @Override
+    protected boolean triggerEvent(BlockState state, Level level, BlockPos pos, int id, int param) {
+        if (id != EVENT_DEPLOYED) {
+            return super.triggerEvent(state, level, pos, id, param);
+        }
+        if (level.isClientSide()) {
+            for (int i = 0; i < 8; i++) {
+                double angle = i * Math.PI / 4;
+                double speed = 0.05 + level.getRandom().nextDouble() * 0.03;
+                level.addParticle(ParticleTypes.CLOUD, pos.getX() + 0.5, pos.getY() + 1.05, pos.getZ() + 0.5,
+                        Math.cos(angle) * speed, 0.02, Math.sin(angle) * speed);
+            }
+        }
+        // True on the server, so the event is sent to clients.
+        return true;
     }
 
     @Override

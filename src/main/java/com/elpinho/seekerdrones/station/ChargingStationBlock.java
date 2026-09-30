@@ -5,12 +5,15 @@ import java.util.UUID;
 
 import javax.annotation.Nullable;
 
+import com.elpinho.seekerdrones.machine.MachineWorkingState;
 import com.elpinho.seekerdrones.network.StationStatusPayload;
 import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
@@ -19,27 +22,62 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.StateDefinition;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * Drone Charging Station (DESIGN.md section 7.4). Registers itself in the dimension's station registry when placed,
- * with its placer's UUID if a player placed it, and unregisters when removed.
+ * with its placer's UUID if a player placed it, and unregisters when removed. {@link MachineWorkingState#WORKING} is
+ * set while it serves a drone, and {@link #REPAIRING} while that drone is also being healed.
  */
 public class ChargingStationBlock extends BaseEntityBlock {
     public static final MapCodec<ChargingStationBlock> CODEC = simpleCodec(ChargingStationBlock::new);
+    public static final BooleanProperty REPAIRING = BooleanProperty.create("repairing");
 
     public ChargingStationBlock(Properties properties) {
         super(properties);
+        registerDefaultState(stateDefinition.any().setValue(MachineWorkingState.WORKING, false).setValue(REPAIRING, false));
     }
 
     @Override
     protected MapCodec<? extends BaseEntityBlock> codec() {
         return CODEC;
+    }
+
+    @Override
+    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+        builder.add(MachineWorkingState.WORKING, REPAIRING);
+    }
+
+    /** The station has no ticker: this scheduled tick turns the working state off once the drone stops reporting work. */
+    @Override
+    protected void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
+        if (level.getBlockEntity(pos) instanceof ChargingStationBlockEntity station) {
+            station.checkIdle();
+        }
+    }
+
+    /** While serving a drone: electric sparks around the dock, plus hearts while repairing. */
+    @Override
+    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource random) {
+        if (!state.getValue(MachineWorkingState.WORKING)) {
+            return;
+        }
+        for (int i = 0; i < 3; i++) {
+            level.addParticle(ParticleTypes.ELECTRIC_SPARK, pos.getX() + 0.15 + random.nextDouble() * 0.7, pos.getY() + 1.05,
+                    pos.getZ() + 0.15 + random.nextDouble() * 0.7, 0, 0.1 + random.nextDouble() * 0.1, 0);
+        }
+        if (state.getValue(REPAIRING)) {
+            level.addParticle(ParticleTypes.HEART, pos.getX() + 0.3 + random.nextDouble() * 0.4, pos.getY() + 1.3,
+                    pos.getZ() + 0.3 + random.nextDouble() * 0.4, 0, 0, 0);
+        }
     }
 
     @Override

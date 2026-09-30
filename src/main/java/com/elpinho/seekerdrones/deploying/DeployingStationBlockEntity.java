@@ -183,6 +183,7 @@ public class DeployingStationBlockEntity extends BlockEntity implements MenuProv
         energy.stored -= energyPerDeploy();
         items.setStackInSlot(DRONE_SLOT, ItemStack.EMPTY);
         setChanged();
+        level.blockEvent(worldPosition, getBlockState().getBlock(), DeployingStationBlock.EVENT_DEPLOYED, 0);
     }
 
     private static int energyPerDeploy() {

@@ -11,6 +11,7 @@ import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneIds;
 import com.elpinho.seekerdrones.drone.DroneItem;
+import com.elpinho.seekerdrones.machine.MachineWorkingState;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModRecipeTypes;
@@ -90,6 +91,7 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
     private int cachedGeneration = -1;
 
     private final ContainerData data = new FactoryData();
+    private final MachineWorkingState working = new MachineWorkingState();
 
     public DroneFactoryBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.DRONE_FACTORY.get(), pos, state);
@@ -136,10 +138,11 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
     // --- Processing ---
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, DroneFactoryBlockEntity factory) {
-        factory.tick(level);
+        factory.working.update(level, pos, factory.tick(level));
     }
 
-    private void tick(Level level) {
+    /** Returns whether the build made progress this tick. */
+    private boolean tick(Level level) {
         if (recipeDirty || cachedGeneration != recipeGeneration) {
             RecipeHolder<DroneAssemblyRecipe> previous = recipe;
             recipe = findRecipe(level);
@@ -151,13 +154,13 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
             }
         }
         if (recipe == null || !items.getStackInSlot(OUTPUT_SLOT).isEmpty()) {
-            return;
+            return false;
         }
         DroneAssemblyRecipe assembly = recipe.value();
         int remainingTicks = assembly.time() - progress;
         int cost = remainingTicks <= 1 ? assembly.energy() - energySpent : assembly.energy() / assembly.time();
         if (energy.stored < cost) {
-            return;
+            return false;
         }
         energy.stored -= cost;
         energySpent += cost;
@@ -166,6 +169,7 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
         if (progress >= assembly.time()) {
             finish(level, assembly);
         }
+        return true;
     }
 
     @Nullable
