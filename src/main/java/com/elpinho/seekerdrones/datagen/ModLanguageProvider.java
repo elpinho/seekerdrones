@@ -131,15 +131,15 @@ public class ModLanguageProvider extends LanguageProvider {
         addItem(ModItems.upgrade(UpgradeType.MULTI_TARGET), "Multi-target Upgrade");
         addItem(ModItems.upgrade(UpgradeType.XRAY), "X-ray Upgrade");
 
-        add(UpgradeType.PATROL.getTranslationKey() + ".description", "Patrols in a circle around its patrol center. More upgrades widen the circle.");
+        add(UpgradeType.PATROL.getTranslationKey() + ".description", "Patrols in a circle around its patrol center.");
         add(UpgradeType.SIGHT.getTranslationKey() + ".description", "Increases the range at which targets are spotted.");
-        add(UpgradeType.EXPLOSIVE.getTranslationKey() + ".description", "Explodes on reaching its target. More upgrades make a bigger explosion.");
-        add(UpgradeType.SIREN.getTranslationKey() + ".description", "Sounds a siren when a target is spotted. More upgrades make it louder.");
+        add(UpgradeType.EXPLOSIVE.getTranslationKey() + ".description", "Explodes on reaching its target.");
+        add(UpgradeType.SIREN.getTranslationKey() + ".description", "Sounds a siren when a target is spotted.");
         add(UpgradeType.TRANSMITTER.getTranslationKey() + ".description", "Tells the drone's online operators when a target is spotted.");
         add(UpgradeType.ENERGY.getTranslationKey() + ".description", "Increases max energy.");
         add(UpgradeType.HEALTH.getTranslationKey() + ".description", "Increases max health.");
-        add(UpgradeType.PLAYER_SEEK.getTranslationKey() + ".description", "Allows players as targets. The drone's operators are never targeted.");
-        add(UpgradeType.MULTI_TARGET.getTranslationKey() + ".description", "Adds target slots.");
+        add(UpgradeType.PLAYER_SEEK.getTranslationKey() + ".description", "Allows setting players as targets.");
+        add(UpgradeType.MULTI_TARGET.getTranslationKey() + ".description", "Allows setting more targets.");
         add(UpgradeType.XRAY.getTranslationKey() + ".description", "Spots and tracks targets through walls.");
         add("tooltip.seekerdrones.upgrade.max_count", "Max per drone: %s");
 
