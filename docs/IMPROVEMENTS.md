@@ -11,10 +11,6 @@ Status: `idea` | `decided`
 
 ---
 
-## Bugs
-
-- **Drone footstep sounds and ground particles** (`idea`): drones play footstep sounds and spawn block particles under them like walking mobs. Flying drones shouldn't do either; remove both.
-
 ## Drone behavior
 
 - **Separate vertical and horizontal sight ranges** (`idea`): split the sight range into a horizontal (x/z) range and a vertical (y) range, e.g. `drone.baseSightRange` (now 16) plus `drone.baseSightHeight`, with Sight upgrades raising one or both. A drone rarely needs to see as far up or down as it does sideways, especially with many Sight upgrades. A shorter vertical range also makes the scan box much smaller, which helps performance. The scan would use a cylinder or ellipsoid instead of a sphere.

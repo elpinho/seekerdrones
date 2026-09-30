@@ -59,6 +59,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.AABB;
@@ -1501,6 +1502,18 @@ public class DroneEntity extends PathfinderMob {
     @Override
     public boolean causeFallDamage(float fallDistance, float multiplier, DamageSource source) {
         return false;
+    }
+
+    // Drones fly: no footstep sounds or step vibrations, and no fall tracking, which would spawn block particles
+    // (and trample farmland) when a descending drone touches the ground (section 2.5).
+
+    @Override
+    protected MovementEmission getMovementEmission() {
+        return MovementEmission.NONE;
+    }
+
+    @Override
+    protected void checkFallDamage(double y, boolean onGround, BlockState state, BlockPos pos) {
     }
 
     // --- Interaction ---
