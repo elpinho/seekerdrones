@@ -49,9 +49,14 @@ $reportFile = Join-Path $outDir "report-$stamp.md"
 
 # --- Game process handling (same approach as smoke-test-server.ps1) ---
 
+# Every run gets a unique tag, passed to Gradle as -PdevRunTag and put on the game JVM's command line as
+# -Dseekerdrones.devRunTag (see build.gradle). Only the JVM carrying this run's tag is killed, so other
+# dev runs of this repo (e.g. a client being playtested) are left alone.
+$devRunTag = [guid]::NewGuid().ToString("N")
+
 function Get-GameProcesses {
     Get-CimInstance Win32_Process -Filter "Name='java.exe'" |
-        Where-Object { $_.CommandLine -and $_.CommandLine.Contains($repoRoot) -and $_.CommandLine.Contains("--launchTarget") }
+        Where-Object { $_.CommandLine -and $_.CommandLine.Contains("-Dseekerdrones.devRunTag=$devRunTag") }
 }
 
 function Stop-GameProcesses($gradleProcess) {
@@ -415,7 +420,7 @@ $gradle = $null
 $results = [ordered]@{}
 try {
     Write-Host "Starting 'gradlew runServer' (log: $logFile)..."
-    $gradle = Start-Process -FilePath "$repoRoot\gradlew.bat" -ArgumentList @("runServer", "--console=plain") `
+    $gradle = Start-Process -FilePath "$repoRoot\gradlew.bat" -ArgumentList @("runServer", "--console=plain", "-PdevRunTag=$devRunTag") `
         -RedirectStandardOutput $logFile -RedirectStandardError "$logFile.err" -PassThru -WindowStyle Hidden
 
     $deadline = (Get-Date).AddSeconds($BootTimeoutSeconds)

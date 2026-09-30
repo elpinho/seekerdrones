@@ -5,8 +5,9 @@
 
     Gradle's dev run tasks don't forward stdin to the forked game process, so piping "stop" to
     them does nothing; and killing the gradlew/daemon process tree on Windows doesn't kill the
-    detached child JVM either. Matching on --launchTarget in the process list is the only
-    reliable way found so far to clean these up without leaving an orphaned server/client running.
+    detached child JVM either. So each run passes a unique -PdevRunTag, which build.gradle puts on
+    the game JVM's command line, and only the process carrying that tag is killed. Other dev runs
+    of this repo (e.g. a client being playtested) are left running.
 
 .PARAMETER Task
     The Gradle run task to execute (e.g. runServer, runClient, runGameTestServer).
@@ -36,9 +37,14 @@ New-Item -ItemType Directory -Force -Path $logDir | Out-Null
 $logFile = Join-Path $logDir "$Task.log"
 Remove-Item -Force -ErrorAction SilentlyContinue $logFile
 
+# Every run gets a unique tag, passed to Gradle as -PdevRunTag and put on the game JVM's command line as
+# -Dseekerdrones.devRunTag (see build.gradle). Only the JVM carrying this run's tag is killed, so other
+# dev runs of this repo (e.g. a client being playtested) are left alone.
+$devRunTag = [guid]::NewGuid().ToString("N")
+
 function Get-GameProcesses {
     Get-CimInstance Win32_Process -Filter "Name='java.exe'" |
-        Where-Object { $_.CommandLine -and $_.CommandLine.Contains($repoRoot) -and $_.CommandLine.Contains("--launchTarget") }
+        Where-Object { $_.CommandLine -and $_.CommandLine.Contains("-Dseekerdrones.devRunTag=$devRunTag") }
 }
 
 function Stop-GameProcesses($gradleProcess) {
@@ -52,7 +58,7 @@ function Stop-GameProcesses($gradleProcess) {
 }
 
 Write-Host "Starting 'gradlew $Task' (log: $logFile)..."
-$gradle = Start-Process -FilePath "$repoRoot\gradlew.bat" -ArgumentList (@($Task, "--console=plain") + $GradleArgs) `
+$gradle = Start-Process -FilePath "$repoRoot\gradlew.bat" -ArgumentList (@($Task, "--console=plain", "-PdevRunTag=$devRunTag") + $GradleArgs) `
     -RedirectStandardOutput $logFile -RedirectStandardError "$logFile.err" -PassThru -WindowStyle Hidden
 
 $booted = $false

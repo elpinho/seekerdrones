@@ -59,6 +59,13 @@ runs {
         // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
         systemProperty 'forge.logging.console.level', 'debug'
 
+        // Unique tag set by scripts/*.ps1 (-PdevRunTag=<guid>) so they can find and kill only the game
+        // JVM they launched, leaving other dev runs of this repo (e.g. a playtest client) alone.
+        def devRunTag = project.findProperty('devRunTag')
+        if (devRunTag) {
+            systemProperty 'seekerdrones.devRunTag', devRunTag
+        }
+
         modSource project.sourceSets.main
     }
 
