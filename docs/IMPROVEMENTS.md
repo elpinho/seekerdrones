@@ -73,7 +73,6 @@ Status: `idea` | `decided`
   - Growth rate and max scale would be config entries (client-side rendering, driven by the synced upgrade count).
   - It fits with **Upgrade-dependent energy usage** and louder drones with many upgrades (**Drone and machine sounds**): a heavily upgraded drone is bigger, hungrier and louder.
   - It depends on the new drone model (ROADMAP.md M9). Tell the artist so the model and animations work at any scale.
-- **Drone animations** (`decided`): animate the drone entity (for example rotors and idle or chase states). Part of the commissioned drone model remake in ROADMAP.md M9. The animations must work with the upgrade-based model scaling above.
 
 ## Sounds
 
