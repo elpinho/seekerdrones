@@ -24,4 +24,9 @@ public enum DeployingStatus {
     public String getTranslationKey() {
         return "screen.seekerdrones.deploying_station.status." + name;
     }
+
+    /** What to do about it, shown after the status in the GUI's status strip. */
+    public String getHintKey() {
+        return "screen.seekerdrones.deploying_station.hint." + name;
+    }
 }

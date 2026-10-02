@@ -14,6 +14,7 @@ Status: `idea` | `decided`
 ## Drone behavior
 
 - **Separate vertical and horizontal sight ranges** (`idea`): split the sight range into a horizontal (x/z) range and a vertical (y) range, e.g. `drone.baseSightRange` (now 16) plus `drone.baseSightHeight`, with Sight upgrades raising one or both. A drone rarely needs to see as far up or down as it does sideways, especially with many Sight upgrades. A shorter vertical range also makes the scan box much smaller, which helps performance. The scan would use a cylinder or ellipsoid instead of a sphere.
+- **Configurable patrol speed** (`idea`): the patrol speed (`upgrades.patrol.speed` today, DESIGN.md §3.2) is configurable per drone, up to a **max speed that rises with the number of Patrol upgrades**, like the max patrol radius does. Specifics TBD, e.g. where it's set (Programming Station and `/seekerdrones config`, like the patrol radius), the base and per-upgrade values (config entries), and what a drone does when its configured speed is above the max.
 - **Drones targeting other drones** (`idea`, direction agreed): today `TargetMatcher.matches()` excludes every `DroneEntity`, so drones can never target drones. Proposal:
   - Lift that exclusion for **enemy** drones only: a drone with a different Operator Group or owner. A drone's own allies (same group, or same owner if it has no group) are always exempt, like operators are exempt from Player Seek. Unowned drones count as enemies to everyone.
   - Gate it behind a new **Interceptor** upgrade (name TBD, not stackable), in the same way that Player Seek gates player names. With it, `seekerdrones:drone` (or a drone tag) works as a target entry and uses a target slot like any other. The Interceptor upgrade should be **expensive to craft**.
@@ -24,6 +25,7 @@ Status: `idea` | `decided`
 ## Upgrades and energy
 
 - **Tune energy usage** (`idea`): rebalance the drone's energy config (`drone.energyPerBlock`, `drone.hoverEnergyPerTick`, `drone.baseMaxEnergy`, `upgrades.energy.perUpgrade`, DESIGN.md §5.1 and §9) so a drone's range and hover time feel right. Overlaps with the M9 balance pass (ROADMAP.md).
+- **Rethink which upgrades are necessary** (`idea`): review the upgrade list and decide whether some upgrades should be normal drone logic instead. Specifics TBD.
 - **Tune upgrade recipes** (`idea`): replace the placeholder upgrade recipes with final ones (materials and costs). This is listed as future work in DESIGN.md §11 (final recipes, balancing pass), so it needs the user's go-ahead before it becomes v1 work. It should follow §7.5: `c:` tags, and base and Mekanism variants where it makes sense.
 - **Antiprotonic Nucleosynthesizer for late-game recipes** (`idea`): the Mekanism variants of really late-game items (e.g. the most expensive upgrades) should require the Antiprotonic Nucleosynthesizer.
 - **Solar upgrade** (`idea`, direction agreed): a drone upgrade that generates real energy (FE) from sunlight. The drone's net energy change is the solar output minus its energy usage.
@@ -39,6 +41,7 @@ Status: `idea` | `decided`
   - It's **mutually exclusive with the Siren upgrade**: a drone is either a loud deterrent or a silent watcher. The Programming Station and the debug command must refuse to install one while the other is installed.
   - **Still open:** how much each upgrade lowers the volume, the cap, whether it offsets the extra loudness from having many upgrades, and whether it also quiets the Explosive approach sound (a stealth kamikaze drone is fun but maybe harsh in PvP). All values would be config entries.
 - **Transparent drone upgrade** (`idea`): an upgrade that makes the drone (semi-)transparent or invisible. Could be part of the Quiet upgrade above as one "Stealth" upgrade, or separate.
+- **Drone automatic recharge** (`idea`): drones recharge automatically. Specifics TBD.
 - **Charging Station speed upgrades** (`idea`, to reconsider later): let Charging Stations charge (and heal) drones faster. Alternatives to compare:
   - **Upgrade slots:** a "Station Speed Upgrade" item that multiplies the charge rate and heal rate, with 2–4 slots in the station GUI. The GUI is read-only today, so this needs a real menu with slots. It also needs a decision on whether the station's FE buffer grows with the upgrades, and a cap.
   - **Tiered stations:** Basic / Advanced / Elite Charging Stations, each crafted from the previous tier. Simpler, and the GUI doesn't change.
@@ -46,15 +49,25 @@ Status: `idea` | `decided`
 
 ## Drone GUI and visuals
 
-- **Machine GUI style pass** (`idea`, direction agreed): rework the machine screens into one consistent style. The GUI will most likely go through several iterations. **It must be done before the M9 art commission** (ROADMAP.md), or the artist paints GUI textures for a layout that then changes.
-  - **Shared style:** a common "machine frame" (panel, slot borders, bars) for all four machines, inspired by Industrial Foregoing's machines: a vertical energy bar on the left, fluid tanks as gauges, exact-value tooltips on hover (e.g. "FE: x / y"), a progress arrow from inputs to output, and side tabs.
-  - **Drone Factory** (DESIGN.md §7.1): the Operators screen becomes a side tab (like IF's info and redstone tabs) instead of a separate screen. The Operator list must stay.
-  - **Programming Station** (DESIGN.md §7.2): it works, but the layout, the plain-fill look and the density of the Upgrades, Targets and Settings tabs need a UX pass. It must keep supporting both Direct mode (manual upgrading) and Template mode (automation). Planned changes:
-    - A status area with more room than today's 2 wrapped lines (long statuses end with "…" and show the full text on hover).
-    - Upgrades tab: a grid of upgrade icons with count badges (e.g. "3/4") instead of rows of text.
-    - Targets tab: a scrollable list with an icon per entry (spawn egg for entity types, a tag icon for tags, the player's head for players). It must keep the target auto-complete (DESIGN.md §7.2).
-    - A clear Direct/Template mode indicator, e.g. a colored header strip. Today the mode only shows through the status line.
-  - **Charging and Deploying Stations:** they only pick up the shared style.
+- **Machine GUI style pass** (`idea`, direction agreed, mockups in progress): rework every screen (the four machines, the Operators list and the drone status screen) into one consistent style. The mockups are an interactive page on claude.ai ("Seeker Drones GUI Redesign"), iterated with the user. **It must be done before the M9 art commission** (ROADMAP.md), or the artist paints GUI textures for a layout that then changes.
+  - **Kit:** the vanilla gray beveled frame, plus a dark recessed "display" (teal text) for status, previews and editors. Built from nine-slice GUI sprites (`textures/gui/sprites` with `.mcmeta`), so the artist repaints sprites, not layouts.
+    - Gauges: energy is **green** (no longer red), health red, fluids use the fluid's texture. One scale on all of them: short notches on one edge, long ones at quarters (not full-width ticks). Gauges next to a display match its height, and side-by-side gauges have the same width. Exact values in tooltips.
+    - Side tabs on the right edge, Mekanism-style: the energy unit tab (an icon that cycles the unit, replacing the unit button; hidden without Mekanism), Operators (Factory), Redstone (Deploying Station), Owner (Charging Station), Help (Programming Station).
+    - One status strip with a light: green working or ready, amber waiting, red needs the player, gray idle. Long text scrolls instead of being cut off.
+  - **Drone Factory** (DESIGN.md §7.1, decided): slots with roles in a drone layout over a blueprint (4 rotors on the arms, core in the middle, 2 plating), with ghosts in empty slots. A status line. Operators become a side tab that unfolds into a panel (player heads, remove per row, add field).
+  - **Programming Station** (DESIGN.md §7.2, shape agreed): a wide console with the standard 176-wide inventory centered below it. A Direct/Template segmented switch, with the accent color following the mode.
+    - Drone bay: the drone slot inside a preview of the drone in its color, circling its patrol radius. A ring around the slot shows install progress.
+    - Upgrades: a 5-wide grid of tiles (icon, pips, "×N" when the input holds that type), counts only in tooltips. 3 rows visible, scrolling with a scrollbar beyond 15 types. Left-click adds, right-click removes. The slot-usage bar has no numbers (tooltip only).
+    - Targets: an icon per kind and a preview of the selected row (entities rotate, tags cycle through their members, players show their skin). Auto-complete stays.
+    - Settings split into Behavior (follow distance and patrol, with sliders) and Identity (label, a 16-color palette, a nameplate preview).
+    - The upgrade input becomes a 3×3 grid under the bay.
+  - **Deploying Station:** a big launch button under a safety cover that is closed while Auto is on, and an Auto/Manual switch. A side-view launch shaft display (pad, rails with chase lights, the hover point, a block shown when the space is blocked). No "deploys left" readout.
+  - **Charging Station:** the same frame and width. Station energy left, repair fluid right, the docked drone in the middle with energy and health bars, the charge rate in the display's corner, the owner in a side tab. No time-to-full readouts for now.
+  - **Drone status screen:** a header in the drone's color with the ID chip right after the label and a state pill. A radar-style display of the drone circling its patrol radius. Energy and health bars, upgrade icons with counts (total only, no max), target cards with previews (only usable targets, no count).
+  - **Previews** (decided, part of this pass): client-side displays only. They never show real positions and need no server data beyond what the screens already get.
+  - **Progress** (build order: kit, small screens, Factory, Programming Station):
+    - Done: the kit (sprites from `scripts/textures/generate_gui_sprites.py`, widgets in `client/gui/`; small text is the normal font at 0.75 scale), the energy unit side tab on every screen (it replaced the unit button), and the Deploying Station, Charging Station and drone status screens (DESIGN.md §2.4, §7.3, §7.4).
+    - Next: the Drone Factory (slot roles, status value, Operators side tab), then the Programming Station. The Factory and Programming Station keep their old layouts until then.
 - **Hide non-living entity types from targets** (`idea`): decide whether non-living entity types (item frames, arrows, boats, minecarts and so on) can be target entries at all, and whether the target auto-complete (DESIGN.md §7.2) suggests them. Today they are valid entries and are suggested. Hiding them makes the lists cleaner, but a player might want to target boats or minecarts.
 - **Drone size by upgrade count** (`idea`, direction agreed): a drone's **model** gets slightly bigger the more upgrades it has. It's **visual only**: the hitbox stays fixed (0.75 × 0.4 today), so path finding (the flying node size), the clear-path raycasts (§3.4 and §8.4), the fit checks at follow and patrol positions and the deploy obstruction checks are all unaffected.
   - The growth is **slight**: a fully upgraded drone must never reach 2.5× the base size.

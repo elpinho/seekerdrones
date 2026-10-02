@@ -361,6 +361,11 @@ public class DroneEntity extends PathfinderMob {
         return DyeColor.byId(entityData.get(DATA_COLOR));
     }
 
+    /** Sets only the shown color, for client-side GUI previews of a drone that is never added to the level. */
+    public void setPreviewColor(DyeColor color) {
+        entityData.set(DATA_COLOR, color.getId());
+    }
+
     public DroneState getState() {
         return DroneState.BY_ID.apply(entityData.get(DATA_STATE));
     }

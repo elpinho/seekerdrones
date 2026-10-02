@@ -55,6 +55,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 - Operators can open a read-only status screen by right-clicking a drone entity, or by right-clicking (without Shift) while holding a drone item. For an item, the state shows as "Not deployed" and the screen doesn't refresh.
 - It shows the drone ID, label, energy, health, sight range (the total in blocks, including the Sight upgrade bonus, section 3.3), installed upgrades, the target entries the drone can actually use (entries ignored by the runtime fail-safe, section 2.7, or blocked by the target blacklist, section 3.3, aren't listed; the Programming Station and `/seekerdrones config target list` still show them), current state (idle / patrolling / chasing / following / returning to charge / charging) and, only if the drone has a Patrol upgrade, its patrol center and patrol radius (with the max).
+- **Layout** (the machine GUI kit, see IMPROVEMENTS.md "Machine GUI style pass"): a header in the drone's color with the label (the item name, "Drone", when it has none), the ID chip right after it and a state pill (Not deployed for an item). A **radar** display shows the drone circling its patrol radius (drawn relative to its max) with a turning sweep. It's a client-side preview, never the drone's real position. Without Patrol, the drone hovers in the middle. Under it: the patrol radius and center (scrolling if too long, exact values in the radar's tooltip), or "Stationary" without Patrol, a row for the sight range and one for the follow distance (each number right-aligned, "blocks" in their tooltips). On the right: energy and health with bars, with the drone's current energy use per tick right-aligned on the energy row (estimated on the client from the drain config, section 5.1, and how fast the drone is moving; hidden for a drone item or a docked drone), the installed upgrades as icons with counts and the total, and the usable targets as a row of small cards with previews (entities turn, tags cycle through their members, players show their tab-list skin). Upgrades and targets scroll sideways with the mouse wheel, with a thin scrollbar, when there are more than fit (7 upgrades, 3 targets).
 - The drone's configuration is **not** editable here. Configuration is done in the Drone Programming Station.
 
 ### 2.5 Health and destruction
@@ -265,7 +266,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 - Energy is always stored, moved and configured in **FE**. The unit only changes how numbers are **shown**.
 - Each player picks a unit: **Auto** (default), **FE** or **Joules** (Mekanism). Auto shows Joules when Mekanism is installed and FE otherwise. Joules use Mekanism's configured FE conversion rate (2.5 J per FE by default), read live when Mekanism is installed. Without Mekanism, energy is always shown in FE.
-- The choice is changed with a small **unit button** in every screen that shows energy: the Drone Factory, Programming Station and Deploying Station GUIs, the Charging Station screen and the drone status screen. The button cycles Auto → FE → Joules and is **hidden without Mekanism**.
+- The choice is changed with the **energy unit side tab** (a bolt over the current unit, at the top of the side tabs) in every screen that shows energy: the Drone Factory, Programming Station and Deploying Station GUIs, the Charging Station screen and the drone status screen. Clicking it cycles Auto → FE → Joules. It is **hidden without Mekanism**.
 - The choice is **saved server-side per player**, as a player data attachment, so it persists per world/server and survives death. The server sends it to the client on login. The client keeps it until it disconnects.
 - **Formatting:** values are rounded to three significant digits with an SI prefix on the unit (`950 FE`, `12.5 kFE`, `1.25 MJ`). In a stored/capacity pair each side has its own prefix (`950 J / 1.25 kJ`). Drone item tooltips show the exact values (with thousands separators) instead when advanced tooltips (F3+H) are on. The JEI Drone Assembly category uses the player's unit too.
 - `/seekerdrones energy get` shows exact values in the player's unit (Auto for the console). Amounts passed to `/seekerdrones energy set` and all config values stay in FE.
@@ -328,11 +329,13 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 
 - v1 is a **single block**.
 - It consumes **items + fluid + FE** over a processing time to build one Drone.
-- Recipes use a custom, data-driven recipe type `seekerdrones:drone_assembly`, which defines item ingredients (with counts), a fluid ingredient and amount, total FE and processing time. The shipped recipes are in section 7.5.
+- Recipes use a custom, data-driven recipe type `seekerdrones:drone_assembly`, which defines its item ingredients **by slot role**, a fluid ingredient and amount, total FE and processing time. The shipped recipes are in section 7.5.
+- **Slot roles:** the seven input slots are laid out like a drone: four **rotor** slots (one item each, on the arms), one **core** slot (one item, in the middle) and two **plating** slots (stackable, the recipe sets the count). A recipe gives one ingredient for the rotor slots (every rotor slot needs one), one for the core slot, and one or two plating ingredients with counts, filled in order. A plating slot the recipe doesn't use must be empty. Modpacks can change the items with datapacks, but not the roles.
+- **A slot only accepts items for its role:** an item fits a slot if some loaded `drone_assembly` recipe has a matching ingredient for that slot. This applies to players and automation alike, so piped items go into the slot for their role, or don't go in at all. Empty slots show a ghost icon of what goes there.
 - Buffers: `factory.energyCapacity` FE and a fluid tank of `factory.tankCapacity` mB. The tank accepts any fluid; recipe matching decides whether it is used.
 - The output drone is **fully charged** at base capacity, has no upgrades and has default config. It is linked to this Factory's Operator Group and gets a new persistent drone ID.
-- The GUI has input slots, a fluid tank, an energy bar, progress, an output slot and an **Operator list** tab (owner only).
-- **Operation:** six input slots and one output slot. Automation can only insert into the inputs and only extract from the output. The tank accepts fluid on every side and can also be filled or emptied with a bucket. The recipe is looked up again only when the inputs, the tank or the loaded recipes change. FE is spent evenly over the processing time and the build pauses while FE runs short. Items and fluid are taken only when the drone is done. A build only runs while the output slot is empty. If the inputs stop matching the recipe, progress resets and the FE already spent is lost.
+- The GUI has the input slots in the drone layout, a fluid tank, an energy bar, progress, an output slot, a **status line** (Idle, Building, Waiting for power, Missing fluid, Output full) and an **Operator list** side tab (owner only).
+- **Operation:** seven input slots (above) and one output slot. Automation can only insert into the inputs and only extract from the output. The tank accepts fluid on every side and can also be filled or emptied with a bucket. The recipe is looked up again only when the inputs, the tank or the loaded recipes change. FE is spent evenly over the processing time and the build pauses while FE runs short. Items and fluid are taken only when the drone is done. A build only runs while the output slot is empty. If the inputs stop matching the recipe, progress resets and the FE already spent is lost.
 - The Operator list adds players by name. Only players who are online or who have joined the server before (its profile cache) can be added.
 
 ### 7.2 Drone Programming Station
@@ -385,7 +388,11 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
 - It **uses FE per deploy** (`deployingStation.energyPerDeploy`), taken all at once when the deploy succeeds. It won't deploy without enough stored FE, and a failed attempt costs nothing.
 - A drone that can't be deployed yet (not enough FE, or the space isn't clear) waits in the slot. The station retries every `deployingStation.checkInterval` ticks, and at once when the slot changes.
 - **Automation** (item capability, every side): drone items can be inserted while the slot is empty. Automation can never extract the drone. Players can take it out by hand.
-- **GUI:** the drone slot, the stored FE with a bar and the FE per deploy, the auto-deploy toggle, the Deploy button (enabled only with auto-deploy off and a drone in the slot) and a status line: Idle (no drone), Ready (auto-deploy off, waiting for the button or redstone), Not enough energy, or Space blocked. Energy is shown in the player's unit (section 5.4).
+- **GUI:** an energy gauge (the FE per deploy in its tooltip), a side view of the **launch shaft** with the drone slot on the pad, a big **launch button** under a safety cover, an **Auto/Manual switch** and a status strip.
+  - The shaft has guide rails whose lights chase upward while a drone is in the slot, glow amber while waiting for energy and blink red while the space is blocked. A faint drone marks the hover point it will rise to. When the space is blocked, a block with a red cross appears in the shaft. Each deploy plays a launch (the drone rises, puffs spread from the pad) when the deploy block event arrives (section 7.6), so it costs no extra data.
+  - The cover is closed and says AUTO while auto-deploy is on. Clicking it switches to manual and opens it. The button is enabled only with auto-deploy off and a drone that can deploy now (status Ready).
+  - The status strip: Idle (no drone, gray), Ready (auto-deploy off, waiting for the button or redstone, green; the hint only mentions the button, the Redstone tab covers pulses), Not enough energy (amber) or Space blocked (red, blinking), each followed by a hint.
+  - Side tabs: the energy unit (section 5.4) and **Redstone**, which lights up while a signal is used (manual mode and powered) and explains that a pulse deploys in manual mode. Energy is shown in the player's unit (section 5.4).
 - **Breaking the station** drops the drone. The item keeps the auto-deploy setting in a data component (`seekerdrones:deploying_station`), so placing it again restores it.
 
 ### 7.4 Drone Charging Station
@@ -394,12 +401,12 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
 - It has a fluid tank (`chargingStation.tankCapacity`), fillable with a bucket or by pipes, that only accepts the repair fluid: **Ethene** (fluid tag `c:ethene`) when Mekanism is loaded, otherwise **Lava**. The choice is made in code at startup, never both (section 7.5).
 - It records its placer's UUID and registers itself in the station registry on placement. It unregisters when broken.
 - Drone docking and queuing follow section 5.3.
-- **GUI:** right-clicking the station opens a read-only status screen. Anyone can open it, since stations have no access control in v1 (section 6.2). It refreshes about once a second and shows:
-  - **Status:** Idle, Drone docking (a drone has claimed the station but hasn't docked yet), Charging, Repairing (full energy, still healing), or Out of power (a drone is docked but the station has 0 FE).
-  - The station's **stored FE / capacity** with a bar, and its **charge rate** (`chargingStation.chargeRate` FE/t).
-  - The **repair fluid** stored / tank capacity with a bar, labeled with the fluid's name.
-  - The **owner** (the placer's name), or "None" if a non-player placed it. This decides which drones may use the station (section 5.2).
-  - The **drone** holding the station: its label and ID in its color, and its energy and health, each with a bar. "None" if no drone holds it.
+- **GUI:** right-clicking the station opens a read-only status screen (176 wide, no inventory). Anyone can open it, since stations have no access control in v1 (section 6.2). It refreshes about once a second and shows:
+  - **Status**, as a pill in the title row: Idle (gray), Drone docking (amber; a drone has claimed the station but hasn't docked yet), Charging or Repairing (green; Repairing means full energy, still healing), or Out of power (red; a drone is docked but the station has 0 FE).
+  - The station's **stored FE / capacity** as a gauge on the left, and its **charge rate** (`chargingStation.chargeRate` FE/t) in the display's corner.
+  - The **repair fluid** as a gauge on the right, drawn with the fluid's texture, with its name and amount in the tooltip.
+  - The **owner** (the placer's name and head), or "None" if a non-player placed it, in a side tab that unfolds to show the name. This decides which drones may use the station (section 5.2).
+  - The **drone** holding the station, in the middle display: a 3D preview in its color over the dock pad (higher while still docking), its label in its color and its ID, and its energy and health as bars. Arrows show charge flowing in while charging and repair fluid while it heals. "No drone" if no drone holds it.
 
 ### 7.5 Materials and recipes
 
@@ -433,7 +440,9 @@ D P D           A P A      A = Atomic Alloy (mekanism:alloy_atomic), S = Steel C
 
 | | Base | Mekanism |
 |---|---|---|
-| Items | 4 Drone Rotor, 1 Seeker Core, 4 `c:ingots/iron` | 4 Drone Rotor, 1 Seeker Core, 4 `c:ingots/steel`, 2 Atomic Alloy |
+| Rotor slots (×4) | Drone Rotor | Drone Rotor |
+| Core slot | Seeker Core | Seeker Core |
+| Plating slots | 4 `c:ingots/iron` (second slot unused) | 4 `c:ingots/steel`, then 2 Atomic Alloy |
 | Fluid | 1000 mB Lava | 500 mB Ethene (`c:ethene`) |
 | FE / time | 50 000 FE / 200 ticks | 100 000 FE / 300 ticks |
 

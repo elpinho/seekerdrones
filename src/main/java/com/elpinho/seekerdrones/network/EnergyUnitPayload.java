@@ -14,7 +14,7 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
  * A player's energy display unit (DESIGN.md section 5.4), both ways. Server to client: the saved choice, sent on login.
- * Client to server: the player picked a new unit with a unit button, to be saved.
+ * Client to server: the player picked a new unit with the unit side tab, to be saved.
  */
 public record EnergyUnitPayload(EnergyUnit unit) implements CustomPacketPayload {
     public static final Type<EnergyUnitPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "energy_unit"));

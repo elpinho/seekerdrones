@@ -1,5 +1,7 @@
 package com.elpinho.seekerdrones.deploying;
 
+import java.util.function.Consumer;
+
 import javax.annotation.Nullable;
 
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
@@ -34,10 +36,16 @@ public class DeployingStationBlock extends BaseEntityBlock {
     public static final BooleanProperty TRIGGERED = BlockStateProperties.TRIGGERED;
     /** Block event sent when a drone is deployed; clients show a burst of cloud particles. */
     public static final int EVENT_DEPLOYED = 0;
+    /** Told about each deploy on the client, so an open Deploying Station screen can play its launch. Set by the client. */
+    private static Consumer<BlockPos> clientDeployListener = pos -> {};
 
     public DeployingStationBlock(Properties properties) {
         super(properties);
         registerDefaultState(stateDefinition.any().setValue(TRIGGERED, false));
+    }
+
+    public static void setClientDeployListener(Consumer<BlockPos> listener) {
+        clientDeployListener = listener;
     }
 
     @Override
@@ -75,6 +83,7 @@ public class DeployingStationBlock extends BaseEntityBlock {
             return super.triggerEvent(state, level, pos, id, param);
         }
         if (level.isClientSide()) {
+            clientDeployListener.accept(pos);
             for (int i = 0; i < 8; i++) {
                 double angle = i * Math.PI / 4;
                 double speed = 0.05 + level.getRandom().nextDouble() * 0.03;

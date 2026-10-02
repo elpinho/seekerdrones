@@ -36,9 +36,9 @@ public class DeployingStationMenu extends AbstractContainerMenu {
     public static final int BUTTON_TOGGLE_AUTO_DEPLOY = 0;
     public static final int BUTTON_DEPLOY = 1;
 
-    public static final int DRONE_X = 30;
-    public static final int DRONE_Y = 36;
-    public static final int INVENTORY_Y = 84;
+    public static final int DRONE_X = 62;
+    public static final int DRONE_Y = 55;
+    public static final int INVENTORY_Y = 112;
 
     private static final int PLAYER_SLOTS_START = 1;
     private static final int PLAYER_SLOTS_END = PLAYER_SLOTS_START + 36;

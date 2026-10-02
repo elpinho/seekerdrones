@@ -7,6 +7,9 @@ import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.factory.DroneFactoryMenu;
 import com.elpinho.seekerdrones.network.FactoryOperatorsPayload;
 
+import com.elpinho.seekerdrones.client.gui.SideTab;
+import com.elpinho.seekerdrones.client.gui.SideTabs;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -23,6 +26,12 @@ import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtension
  * Operators button for the group owner. Drawn with plain fills until the M9 polish pass adds textures.
  */
 public class DroneFactoryScreen extends AbstractContainerScreen<DroneFactoryMenu> {
+    /** Interim until this screen moves to the GUI kit: only the energy unit side tab. */
+    private final SideTabs sideTabs = new SideTabs();
+
+    {
+        sideTabs.add(SideTab.energyUnit());
+    }
     private static final int PANEL_COLOR = 0xFFC6C6C6;
     private static final int PANEL_BORDER_COLOR = 0xFF555555;
     private static final int SLOT_COLOR = 0xFF8B8B8B;
@@ -59,8 +68,18 @@ public class DroneFactoryScreen extends AbstractContainerScreen<DroneFactoryMenu
                         button -> minecraft.setScreen(new FactoryOperatorsScreen(this)))
                 .bounds(leftPos + imageWidth - 68, topPos + 60, 62, 16)
                 .build());
-        addRenderableWidget(new EnergyUnitButton(leftPos + imageWidth - 6 - EnergyUnitButton.WIDTH, topPos + 2));
+        sideTabs.layout(leftPos + imageWidth, topPos);
         updateOperatorsButton();
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        return sideTabs.mouseClicked(mouseX, mouseY, button) || super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    protected boolean hasClickedOutside(double mouseX, double mouseY, int guiLeft, int guiTop, int button) {
+        return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop, button) && !sideTabs.isMouseOver(mouseX, mouseY);
     }
 
     @Override
@@ -78,6 +97,7 @@ public class DroneFactoryScreen extends AbstractContainerScreen<DroneFactoryMenu
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
+        sideTabs.renderTooltip(mouseX, mouseY);
         renderTooltip(graphics, mouseX, mouseY);
         if (isHovering(ENERGY_X, BAR_Y, ENERGY_WIDTH, BAR_HEIGHT, mouseX, mouseY)) {
             graphics.renderTooltip(font, Component.literal(EnergyFormat.ratio(menu.getEnergy(), menu.getEnergyCapacity())), mouseX, mouseY);
@@ -98,6 +118,7 @@ public class DroneFactoryScreen extends AbstractContainerScreen<DroneFactoryMenu
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         int x = leftPos;
         int y = topPos;
+        sideTabs.render(graphics, mouseX, mouseY);
         graphics.fill(x - 1, y - 1, x + imageWidth + 1, y + imageHeight + 1, PANEL_BORDER_COLOR);
         graphics.fill(x, y, x + imageWidth, y + imageHeight, PANEL_COLOR);
         for (int i = 0; i < DroneFactoryBlockEntity.SLOT_COUNT + 36; i++) {

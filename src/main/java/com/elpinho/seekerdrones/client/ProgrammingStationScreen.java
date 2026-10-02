@@ -29,6 +29,9 @@ import com.elpinho.seekerdrones.registry.ModItems;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
+import com.elpinho.seekerdrones.client.gui.SideTab;
+import com.elpinho.seekerdrones.client.gui.SideTabs;
+
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.components.Button;
@@ -51,6 +54,12 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * the M9 polish pass adds textures.
  */
 public class ProgrammingStationScreen extends AbstractContainerScreen<ProgrammingStationMenu> {
+    /** Interim until this screen moves to the GUI kit: only the energy unit side tab. */
+    private final SideTabs sideTabs = new SideTabs();
+
+    {
+        sideTabs.add(SideTab.energyUnit());
+    }
     private static final String KEY = "screen.seekerdrones.programming_station.";
 
     private static final int PANEL_COLOR = 0xFFC6C6C6;
@@ -207,7 +216,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
                 .bounds(leftPos + imageWidth - 88, topPos + 3, 80, 14)
                 .tooltip(Tooltip.create(Component.translatable(KEY + "mode.tooltip")))
                 .build());
-        addRenderableWidget(new EnergyUnitButton(leftPos + imageWidth - 88 - 2 - EnergyUnitButton.WIDTH, topPos + 3));
+        sideTabs.layout(leftPos + imageWidth, topPos);
         Tab[] tabs = Tab.values();
         int tabWidth = (EDITOR_WIDTH - (tabs.length - 1) * 2) / tabs.length;
         for (int i = 0; i < tabs.length; i++) {
@@ -712,6 +721,9 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         if (suggestions != null && suggestions.mouseClicked(mouseX, mouseY)) {
             return true;
         }
+        if (sideTabs.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
         // Clicking anywhere else commits the focused box.
         if (getFocused() instanceof CommitBox box && !box.isMouseOver(mouseX, mouseY)) {
             setFocused(null);
@@ -722,6 +734,11 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
             return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    protected boolean hasClickedOutside(double mouseX, double mouseY, int guiLeft, int guiTop, int button) {
+        return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop, button) && !sideTabs.isMouseOver(mouseX, mouseY);
     }
 
     @Override
@@ -764,6 +781,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         super.render(graphics, mouseX, mouseY, partialTick);
+        sideTabs.renderTooltip(mouseX, mouseY);
         if (suggestions != null && suggestions.isVisible()) {
             suggestions.render(graphics);
             if (suggestions.isMouseOver(mouseX, mouseY)) {
@@ -862,6 +880,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         int x = leftPos;
         int y = topPos;
+        sideTabs.render(graphics, mouseX, mouseY);
         graphics.fill(x - 1, y - 1, x + imageWidth + 1, y + imageHeight + 1, PANEL_BORDER_COLOR);
         graphics.fill(x, y, x + imageWidth, y + imageHeight, PANEL_COLOR);
         graphics.fill(x + EDITOR_X - 2, y + CONTENT_Y - 2, x + EDITOR_X + EDITOR_WIDTH + 2, y + CONTENT_BOTTOM, EDITOR_COLOR);

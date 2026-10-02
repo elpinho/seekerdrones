@@ -16,7 +16,7 @@ public final class EnergyFormat {
     private static final MathContext SHORT_PRECISION = new MathContext(3, RoundingMode.HALF_UP);
 
     /**
-     * The local player's unit on the client, sent by the server on login and changed with the unit button. Screens and
+     * The local player's unit on the client, sent by the server on login and changed with the unit side tab. Screens and
      * tooltips format with it. Server-side code passes the player's unit explicitly instead.
      */
     private static volatile EnergyUnit clientUnit = EnergyUnit.AUTO;

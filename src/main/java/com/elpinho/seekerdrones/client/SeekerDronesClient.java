@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.client;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.deploying.DeployingStationBlock;
 import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.energy.EnergyFormat;
@@ -32,6 +33,7 @@ public class SeekerDronesClient {
         modEventBus.addListener(SeekerDronesClient::registerScreens);
         // The unit is saved per world/server, so forget it when leaving one (DESIGN.md section 5.4).
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> EnergyFormat.setClientUnit(EnergyUnit.AUTO));
+        DeployingStationBlock.setClientDeployListener(DeployingStationScreen::onDeployed);
     }
 
     private static void registerScreens(RegisterMenuScreensEvent event) {

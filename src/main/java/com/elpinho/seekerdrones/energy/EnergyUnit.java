@@ -52,7 +52,7 @@ public enum EnergyUnit implements StringRepresentable {
         return this == AUTO ? JOULES : this;
     }
 
-    /** The next choice for the unit button: Auto, FE, Joules, then Auto again. */
+    /** The next choice for the unit side tab: Auto, FE, Joules, then Auto again. */
     public EnergyUnit next() {
         EnergyUnit[] units = values();
         return units[(ordinal() + 1) % units.length];
