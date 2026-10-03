@@ -1,17 +1,28 @@
 package com.elpinho.seekerdrones.client;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import javax.annotation.Nullable;
 
 import org.lwjgl.glfw.GLFW;
 
+import com.elpinho.seekerdrones.client.gui.DronePreview;
+import com.elpinho.seekerdrones.client.gui.EntityPreview;
+import com.elpinho.seekerdrones.client.gui.Gauges;
+import com.elpinho.seekerdrones.client.gui.Kit;
+import com.elpinho.seekerdrones.client.gui.KitButton;
+import com.elpinho.seekerdrones.client.gui.KitSlider;
+import com.elpinho.seekerdrones.client.gui.KitWidget;
+import com.elpinho.seekerdrones.client.gui.MachineScreen;
+import com.elpinho.seekerdrones.client.gui.SideTab;
+import com.elpinho.seekerdrones.client.gui.StatusStrip;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
@@ -24,145 +35,217 @@ import com.elpinho.seekerdrones.network.EditProgramPayload;
 import com.elpinho.seekerdrones.programming.DroneProgram;
 import com.elpinho.seekerdrones.programming.ProgramRules;
 import com.elpinho.seekerdrones.programming.ProgrammingMode;
+import com.elpinho.seekerdrones.programming.ProgrammingStationBlockEntity;
 import com.elpinho.seekerdrones.programming.ProgrammingStationMenu;
 import com.elpinho.seekerdrones.registry.ModItems;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.Font;
-import com.elpinho.seekerdrones.client.gui.SideTab;
-import com.elpinho.seekerdrones.client.gui.SideTabs;
-
+import net.minecraft.Util;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.events.GuiEventListener;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.components.Tooltip;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.components.events.GuiEventListener;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FastColor;
+import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.util.Mth;
 import net.minecraft.util.StringUtil;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * Drone Programming Station screen (DESIGN.md section 7.2). The slots, energy bar and install progress are on the left. The
- * editor on the right has Upgrades, Targets and Settings tabs, and edits either the drone in the slot (Direct mode) or
- * the template (Template mode). Every edit is sent to the server, which checks it again. Drawn with plain fills until
- * the M9 polish pass adds textures.
+ * Drone Programming Station screen (DESIGN.md section 7.2), in the machine GUI kit: a wide console with the standard
+ * inventory centered below it. The left column has the energy gauge, the drone bay (a preview of the drone in its
+ * color circling its patrol radius, with the install progress as a ring around the drone slot) and the 3x3 upgrade
+ * input. The editor has Upgrades, Targets, Behavior and Identity tabs and edits either the drone in the slot (Direct
+ * mode) or the template (Template mode). The accent color follows the mode. Every edit is sent to the server, which
+ * checks it again.
  */
-public class ProgrammingStationScreen extends AbstractContainerScreen<ProgrammingStationMenu> {
-    /** Interim until this screen moves to the GUI kit: only the energy unit side tab. */
-    private final SideTabs sideTabs = new SideTabs();
-
-    {
-        sideTabs.add(SideTab.energyUnit());
-    }
+public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMenu> {
     private static final String KEY = "screen.seekerdrones.programming_station.";
 
+    // The stepped frame: the console, and the standard 176-wide inventory frame centered under it.
+    private static final int WIDTH = 244;
+    private static final int HEIGHT = 252;
+    private static final int CONSOLE_HEIGHT = 158;
+    private static final int INVENTORY_FRAME_X = 34;
+    private static final int INVENTORY_FRAME_Y = 150;
+    private static final int INVENTORY_FRAME_WIDTH = 176;
+    /** The frame sprite's border: the seam between the two frames is covered inside it. */
+    private static final int FRAME_BORDER = 3;
     private static final int PANEL_COLOR = 0xFFC6C6C6;
-    private static final int PANEL_BORDER_COLOR = 0xFF555555;
-    private static final int EDITOR_COLOR = 0xFFB4B4B4;
-    private static final int SLOT_COLOR = 0xFF8B8B8B;
-    private static final int SLOT_BORDER_COLOR = 0xFF373737;
-    private static final int BAR_BACKGROUND_COLOR = 0xFF2A2A38;
-    private static final int ENERGY_BAR_COLOR = 0xFFD83A2E;
-    private static final int PROGRESS_COLOR = 0xFF3FB950;
-    private static final int LABEL_COLOR = 0xFF404040;
-    private static final int MUTED_COLOR = 0xFF707070;
-    private static final int ERROR_COLOR = 0xFFB02020;
-    private static final int WARNING_COLOR = 0xFF8A5A00;
-    private static final int OK_COLOR = 0xFF1E7B1E;
-    private static final int BOX_TEXT_COLOR = 0xE0E0E0;
-    private static final int BOX_ERROR_COLOR = 0xFF6060;
 
+    // Mode accents and display colors.
+    private static final int DIRECT_ACCENT = 0xFF47B5EF;
+    private static final int TEMPLATE_ACCENT = 0xFFF0A838;
+    private static final int OK_COLOR = 0xFF4ADE80;
+    private static final int WARN_COLOR = 0xFFFBBF24;
+    private static final int BAD_COLOR = 0xFFF45B5B;
+    private static final int MISSING_COLOR = 0xFF6E5518;
+    private static final int TRACK_COLOR = 0xFF1D3034;
+    private static final int PIP_OFF_COLOR = 0xFF22343A;
+    private static final int TILE_PROGRESS_TRACK = 0xFF1A2A2E;
+    private static final int MINI_BUTTON_COLOR = 0xFF0A1013;
+    private static final int SEGMENT_OFF_TEXT = 0xFF99AAAA;
+    private static final int SEGMENT_ON_TEXT = 0xFF0B1013;
+    private static final int NAMEPLATE_BACKGROUND = 0x73000000;
+    private static final int INVALID_TEXT = 0xFF6060;
+    /** How long each upgrade shows as the input slots' ghost. */
+    private static final long GHOST_CYCLE_MILLIS = 7000;
+    /** Laid over an upgrade icon that nothing uses yet. */
+    private static final int LOW_KEY_FADE = 0x8C101B1F;
+
+    // The left column.
     private static final int ENERGY_X = 8;
-    private static final int ENERGY_Y = 20;
-    private static final int ENERGY_WIDTH = 10;
-    private static final int ENERGY_HEIGHT = 86;
-    private static final int PROGRESS_X = ProgrammingStationMenu.DRONE_X;
-    private static final int PROGRESS_Y = ProgrammingStationMenu.DRONE_Y + 20;
-    private static final int PROGRESS_WIDTH = 16;
-    private static final int PROGRESS_HEIGHT = 3;
+    private static final int ENERGY_Y = 18;
+    private static final int ENERGY_HEIGHT = 120;
+    private static final int BAY_X = 22;
+    private static final int BAY_Y = 18;
+    private static final int BAY_WIDTH = 56;
+    private static final int BAY_HEIGHT = 62;
+    /** The orbit's center height in the bay, and its size: the widest orbit is the largest patrol radius. */
+    private static final int ORBIT_Y = 20;
+    private static final float ORBIT_MIN = 6;
+    private static final float ORBIT_RANGE = 18;
+    private static final float ORBIT_TILT = 0.32F;
+    private static final float DRONE_SCALE = 14;
+    private static final float RING_RADIUS = 10.2F;
 
-    private static final int EDITOR_X = 90;
-    private static final int EDITOR_WIDTH = 182;
+    // The editor: tabs over a display.
+    private static final int MODE_X = WIDTH - 8 - 92;
+    private static final int MODE_Y = 4;
+    private static final int MODE_WIDTH = 92;
+    private static final int MODE_HEIGHT = 12;
+    private static final int TAB_X = 84;
     private static final int TAB_Y = 18;
-    private static final int TAB_HEIGHT = 14;
-    private static final int CONTENT_Y = 36;
-    private static final int CONTENT_BOTTOM = 146;
-    private static final int STATUS_Y = 149;
-    private static final int STATUS_LINES = 2;
-    private static final int STATUS_LINE_HEIGHT = 10;
-    private static final int STATUS_X = 8;
-    private static final String ELLIPSIS = "…";
+    private static final int TAB_WIDTH = 24;
+    private static final int TAB_HEIGHT = 13;
+    private static final int TAB_PITCH = 25;
+    private static final int EDITOR_X = 84;
+    private static final int EDITOR_Y = 30;
+    private static final int EDITOR_WIDTH = 152;
+    private static final int EDITOR_HEIGHT = 108;
+    private static final int STATUS_Y = 140;
 
-    private static final int CELL_WIDTH = 92;
-    private static final int CELL_HEIGHT = 19;
-    private static final int UPGRADE_ROWS = 5;
-    private static final int FOOTER_Y = CONTENT_Y + UPGRADE_ROWS * CELL_HEIGHT + 2;
+    /** The tab's name at the top of the editor. */
+    private static final int HEADER_Y = 5;
+    /** Behavior and Identity start their contents this much lower, below the header. */
+    private static final int BODY_SHIFT = 2;
 
-    private static final int TARGET_ROW_HEIGHT = 20;
-    private static final int TARGET_ROWS_Y = CONTENT_Y + 12;
-    private static final int VISIBLE_TARGET_ROWS = 4;
+    // Upgrades, relative to the editor.
+    private static final int TILE_X = 1;
+    private static final int TILE_Y = 14;
+    private static final int TILE_WIDTH = 27;
+    private static final int TILE_HEIGHT = 28;
+    private static final int TILE_PITCH_X = 29;
+    private static final int TILE_PITCH_Y = 30;
+    private static final int TILE_COLUMNS = 5;
+    private static final int TILE_ROWS = 3;
+    /** Up to this many pips per tile. A larger per-type cap (config) shows as a segmented bar. */
+    private static final int MAX_PIPS = 8;
+    private static final int SLOT_BAR_RIGHT = 146;
+    private static final int SLOT_BAR_Y = 6;
+    private static final int SLOT_BAR_HEIGHT = 5;
+    /** Up to this many slots show one segment each. More show as one bar of the same width. */
+    private static final int MAX_SLOT_SEGMENTS = 24;
+    private static final int TILE_SCROLLBAR_X = 146;
 
-    private static final int SETTINGS_ROW_HEIGHT = 21;
-    private static final int SETTINGS_CONTROL_X = 62;
+    // Targets, relative to the editor.
+    private static final int ROW_Y = 14;
+    private static final int ROW_PITCH = 16;
+    private static final int VISIBLE_ROWS = 5;
+    private static final int KIND_X = 1;
+    private static final int ROW_FIELD_X = 17;
+    private static final int ROW_FIELD_WIDTH = 74;
+    private static final int ROW_HEIGHT = 14;
+    private static final int REMOVE_X = 93;
+    private static final int ROW_SCROLLBAR_X = 104;
+    private static final int PREVIEW_X = 107;
+    private static final int PREVIEW_Y = 14;
+    private static final int PREVIEW_WIDTH = 41;
+    private static final int PREVIEW_HEIGHT = 66;
+
+    // Behavior and Identity, relative to the editor.
+    private static final int SLIDER_WIDTH = 104;
+    private static final int SLIDER_HEIGHT = 6;
+    private static final int VALUE_X = 112;
+    private static final int VALUE_WIDTH = 36;
+    private static final int FIELD_HEIGHT = 13;
+    private static final int SWATCH_SIZE = 12;
+    private static final int SWATCH_PITCH = 14;
+
+    private static final ResourceLocation TAB = Kit.sprite("programming/tab");
+    private static final ResourceLocation TAB_HIGHLIGHTED = Kit.sprite("programming/tab_highlighted");
+    private static final ResourceLocation TAB_SELECTED = Kit.sprite("programming/tab_selected");
+    private static final ResourceLocation ICON_TARGET = Kit.sprite("icon/target");
+    private static final ResourceLocation ICON_ROUTE = Kit.sprite("icon/route");
+    private static final ResourceLocation ICON_NAME_TAG = Kit.sprite("icon/name_tag");
+    private static final ResourceLocation ICON_EGG = Kit.sprite("icon/egg");
+    private static final ResourceLocation ICON_TAG = Kit.sprite("icon/tag");
+    private static final ResourceLocation ICON_PIN = Kit.sprite("icon/pin");
+    private static final ResourceLocation REMOVE = Kit.sprite("remove_button");
+    private static final ResourceLocation REMOVE_HIGHLIGHTED = Kit.sprite("remove_button_highlighted");
 
     private enum Tab {
-        UPGRADES, TARGETS, SETTINGS
+        UPGRADES, TARGETS, BEHAVIOR, IDENTITY
     }
 
     /** What decides which widgets exist. The widgets are rebuilt when it changes. */
-    private record Structure(Tab tab, ProgrammingMode mode, boolean hasProgram, int targetRows, int scroll, boolean patrol) {}
-
-    private record UpgradeRow(UpgradeType type, Button remove, Button minus, Button plus) {}
+    private record Structure(Tab tab, ProgrammingMode mode, boolean hasProgram, int targetRows, int targetScroll, int tileScroll, boolean patrol) {}
 
     private Tab tab = Tab.UPGRADES;
     private int targetScroll;
+    private int tileScroll;
+    /** The target row whose preview is shown. */
+    private int selectedRow;
     @Nullable
     private Structure structure;
-    /** The settings last written into the edit boxes. */
+    /** The settings last written into the fields. */
     @Nullable
     private DroneConfig syncedConfig;
     /** The kind picked for each target row, by row index. */
     private final Map<Integer, TargetEntry.Kind> rowKinds = new HashMap<>();
-    /** Feedback on the last rejected edit, shown in the status line until the next edit. */
+    /** Feedback on the last rejected edit, shown in the status strip until the next edit. */
     @Nullable
     private Component editError;
 
-    private final List<Button> tabButtons = new ArrayList<>();
-    private final Map<UpgradeType, UpgradeRow> upgradeRows = new EnumMap<>(UpgradeType.class);
-    private final Map<Integer, CommitBox> targetBoxes = new HashMap<>();
-    private final Map<Integer, Button> kindButtons = new HashMap<>();
+    private final Map<Integer, FieldBox> targetBoxes = new HashMap<>();
+    private final Map<Integer, KitWidget> removeButtons = new HashMap<>();
+    private final List<KitSlider> sliders = new ArrayList<>();
     @Nullable
-    private Button copyButton;
+    private FieldBox followBox;
     @Nullable
-    private CommitBox followBox;
+    private FieldBox labelBox;
     @Nullable
-    private CommitBox labelBox;
+    private FieldBox centerX;
     @Nullable
-    private Button colorButton;
+    private FieldBox centerY;
     @Nullable
-    private CommitBox centerX;
+    private FieldBox centerZ;
     @Nullable
-    private CommitBox centerY;
-    @Nullable
-    private CommitBox centerZ;
-    @Nullable
-    private CommitBox radiusBox;
+    private FieldBox radiusBox;
     /** Auto-complete for the focused target row. Created in {@link #init()}, once the font is set. */
     @Nullable
     private TargetSuggestions suggestions;
+    private final DronePreview dronePreview = new DronePreview();
+    private final EntityPreview targetPreview = new EntityPreview();
 
     public ProgrammingStationScreen(ProgrammingStationMenu menu, Inventory inventory, Component title) {
-        super(menu, inventory, title);
-        this.imageWidth = 280;
-        this.imageHeight = 262;
-        this.inventoryLabelX = ProgrammingStationMenu.INVENTORY_X;
-        this.inventoryLabelY = ProgrammingStationMenu.INVENTORY_Y - 11;
+        super(menu, inventory, title, WIDTH, HEIGHT, ProgrammingStationMenu.INVENTORY_Y);
+        this.inventoryLabelX = ProgrammingStationMenu.INVENTORY_X - 1;
+        sideTabs.add(SideTab.energyUnit());
+        sideTabs.add(new SideTab(22, (graphics, x, y, mouseX, mouseY) -> graphics.blitSprite(Kit.ICON_INFO, x + 9, y + 7, 7, 8))
+                .tooltip(() -> List.of(
+                        Component.translatable(KEY + "help"),
+                        Component.translatable(KEY + "help.direct").withStyle(ChatFormatting.GRAY),
+                        Component.translatable(KEY + "help.template").withStyle(ChatFormatting.GRAY))));
     }
 
     // --- State ---
@@ -171,21 +254,38 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         return menu.getMode();
     }
 
+    private boolean direct() {
+        return mode() == ProgrammingMode.DIRECT;
+    }
+
+    private int accent() {
+        return direct() ? DIRECT_ACCENT : TEMPLATE_ACCENT;
+    }
+
     /** What the editor shows: the drone's own values in Direct mode, the template in Template mode. */
     @Nullable
     private DroneProgram program() {
-        if (mode() == ProgrammingMode.DIRECT) {
+        if (direct()) {
             DroneData drone = menu.getDrone();
             return drone != null ? DroneProgram.of(drone) : null;
         }
         return menu.getTemplate();
     }
 
+    private static int targetRows(DroneProgram program) {
+        return Math.max(program.allowedTargetCount(), program.config().targets().size());
+    }
+
+    private int maxTileScroll() {
+        int rows = Mth.positiveCeilDiv(UpgradeType.values().length, TILE_COLUMNS);
+        return Math.max(0, rows - TILE_ROWS);
+    }
+
     private Structure currentStructure() {
         DroneProgram program = program();
-        int targetRows = program != null ? Math.max(program.allowedTargetCount(), program.config().targets().size()) : 0;
+        int targetRows = program != null ? targetRows(program) : 0;
         boolean patrol = program != null && program.upgradeCount(UpgradeType.PATROL) > 0;
-        return new Structure(tab, mode(), program != null, targetRows, targetScroll, patrol);
+        return new Structure(tab, mode(), program != null, targetRows, targetScroll, tileScroll, patrol);
     }
 
     private void send(EditProgramPayload payload) {
@@ -202,41 +302,35 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
     @Override
     protected void init() {
         super.init();
-        tabButtons.clear();
-        upgradeRows.clear();
         targetBoxes.clear();
-        kindButtons.clear();
-        copyButton = null;
+        removeButtons.clear();
+        sliders.clear();
         followBox = labelBox = centerX = centerY = centerZ = radiusBox = null;
-        colorButton = null;
         suggestions = new TargetSuggestions(font, this::acceptSuggestion);
 
-        addRenderableWidget(Button.builder(Component.translatable(mode().getTranslationKey()), button -> send(EditProgramPayload.setMode(menu.containerId,
-                        mode() == ProgrammingMode.DIRECT ? ProgrammingMode.TEMPLATE : ProgrammingMode.DIRECT)))
-                .bounds(leftPos + imageWidth - 88, topPos + 3, 80, 14)
-                .tooltip(Tooltip.create(Component.translatable(KEY + "mode.tooltip")))
-                .build());
-        sideTabs.layout(leftPos + imageWidth, topPos);
+        addRenderableWidget(new Gauges.Energy(leftPos + ENERGY_X, topPos + ENERGY_Y, 12, ENERGY_HEIGHT,
+                () -> Kit.fraction(menu.getEnergy(), menu.getEnergyCapacity())))
+                .tooltip(() -> List.of(Component.translatable("screen.seekerdrones.energy"),
+                        Component.literal(EnergyFormat.ratio(menu.getEnergy(), menu.getEnergyCapacity())).withStyle(ChatFormatting.GRAY)));
+        // The bay's preview, above the drone slot.
+        addRenderableWidget(new KitWidget.Area(leftPos + BAY_X, topPos + BAY_Y, BAY_WIDTH, ProgrammingStationMenu.DRONE_Y - 2 - BAY_Y))
+                .tooltip(this::bayTooltip);
+        addRenderableWidget(new ModeSwitch(leftPos + MODE_X, topPos + MODE_Y));
         Tab[] tabs = Tab.values();
-        int tabWidth = (EDITOR_WIDTH - (tabs.length - 1) * 2) / tabs.length;
         for (int i = 0; i < tabs.length; i++) {
-            Tab target = tabs[i];
-            Button button = addRenderableWidget(Button.builder(Component.translatable(KEY + "tab." + target.name().toLowerCase()), b -> {
-                        tab = target;
-                        rebuildWidgets();
-                    })
-                    .bounds(leftPos + EDITOR_X + i * (tabWidth + 2), topPos + TAB_Y, tabWidth, TAB_HEIGHT)
-                    .build());
-            button.active = target != tab;
-            tabButtons.add(button);
+            addRenderableWidget(new EditorTab(leftPos + TAB_X + i * TAB_PITCH, topPos + TAB_Y, tabs[i]));
         }
+        addRenderableWidget(new StatusStrip(leftPos + 8, topPos + STATUS_Y, WIDTH - 16, this::status));
 
         DroneProgram program = program();
         if (program != null) {
+            int x = leftPos + EDITOR_X;
+            int y = topPos + EDITOR_Y;
             switch (tab) {
-                case UPGRADES -> initUpgrades();
-                case TARGETS -> initTargets(program);
-                case SETTINGS -> initSettings(program);
+                case UPGRADES -> initUpgrades(x, y);
+                case TARGETS -> initTargets(program, x, y);
+                case BEHAVIOR -> initBehavior(program, x, y);
+                case IDENTITY -> initIdentity(x, y);
             }
         }
         structure = currentStructure();
@@ -244,82 +338,353 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         syncWidgets();
     }
 
-    private void initUpgrades() {
+    private void initUpgrades(int x, int y) {
+        tileScroll = Math.clamp(tileScroll, 0, maxTileScroll());
         UpgradeType[] types = UpgradeType.values();
-        for (int i = 0; i < types.length; i++) {
-            UpgradeType type = types[i];
-            int x = leftPos + EDITOR_X + (i / UPGRADE_ROWS) * CELL_WIDTH;
-            int y = topPos + CONTENT_Y + (i % UPGRADE_ROWS) * CELL_HEIGHT + 3;
-            Button remove = addRenderableWidget(Button.builder(Component.literal("x"), b -> send(EditProgramPayload.remove(menu.containerId, type)))
-                    .bounds(x + 48, y, 12, 12)
-                    .tooltip(Tooltip.create(Component.translatable(KEY + "upgrade.remove_extra")))
-                    .build());
-            Button minus = addRenderableWidget(Button.builder(Component.literal("-"), b -> changeUpgrade(type, -1))
-                    .bounds(x + 62, y, 12, 12)
-                    .build());
-            Button plus = addRenderableWidget(Button.builder(Component.literal("+"), b -> changeUpgrade(type, 1))
-                    .bounds(x + 76, y, 12, 12)
-                    .build());
-            if (mode() == ProgrammingMode.DIRECT) {
-                remove.visible = false;
-                minus.setTooltip(Tooltip.create(Component.translatable(KEY + "upgrade.remove")));
-                plus.setTooltip(Tooltip.create(Component.translatable(KEY + "upgrade.install")));
-            }
-            upgradeRows.put(type, new UpgradeRow(type, remove, minus, plus));
+        int first = tileScroll * TILE_COLUMNS;
+        for (int i = 0; i < TILE_COLUMNS * TILE_ROWS && first + i < types.length; i++) {
+            addRenderableWidget(new Tile(x + TILE_X + (i % TILE_COLUMNS) * TILE_PITCH_X, y + TILE_Y + (i / TILE_COLUMNS) * TILE_PITCH_Y,
+                    types[first + i]));
         }
-        if (mode() == ProgrammingMode.TEMPLATE) {
-            copyButton = addRenderableWidget(Button.builder(Component.translatable(KEY + "copy_from_drone"),
-                            b -> send(EditProgramPayload.copyFromDrone(menu.containerId)))
-                    .bounds(leftPos + EDITOR_X + EDITOR_WIDTH - 84, topPos + FOOTER_Y, 84, 14)
-                    .tooltip(Tooltip.create(Component.translatable(KEY + "copy_from_drone.tooltip")))
-                    .build());
-        }
+        int slots = ServerConfig.get(ServerConfig.UPGRADES_TOTAL_SLOTS);
+        int barWidth = Math.min(slots, MAX_SLOT_SEGMENTS) * 2;
+        addRenderableWidget(new KitWidget.Area(x + SLOT_BAR_RIGHT - barWidth, y + SLOT_BAR_Y, barWidth, SLOT_BAR_HEIGHT))
+                .tooltip(() -> {
+                    DroneProgram program = program();
+                    int used = program != null ? DroneStats.totalUpgrades(program.upgrades()) : 0;
+                    return List.of(Component.translatable(KEY + "slots"),
+                            Component.translatable(KEY + "slots.used", used, ServerConfig.get(ServerConfig.UPGRADES_TOTAL_SLOTS))
+                                    .withStyle(ChatFormatting.GRAY));
+                });
     }
 
-    private void changeUpgrade(UpgradeType type, int delta) {
-        if (mode() == ProgrammingMode.DIRECT) {
-            send(delta > 0 ? EditProgramPayload.install(menu.containerId, type) : EditProgramPayload.remove(menu.containerId, type));
-        } else {
-            DroneProgram template = menu.getTemplate();
-            if (template != null) {
-                send(EditProgramPayload.setCount(menu.containerId, type, template.upgradeCount(type) + delta));
-            }
-        }
-    }
-
-    private void initTargets(DroneProgram program) {
-        int rows = Math.max(program.allowedTargetCount(), program.config().targets().size());
-        targetScroll = Math.clamp(targetScroll, 0, Math.max(0, rows - VISIBLE_TARGET_ROWS));
-        for (int visible = 0; visible < VISIBLE_TARGET_ROWS && targetScroll + visible < rows; visible++) {
+    private void initTargets(DroneProgram program, int x, int y) {
+        int rows = targetRows(program);
+        targetScroll = Math.clamp(targetScroll, 0, Math.max(0, rows - VISIBLE_ROWS));
+        selectedRow = Math.clamp(selectedRow, 0, Math.max(0, rows - 1));
+        for (int visible = 0; visible < VISIBLE_ROWS && targetScroll + visible < rows; visible++) {
             int index = targetScroll + visible;
-            int x = leftPos + EDITOR_X;
-            int y = topPos + TARGET_ROWS_Y + visible * TARGET_ROW_HEIGHT;
-            Button kind = addRenderableWidget(Button.builder(Component.empty(), b -> cycleKind(index))
-                    .bounds(x, y, 44, 18)
-                    .tooltip(Tooltip.create(Component.translatable(KEY + "target.kind.tooltip")))
-                    .build());
-            CommitBox box = addRenderableWidget(new CommitBox(font, x + 46, y, 116, 18, Component.translatable(KEY + "target.value"),
-                    self -> commitTarget(index)));
+            int rowY = y + ROW_Y + visible * ROW_PITCH;
+            addRenderableWidget(new KitButton(x + KIND_X, rowY, ROW_HEIGHT, ROW_HEIGHT, KitButton.Style.DISPLAY,
+                    (graphics, bx, by, mouseX, mouseY) -> drawKindIcon(graphics, index, bx, by), () -> cycleKind(index)))
+                    .tooltip(() -> List.of(
+                            Component.translatable(KEY + "target.kind",
+                                    Component.translatable("screen.seekerdrones.target.kind." + rowKind(index).getSerializedName())),
+                            Component.translatable(KEY + "target.kind.tooltip").withStyle(ChatFormatting.GRAY)));
+            FieldBox box = addRenderableWidget(new FieldBox(x + ROW_FIELD_X, rowY, ROW_FIELD_WIDTH, ROW_HEIGHT,
+                    Component.translatable(KEY + "target.value"), self -> commitTarget(index)));
             box.setMaxLength(64);
             box.setResponder(text -> updateSuggestions());
-            addRenderableWidget(Button.builder(Component.literal("x"), b -> removeTarget(index))
-                    .bounds(x + 164, y + 2, 14, 14)
-                    .tooltip(Tooltip.create(Component.translatable(KEY + "target.remove")))
-                    .build());
-            kindButtons.put(index, kind);
+            box.dashed = true;
+            box.setHint(Component.translatable(KEY + "target.add").withColor(Kit.DISPLAY_TEXT_DIM & 0xFFFFFF));
+            box.selected = () -> selectedRow == index;
+            box.warning = () -> ignoredReason(index) != null;
+            box.tooltipLines = () -> targetTooltip(index);
             targetBoxes.put(index, box);
+            KitWidget remove = addRenderableWidget(new RemoveButton(x + REMOVE_X, rowY + 2, () -> removeTarget(index)));
+            remove.tooltip(() -> List.of(Component.translatable(KEY + "target.remove")));
+            removeButtons.put(index, remove);
+        }
+        addRenderableWidget(new KitWidget.Area(x + PREVIEW_X, y + PREVIEW_Y, PREVIEW_WIDTH, PREVIEW_HEIGHT)).tooltip(this::previewTooltip);
+    }
+
+    private void initBehavior(DroneProgram program, int x, int y) {
+        y += BODY_SHIFT;
+        int maxFollow = ProgramRules.maxFollowDistance();
+        sliders.add(addRenderableWidget(new KitSlider(x + 3, y + 25, SLIDER_WIDTH, SLIDER_HEIGHT, () -> 1, ProgramRules::maxFollowDistance,
+                () -> {
+                    DroneProgram current = program();
+                    return current != null ? current.config().followDistance() : 1;
+                }, this::accent, value -> showDragged(followBox, value), this::setFollowDistance)));
+        sliders.getLast().tooltip(() -> List.of(Component.translatable(KEY + "follow_distance"),
+                Component.translatable(KEY + "follow_distance.tooltip", 1, ProgramRules.maxFollowDistance()).withStyle(ChatFormatting.GRAY)));
+        followBox = addRenderableWidget(new FieldBox(x + VALUE_X, y + 21, VALUE_WIDTH, FIELD_HEIGHT,
+                Component.translatable(KEY + "follow_distance"), self -> commitFollowDistance()));
+        followBox.setMaxLength(3);
+        followBox.setFilter(text -> text.chars().allMatch(Character::isDigit));
+        followBox.tooltipLines = () -> List.of(Component.translatable(KEY + "follow_distance"),
+                Component.translatable(KEY + "follow_distance.tooltip", 1, maxFollow).withStyle(ChatFormatting.GRAY));
+
+        if (program.upgradeCount(UpgradeType.PATROL) <= 0) {
+            return;
+        }
+        String[] axes = {"x", "y", "z"};
+        FieldBox[] boxes = new FieldBox[3];
+        for (int i = 0; i < 3; i++) {
+            String axis = axes[i];
+            FieldBox box = addRenderableWidget(new FieldBox(x + 3 + i * 32, y + 49, 30, FIELD_HEIGHT, Component.literal(axis), self -> commitCenter()));
+            box.setMaxLength(9);
+            box.setFilter(text -> text.isEmpty() || text.matches("-?\\d*"));
+            box.setHint(Component.literal(axis.toUpperCase()).withColor(Kit.DISPLAY_TEXT_DIM & 0xFFFFFF));
+            box.tooltipLines = () -> List.of(Component.translatable(KEY + "patrol_center"),
+                    Component.literal(axis.toUpperCase()).withStyle(ChatFormatting.GRAY));
+            boxes[i] = box;
+        }
+        centerX = boxes[0];
+        centerY = boxes[1];
+        centerZ = boxes[2];
+        addRenderableWidget(new KitButton(x + 100, y + 49, 22, FIELD_HEIGHT, KitButton.Style.DISPLAY,
+                (graphics, bx, by, mouseX, mouseY) -> graphics.blitSprite(ICON_PIN, bx + 7, by + 3, 7, 7),
+                () -> setCenter(Optional.of(menu.getPos().above()))))
+                .tooltip(() -> List.of(Component.translatable(KEY + "patrol_center.here"),
+                        Component.translatable(KEY + "patrol_center.here.tooltip").withStyle(ChatFormatting.GRAY)));
+        addRenderableWidget(new KitButton(x + 125, y + 49, 22, FIELD_HEIGHT, KitButton.Style.DISPLAY,
+                (graphics, bx, by, mouseX, mouseY) -> graphics.drawCenteredString(font, "×", bx + 11, by + 3, Kit.DISPLAY_TEXT),
+                () -> setCenter(Optional.empty())))
+                .tooltip(() -> List.of(Component.translatable(KEY + "patrol_center.clear"),
+                        Component.translatable(KEY + "patrol_center.clear.tooltip").withStyle(ChatFormatting.GRAY)));
+
+        sliders.add(addRenderableWidget(new KitSlider(x + 3, y + 80, SLIDER_WIDTH, SLIDER_HEIGHT, () -> 1, this::maxRadius,
+                this::currentRadius, this::accent, value -> showDragged(radiusBox, value), this::setRadius)));
+        sliders.getLast().tooltip(() -> List.of(Component.translatable(KEY + "patrol_radius"),
+                Component.translatable(KEY + "patrol_radius.slider", maxRadius()).withStyle(ChatFormatting.GRAY)));
+        radiusBox = addRenderableWidget(new FieldBox(x + VALUE_X, y + 76, VALUE_WIDTH, FIELD_HEIGHT,
+                Component.translatable(KEY + "patrol_radius"), self -> commitRadius()));
+        radiusBox.setMaxLength(6);
+        radiusBox.setFilter(text -> text.chars().allMatch(Character::isDigit));
+        radiusBox.tooltipLines = () -> List.of(Component.translatable(KEY + "patrol_radius"),
+                Component.translatable(KEY + "patrol_radius.tooltip", maxRadius()).withStyle(ChatFormatting.GRAY));
+    }
+
+    private void initIdentity(int x, int y) {
+        y += BODY_SHIFT;
+        labelBox = addRenderableWidget(new FieldBox(x + 3, y + 22, EDITOR_WIDTH - 7, FIELD_HEIGHT, Component.translatable(KEY + "label"),
+                self -> commitLabel()));
+        labelBox.setMaxLength(ProgramRules.MAX_LABEL_LENGTH);
+        labelBox.setHint(Component.translatable(KEY + "label.hint").withColor(Kit.DISPLAY_TEXT_DIM & 0xFFFFFF));
+        DyeColor[] colors = DyeColor.values();
+        for (int i = 0; i < colors.length; i++) {
+            addRenderableWidget(new Swatch(x + 3 + (i % 8) * SWATCH_PITCH, y + 50 + (i / 8) * SWATCH_PITCH, colors[i]));
         }
     }
+
+    /** While a slider is dragged, its value field shows the value it would set. */
+    private static void showDragged(@Nullable FieldBox box, int value) {
+        if (box != null) {
+            box.showValue(String.valueOf(value));
+            box.setInvalid(false);
+        }
+    }
+
+    // --- Upgrades ---
+
+    /** Direct mode: whether one more of the type can be installed from the input now. */
+    private boolean canInstall(DroneProgram program, UpgradeType type) {
+        return menu.getInstalling() == null && menu.inputCount(type) > 0 && ProgramRules.canAdd(program.upgrades(), type);
+    }
+
+    /** Template mode: how many of the type the drone has beyond the program. */
+    private int extra(DroneProgram program, UpgradeType type) {
+        DroneData drone = menu.getDrone();
+        return drone != null ? Math.max(0, drone.upgradeCount(type) - program.upgradeCount(type)) : 0;
+    }
+
+    /**
+     * A click on a tile (section 7.2). Direct: left-click installs one from the input, right-click removes one.
+     * Template: left/right-click change the programmed count, and shift+right-click removes an extra upgrade from the
+     * drone. Returns whether it did something.
+     */
+    private boolean clickTile(UpgradeType type, int button) {
+        DroneProgram program = program();
+        if (program == null) {
+            return false;
+        }
+        int count = program.upgradeCount(type);
+        if (direct()) {
+            if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && canInstall(program, type)) {
+                send(EditProgramPayload.install(menu.containerId, type));
+                return true;
+            }
+            if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && count > 0) {
+                send(EditProgramPayload.remove(menu.containerId, type));
+                return true;
+            }
+            return false;
+        }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && Screen.hasShiftDown() && extra(program, type) > 0) {
+            send(EditProgramPayload.remove(menu.containerId, type));
+            return true;
+        }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && ProgramRules.canAdd(program.upgrades(), type)) {
+            send(EditProgramPayload.setCount(menu.containerId, type, count + 1));
+            return true;
+        }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && count > 0) {
+            send(EditProgramPayload.setCount(menu.containerId, type, count - 1));
+            return true;
+        }
+        return false;
+    }
+
+    /** Whether a left (add) or right (remove) click on the tile would do something, for the hover hints. */
+    private boolean canClickTile(DroneProgram program, UpgradeType type, boolean add) {
+        if (direct()) {
+            return add ? canInstall(program, type) : program.upgradeCount(type) > 0;
+        }
+        return add ? ProgramRules.canAdd(program.upgrades(), type) : program.upgradeCount(type) > 0 || extra(program, type) > 0;
+    }
+
+    private List<Component> tileTooltip(UpgradeType type) {
+        DroneProgram program = program();
+        if (program == null) {
+            return List.of();
+        }
+        DroneData drone = menu.getDrone();
+        List<Component> lines = new ArrayList<>();
+        lines.add(ModItems.upgrade(type).get().getDescription());
+        lines.add(Component.translatable(type.getTranslationKey() + ".description").withStyle(ChatFormatting.GRAY));
+        if (drone != null) {
+            lines.add(Component.translatable(KEY + "upgrade.installed", drone.upgradeCount(type), type.maxCount()).withStyle(ChatFormatting.GRAY));
+        }
+        if (!direct()) {
+            lines.add(Component.translatable(KEY + "upgrade.programmed", program.upgradeCount(type)).withStyle(ChatFormatting.GRAY));
+        }
+        lines.add(Component.translatable(KEY + "upgrade.in_input", menu.inputCount(type)).withStyle(ChatFormatting.GRAY));
+        if (type == menu.getInstalling()) {
+            lines.add(Component.translatable(KEY + "upgrade.installing", installPercent()).withStyle(ChatFormatting.GRAY));
+        } else if (drone != null && drone.upgradeCount(type) < type.maxCount()) {
+            lines.add(Component.translatable(KEY + "upgrade.cost", EnergyFormat.amount(ProgramRules.installCost(type, drone.upgradeCount(type) + 1)))
+                    .withStyle(ChatFormatting.GRAY));
+        }
+        if (!direct() && extra(program, type) > 0) {
+            lines.add(Component.translatable(KEY + "upgrade.extra", extra(program, type)).withStyle(ChatFormatting.RED));
+        }
+        lines.add(Component.translatable(direct() ? KEY + "upgrade.hint.direct" : KEY + "upgrade.hint.template").withStyle(ChatFormatting.GREEN));
+        return lines;
+    }
+
+    private int installPercent() {
+        return menu.getTime() > 0 ? menu.getProgress() * 100 / menu.getTime() : 0;
+    }
+
+    /** One upgrade type: its icon, pips for the counts, and the install progress. */
+    private class Tile extends KitWidget {
+        private final UpgradeType type;
+
+        Tile(int x, int y, UpgradeType type) {
+            super(x, y, TILE_WIDTH, TILE_HEIGHT);
+            this.type = type;
+            tooltip(() -> tileTooltip(type));
+        }
+
+        @Override
+        protected void draw(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            DroneProgram program = program();
+            if (program == null) {
+                return;
+            }
+            int x = getX();
+            int y = getY();
+            graphics.blitSprite(Kit.CELL, x, y, width, height);
+            if (isHovered()) {
+                Kit.outline(graphics, x, y, width, height, accent());
+            }
+            graphics.renderItem(new ItemStack(ModItems.upgrade(type).get()), x + 5, y + 2);
+
+            DroneData drone = menu.getDrone();
+            int installed = drone != null ? drone.upgradeCount(type) : 0;
+            int programmed = program.upgradeCount(type);
+            int input = menu.inputCount(type);
+            graphics.pose().pushPose();
+            graphics.pose().translate(0, 0, 200);
+            if (installed == 0 && programmed == 0 && input == 0) {
+                graphics.fill(x + 5, y + 2, x + 21, y + 18, LOW_KEY_FADE);
+            }
+            pips(graphics, x, y + 21, pipColors(drone, installed, programmed));
+            if (type == menu.getInstalling()) {
+                graphics.fill(x + 2, y + 25, x + 25, y + 26, TILE_PROGRESS_TRACK);
+                graphics.fill(x + 2, y + 25, x + 2 + Math.round(23 * Kit.fraction(menu.getProgress(), menu.getTime())), y + 26, OK_COLOR);
+            }
+            if (isHovered()) {
+                if (canClickTile(program, type, false)) {
+                    miniButton(graphics, x, y + 5, "-");
+                }
+                if (canClickTile(program, type, true)) {
+                    miniButton(graphics, x + width - 7, y + 5, "+");
+                }
+            }
+            graphics.pose().popPose();
+        }
+
+        /**
+         * Direct: lit pips are installed. Template with a drone: green is installed, amber is missing and red is extra.
+         * Template without a drone: lit pips are programmed.
+         */
+        private int[] pipColors(@Nullable DroneData drone, int installed, int programmed) {
+            int count = Math.max(type.maxCount(), Math.max(installed, programmed));
+            int[] colors = new int[count];
+            for (int i = 0; i < count; i++) {
+                if (direct()) {
+                    colors[i] = i < installed ? accent() : PIP_OFF_COLOR;
+                } else if (drone == null) {
+                    colors[i] = i < programmed ? accent() : PIP_OFF_COLOR;
+                } else if (i < Math.min(installed, programmed)) {
+                    colors[i] = OK_COLOR;
+                } else if (i < programmed) {
+                    colors[i] = MISSING_COLOR;
+                } else if (i < installed) {
+                    colors[i] = BAD_COLOR;
+                } else {
+                    colors[i] = PIP_OFF_COLOR;
+                }
+            }
+            return colors;
+        }
+
+        private void pips(GuiGraphics graphics, int x, int y, int[] colors) {
+            if (colors.length <= MAX_PIPS) {
+                int total = colors.length * 3 - 1;
+                int startX = x + (TILE_WIDTH - total) / 2;
+                for (int i = 0; i < colors.length; i++) {
+                    graphics.fill(startX + i * 3, y, startX + i * 3 + 2, y + 3, colors[i]);
+                }
+                return;
+            }
+            int barWidth = TILE_WIDTH - 4;
+            for (int px = 0; px < barWidth; px++) {
+                graphics.fill(x + 2 + px, y, x + 3 + px, y + 3, colors[px * colors.length / barWidth]);
+            }
+        }
+
+        private void miniButton(GuiGraphics graphics, int x, int y, String text) {
+            graphics.fill(x, y, x + 7, y + 8, MINI_BUTTON_COLOR);
+            Kit.outline(graphics, x, y, 7, 8, accent());
+            graphics.drawString(font, text, x + 2, y, accent(), false);
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (visible && isMouseOver(mouseX, mouseY) && (button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)) {
+                if (clickTile(type, button)) {
+                    playDownSound(minecraft.getSoundManager());
+                }
+                return true;
+            }
+            return false;
+        }
+    }
+
+    // --- Targets ---
 
     private TargetEntry.Kind rowKind(int index) {
         return rowKinds.getOrDefault(index, TargetEntry.Kind.ENTITY_TYPE);
     }
 
+    private void drawKindIcon(GuiGraphics graphics, int index, int x, int y) {
+        switch (rowKind(index)) {
+            case ENTITY_TYPE -> graphics.blitSprite(ICON_EGG, x + 4, y + 3, 7, 8);
+            case TAG -> graphics.blitSprite(ICON_TAG, x + 4, y + 4, 7, 6);
+            case PLAYER_NAME -> {
+                FieldBox box = targetBoxes.get(index);
+                EntityPreview.drawFace(graphics, box != null ? box.getValue().trim() : "", x + 3, y + 3, 8);
+            }
+        }
+    }
+
     private void cycleKind(int index) {
         TargetEntry.Kind[] kinds = TargetEntry.Kind.values();
         rowKinds.put(index, kinds[(rowKind(index).ordinal() + 1) % kinds.length]);
-        updateKindButtons();
-        CommitBox box = targetBoxes.get(index);
+        FieldBox box = targetBoxes.get(index);
         if (box != null && !box.getValue().isBlank()) {
             commitTarget(index);
         }
@@ -327,7 +692,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
 
     private void commitTarget(int index) {
         DroneProgram program = program();
-        CommitBox box = targetBoxes.get(index);
+        FieldBox box = targetBoxes.get(index);
         if (program == null || box == null) {
             return;
         }
@@ -365,7 +730,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
 
     /** The index of the target row being typed in, or -1. */
     private int focusedTargetRow() {
-        for (Map.Entry<Integer, CommitBox> entry : targetBoxes.entrySet()) {
+        for (Map.Entry<Integer, FieldBox> entry : targetBoxes.entrySet()) {
             if (entry.getValue() == getFocused()) {
                 return entry.getKey();
             }
@@ -423,7 +788,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
             rowKinds.putAll(shifted);
             sendConfig(program.config().withTargets(targets));
         } else {
-            CommitBox box = targetBoxes.get(index);
+            FieldBox box = targetBoxes.get(index);
             if (box != null) {
                 box.setValue("");
                 box.setInvalid(false);
@@ -431,76 +796,117 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         }
     }
 
-    private void initSettings(DroneProgram program) {
-        int x = leftPos + EDITOR_X;
-        int y = topPos + CONTENT_Y;
-        int maxFollow = ProgramRules.maxFollowDistance();
-        addRenderableWidget(Button.builder(Component.literal("-"), b -> stepFollowDistance(-1))
-                .bounds(x + SETTINGS_CONTROL_X + 22, y + 3, 12, 12).build());
-        followBox = addRenderableWidget(new CommitBox(font, x + SETTINGS_CONTROL_X + 36, y, 30, 18,
-                Component.translatable(KEY + "follow_distance"), self -> commitFollowDistance()));
-        followBox.setMaxLength(3);
-        followBox.setFilter(text -> text.chars().allMatch(Character::isDigit));
-        followBox.setTooltip(Tooltip.create(Component.translatable(KEY + "follow_distance.tooltip", 1, maxFollow)));
-        addRenderableWidget(Button.builder(Component.literal("+"), b -> stepFollowDistance(1))
-                .bounds(x + SETTINGS_CONTROL_X + 68, y + 3, 12, 12).build());
+    /** The stored entry of a row, or null for an empty row. */
+    @Nullable
+    private TargetEntry storedTarget(int index) {
+        DroneProgram program = program();
+        return program != null && index < program.config().targets().size() ? program.config().targets().get(index) : null;
+    }
 
-        y += SETTINGS_ROW_HEIGHT;
-        labelBox = addRenderableWidget(new CommitBox(font, x + SETTINGS_CONTROL_X, y, EDITOR_WIDTH - SETTINGS_CONTROL_X, 18,
-                Component.translatable(KEY + "label"), self -> commitLabel()));
-        labelBox.setMaxLength(ProgramRules.MAX_LABEL_LENGTH);
-        labelBox.setHint(Component.translatable(KEY + "label.hint").withStyle(ChatFormatting.DARK_GRAY));
+    private List<Component> targetTooltip(int index) {
+        TargetEntry entry = storedTarget(index);
+        List<Component> lines = new ArrayList<>();
+        if (entry != null) {
+            lines.add(Component.literal(entry.displayString()));
+            lines.add(Component.translatable("screen.seekerdrones.target.kind." + entry.kind().getSerializedName()).withStyle(ChatFormatting.GRAY));
+            Component ignored = ignoredReason(index);
+            if (ignored != null) {
+                lines.add(ignored.copy().withStyle(ChatFormatting.RED));
+            }
+        } else {
+            lines.add(Component.translatable(KEY + "target.empty"));
+        }
+        lines.add(Component.translatable(KEY + "target.select").withStyle(ChatFormatting.GRAY));
+        return lines;
+    }
 
-        y += SETTINGS_ROW_HEIGHT;
-        colorButton = addRenderableWidget(Button.builder(Component.empty(), b -> cycleColor(1))
-                .bounds(x + SETTINGS_CONTROL_X + 16, y, EDITOR_WIDTH - SETTINGS_CONTROL_X - 16, 18)
-                .tooltip(Tooltip.create(Component.translatable(KEY + "color.tooltip")))
-                .build());
+    private List<Component> previewTooltip() {
+        TargetEntry entry = storedTarget(selectedRow);
+        if (entry == null) {
+            return List.of();
+        }
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.literal(entry.displayString()));
+        lines.add(Component.translatable(KEY + "target.preview").withStyle(ChatFormatting.GRAY));
+        if (entry.kind() == TargetEntry.Kind.TAG) {
+            lines.add(Component.translatable("screen.seekerdrones.target.tag_cycles").withStyle(ChatFormatting.GRAY));
+        }
+        return lines;
+    }
 
-        if (program.upgradeCount(UpgradeType.PATROL) > 0) {
-            y += SETTINGS_ROW_HEIGHT;
-            int boxWidth = (EDITOR_WIDTH - SETTINGS_CONTROL_X - 4) / 3;
-            centerX = addRenderableWidget(coordinateBox(x + SETTINGS_CONTROL_X, y, boxWidth, "x"));
-            centerY = addRenderableWidget(coordinateBox(x + SETTINGS_CONTROL_X + boxWidth + 2, y, boxWidth, "y"));
-            centerZ = addRenderableWidget(coordinateBox(x + SETTINGS_CONTROL_X + (boxWidth + 2) * 2, y, boxWidth, "z"));
+    /** Why a stored target entry is ignored at runtime (section 2.7), or null. */
+    @Nullable
+    private Component ignoredReason(int index) {
+        DroneProgram program = program();
+        TargetEntry entry = storedTarget(index);
+        if (program == null || entry == null) {
+            return null;
+        }
+        if (index >= program.allowedTargetCount()) {
+            return Component.translatable(KEY + "target.ignored.no_slot");
+        }
+        if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && program.upgradeCount(UpgradeType.PLAYER_SEEK) <= 0) {
+            return Component.translatable(KEY + "target.ignored.player_seek");
+        }
+        if (TargetBlacklist.blocks(entry)) {
+            return Component.translatable(KEY + "target.ignored.blacklisted");
+        }
+        return null;
+    }
 
-            y += SETTINGS_ROW_HEIGHT;
-            int max = DroneStats.maxPatrolRadius(program.upgradeCount(UpgradeType.PATROL));
-            radiusBox = addRenderableWidget(new CommitBox(font, x + SETTINGS_CONTROL_X, y, 36, 18,
-                    Component.translatable(KEY + "patrol_radius"), self -> commitRadius()));
-            radiusBox.setMaxLength(6);
-            radiusBox.setFilter(text -> text.chars().allMatch(Character::isDigit));
-            radiusBox.setHint(Component.literal(String.valueOf(max)).withStyle(ChatFormatting.DARK_GRAY));
-            radiusBox.setTooltip(Tooltip.create(Component.translatable(KEY + "patrol_radius.tooltip", max)));
-            addRenderableWidget(Button.builder(Component.translatable(KEY + "patrol_center.here"), b -> {
-                        BlockPos above = menu.getPos().above();
-                        setCenter(Optional.of(above));
-                    })
-                    .bounds(x + SETTINGS_CONTROL_X + 40, y, 38, 18)
-                    .tooltip(Tooltip.create(Component.translatable(KEY + "patrol_center.here.tooltip")))
-                    .build());
-            addRenderableWidget(Button.builder(Component.translatable(KEY + "patrol_center.clear"), b -> setCenter(Optional.empty()))
-                    .bounds(x + SETTINGS_CONTROL_X + 80, y, 40, 18)
-                    .tooltip(Tooltip.create(Component.translatable(KEY + "patrol_center.clear.tooltip")))
-                    .build());
+    /** The small red × that removes a target row. */
+    private static class RemoveButton extends KitWidget {
+        private final Runnable onPress;
+
+        RemoveButton(int x, int y, Runnable onPress) {
+            super(x, y, 10, 10);
+            this.onPress = onPress;
+        }
+
+        @Override
+        protected void draw(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            graphics.blitSprite(isHovered() ? REMOVE_HIGHLIGHTED : REMOVE, getX(), getY(), width, height);
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (visible && button == 0 && isMouseOver(mouseX, mouseY)) {
+                playDownSound(Minecraft.getInstance().getSoundManager());
+                onPress.run();
+                return true;
+            }
+            return false;
         }
     }
 
-    private CommitBox coordinateBox(int x, int y, int width, String axis) {
-        CommitBox box = new CommitBox(font, x, y, width, 18, Component.literal(axis), self -> commitCenter());
-        box.setMaxLength(9);
-        box.setFilter(text -> text.isEmpty() || text.matches("-?\\d*"));
-        box.setHint(Component.literal(axis.toUpperCase()).withStyle(ChatFormatting.DARK_GRAY));
-        return box;
+    // --- Behavior ---
+
+    private int maxRadius() {
+        DroneProgram program = program();
+        return program != null ? Math.max(1, DroneStats.maxPatrolRadius(program.upgradeCount(UpgradeType.PATROL))) : 1;
     }
 
-    private void stepFollowDistance(int delta) {
+    /** The radius the slider shows: the set one, capped at the max, or the max if none is set. */
+    private int currentRadius() {
         DroneProgram program = program();
-        if (program != null) {
-            int distance = Math.clamp(program.config().followDistance() + delta, 1, ProgramRules.maxFollowDistance());
-            if (distance != program.config().followDistance()) {
-                sendConfig(program.config().withFollowDistance(distance));
-            }
+        int max = maxRadius();
+        return program != null ? program.config().patrolRadius().map(radius -> Math.min(radius, max)).orElse(max) : max;
+    }
+
+    private void setFollowDistance(int distance) {
+        DroneProgram program = program();
+        // Force the field to show the synced value again.
+        syncedConfig = null;
+        if (program != null && distance != program.config().followDistance()) {
+            sendConfig(program.config().withFollowDistance(distance));
+        }
+    }
+
+    private void setRadius(int radius) {
+        DroneProgram program = program();
+        syncedConfig = null;
+        if (program != null && !Optional.of(radius).equals(program.config().patrolRadius())) {
+            sendConfig(program.config().withPatrolRadius(Optional.of(radius)));
         }
     }
 
@@ -518,26 +924,6 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         followBox.setInvalid(false);
         if (distance != program.config().followDistance()) {
             sendConfig(program.config().withFollowDistance(distance));
-        }
-    }
-
-    private void commitLabel() {
-        DroneProgram program = program();
-        if (program == null || labelBox == null) {
-            return;
-        }
-        String label = StringUtil.filterText(labelBox.getValue().trim());
-        if (!label.equals(program.config().label())) {
-            sendConfig(program.config().withLabel(label));
-        }
-    }
-
-    private void cycleColor(int delta) {
-        DroneProgram program = program();
-        if (program != null) {
-            DyeColor[] colors = DyeColor.values();
-            DyeColor next = colors[Math.floorMod(program.config().color().ordinal() + delta, colors.length)];
-            sendConfig(program.config().withColor(next));
         }
     }
 
@@ -568,7 +954,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
             return;
         }
         Optional<GlobalPos> center = pos.map(p -> GlobalPos.of(minecraft.level.dimension(), p));
-        // Force the boxes to show the new value even if they are focused.
+        // Force the fields to show the new value even if they are focused.
         syncedConfig = null;
         if (!center.equals(program.config().patrolCenter())) {
             sendConfig(program.config().withPatrolCenter(center));
@@ -596,7 +982,57 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         }
     }
 
-    private void reject(CommitBox box, Component message) {
+    // --- Identity ---
+
+    private void commitLabel() {
+        DroneProgram program = program();
+        if (program == null || labelBox == null) {
+            return;
+        }
+        String label = StringUtil.filterText(labelBox.getValue().trim());
+        if (!label.equals(program.config().label())) {
+            sendConfig(program.config().withLabel(label));
+        }
+    }
+
+    /** One of the 16 dye colors. The selected one has a white outline. */
+    private class Swatch extends KitWidget {
+        private final DyeColor color;
+
+        Swatch(int x, int y, DyeColor color) {
+            super(x, y, SWATCH_SIZE, SWATCH_SIZE);
+            this.color = color;
+            tooltip(() -> List.of(Component.translatable("color.minecraft." + color.getName())));
+        }
+
+        @Override
+        protected void draw(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            DroneProgram program = program();
+            if (program != null && program.config().color() == color) {
+                Kit.outline(graphics, getX() - 2, getY() - 2, width + 4, height + 4, Kit.WHITE);
+            }
+            graphics.fill(getX(), getY(), getX() + width, getY() + height, 0xFF000000);
+            graphics.fill(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1, FastColor.ARGB32.opaque(color.getTextureDiffuseColor()));
+            if (isHovered()) {
+                Kit.outline(graphics, getX(), getY(), width, height, accent());
+            }
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            DroneProgram program = program();
+            if (visible && button == 0 && isMouseOver(mouseX, mouseY) && program != null) {
+                playDownSound(minecraft.getSoundManager());
+                if (program.config().color() != color) {
+                    sendConfig(program.config().withColor(color));
+                }
+                return true;
+            }
+            return false;
+        }
+    }
+
+    private void reject(FieldBox box, Component message) {
         box.setInvalid(true);
         editError = message;
     }
@@ -631,39 +1067,18 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
     }
 
     private void syncWidgets() {
+        removeButtons.forEach((index, button) -> {
+            FieldBox box = targetBoxes.get(index);
+            button.visible = storedTarget(index) != null || box != null && !box.getValue().isEmpty();
+        });
         DroneProgram program = program();
-        DroneData drone = menu.getDrone();
-        boolean direct = mode() == ProgrammingMode.DIRECT;
-        UpgradeType installing = menu.getInstalling();
-        for (UpgradeRow row : upgradeRows.values()) {
-            UpgradeType type = row.type();
-            if (program == null) {
-                continue;
-            }
-            if (direct) {
-                row.minus().active = program.upgradeCount(type) > 0;
-                row.plus().active = installing == null && menu.inputCount(type) > 0 && ProgramRules.canAdd(program.upgrades(), type);
-            } else {
-                row.minus().active = program.upgradeCount(type) > 0;
-                row.plus().active = ProgramRules.canAdd(program.upgrades(), type);
-                row.remove().visible = drone != null && drone.upgradeCount(type) > program.upgradeCount(type);
-            }
-        }
-        if (copyButton != null) {
-            copyButton.active = drone != null && DroneStats.withinUpgradeLimits(drone.upgrades());
-        }
-        if (colorButton != null && program != null) {
-            DyeColor color = program.config().color();
-            colorButton.setMessage(Component.translatable("color.minecraft." + color.getName()));
-        }
-        updateKindButtons();
         if (program == null || program.config().equals(syncedConfig)) {
             return;
         }
         DroneConfig config = program.config();
         syncedConfig = config;
         List<TargetEntry> targets = config.targets();
-        for (Map.Entry<Integer, CommitBox> entry : targetBoxes.entrySet()) {
+        for (Map.Entry<Integer, FieldBox> entry : targetBoxes.entrySet()) {
             int index = entry.getKey();
             if (index < targets.size()) {
                 rowKinds.put(index, targets.get(index).kind());
@@ -672,23 +1087,22 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
                 setIfIdle(entry.getValue(), "");
             }
         }
-        updateKindButtons();
-        setIfIdle(followBox, String.valueOf(config.followDistance()));
+        if (sliders.stream().noneMatch(KitSlider::isDragging)) {
+            setIfIdle(followBox, String.valueOf(config.followDistance()));
+            setIfIdle(radiusBox, config.patrolRadius().map(String::valueOf).orElse(""));
+        }
         setIfIdle(labelBox, config.label());
         Optional<BlockPos> center = config.patrolCenter().map(GlobalPos::pos);
         setIfIdle(centerX, center.map(p -> String.valueOf(p.getX())).orElse(""));
         setIfIdle(centerY, center.map(p -> String.valueOf(p.getY())).orElse(""));
         setIfIdle(centerZ, center.map(p -> String.valueOf(p.getZ())).orElse(""));
-        setIfIdle(radiusBox, config.patrolRadius().map(String::valueOf).orElse(""));
+        if (radiusBox != null) {
+            radiusBox.setHint(Component.literal(String.valueOf(maxRadius())).withColor(Kit.DISPLAY_TEXT_DIM & 0xFFFFFF));
+        }
     }
 
-    private void updateKindButtons() {
-        kindButtons.forEach((index, button) -> button.setMessage(
-                Component.translatable("commands.seekerdrones.config.target.kind." + rowKind(index).getSerializedName())));
-    }
-
-    /** Shows the synced value, unless the player is typing in the box. */
-    private static void setIfIdle(@Nullable CommitBox box, String value) {
+    /** Shows the synced value, unless the player is typing in the field. */
+    private static void setIfIdle(@Nullable FieldBox box, String value) {
         if (box != null && !box.isFocused()) {
             box.showValue(value);
             box.setInvalid(false);
@@ -700,6 +1114,10 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
     @Override
     public void setFocused(@Nullable GuiEventListener listener) {
         super.setFocused(listener);
+        int row = focusedTargetRow();
+        if (row >= 0) {
+            selectedRow = row;
+        }
         updateSuggestions();
     }
 
@@ -708,7 +1126,7 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         if (suggestions != null && suggestions.keyPressed(keyCode)) {
             return true;
         }
-        // Typed keys go to the focused box, so e.g. "E" doesn't close the screen.
+        // Typed keys go to the focused field, so e.g. "E" doesn't close the screen.
         if (keyCode != GLFW.GLFW_KEY_ESCAPE && getFocused() instanceof EditBox box && box.canConsumeInput()) {
             box.keyPressed(keyCode, scanCode, modifiers);
             return true;
@@ -721,24 +1139,41 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         if (suggestions != null && suggestions.mouseClicked(mouseX, mouseY)) {
             return true;
         }
-        if (sideTabs.mouseClicked(mouseX, mouseY, button)) {
-            return true;
-        }
-        // Clicking anywhere else commits the focused box.
-        if (getFocused() instanceof CommitBox box && !box.isMouseOver(mouseX, mouseY)) {
+        // Clicking anywhere else commits the focused field.
+        if (getFocused() instanceof FieldBox box && !box.isMouseOver(mouseX, mouseY)) {
             setFocused(null);
-        }
-        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && colorButton != null && colorButton.active && colorButton.isMouseOver(mouseX, mouseY)) {
-            colorButton.playDownSound(minecraft.getSoundManager());
-            cycleColor(-1);
-            return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        for (KitSlider slider : sliders) {
+            if (slider.isDragging()) {
+                slider.drag(mouseX);
+                return true;
+            }
+        }
+        return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        for (KitSlider slider : sliders) {
+            if (slider.isDragging()) {
+                slider.release();
+            }
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    /** The stepped frame: clicks beside the inventory frame are outside, so held items drop there. */
+    @Override
     protected boolean hasClickedOutside(double mouseX, double mouseY, int guiLeft, int guiTop, int button) {
-        return super.hasClickedOutside(mouseX, mouseY, guiLeft, guiTop, button) && !sideTabs.isMouseOver(mouseX, mouseY);
+        boolean inConsole = mouseX >= guiLeft && mouseX < guiLeft + WIDTH && mouseY >= guiTop && mouseY < guiTop + CONSOLE_HEIGHT;
+        boolean inInventory = mouseX >= guiLeft + INVENTORY_FRAME_X && mouseX < guiLeft + INVENTORY_FRAME_X + INVENTORY_FRAME_WIDTH
+                && mouseY >= guiTop + INVENTORY_FRAME_Y && mouseY < guiTop + HEIGHT;
+        return !inConsole && !inInventory && !sideTabs.isMouseOver(mouseX, mouseY);
     }
 
     @Override
@@ -746,12 +1181,15 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         if (suggestions != null && suggestions.mouseScrolled(mouseX, mouseY, scrollY)) {
             return true;
         }
-        if (tab == Tab.TARGETS && isHovering(EDITOR_X, CONTENT_Y, EDITOR_WIDTH, CONTENT_BOTTOM - CONTENT_Y, mouseX, mouseY)) {
+        if (isHovering(EDITOR_X, EDITOR_Y, EDITOR_WIDTH, EDITOR_HEIGHT, mouseX, mouseY)) {
+            int step = -(int) Math.signum(scrollY);
             DroneProgram program = program();
-            int rows = program != null ? Math.max(program.allowedTargetCount(), program.config().targets().size()) : 0;
-            int next = Math.clamp(targetScroll - (int) Math.signum(scrollY), 0, Math.max(0, rows - VISIBLE_TARGET_ROWS));
-            if (next != targetScroll) {
-                targetScroll = next;
+            if (tab == Tab.UPGRADES) {
+                tileScroll = Math.clamp(tileScroll + step, 0, maxTileScroll());
+            } else if (tab == Tab.TARGETS && program != null) {
+                targetScroll = Math.clamp(targetScroll + step, 0, Math.max(0, targetRows(program) - VISIBLE_ROWS));
+            }
+            if (!currentStructure().equals(structure)) {
                 rebuildWidgets();
             }
             return true;
@@ -767,10 +1205,10 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         super.mouseMoved(mouseX, mouseY);
     }
 
-    /** Commits the box being typed in before the menu closes. */
+    /** Commits the field being typed in before the menu closes. */
     @Override
     public void onClose() {
-        if (getFocused() instanceof CommitBox) {
+        if (getFocused() instanceof FieldBox) {
             setFocused(null);
         }
         super.onClose();
@@ -780,283 +1218,275 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        super.render(graphics, mouseX, mouseY, partialTick);
-        sideTabs.renderTooltip(mouseX, mouseY);
+        // Nothing under the suggestions is hovered, so no tooltip shows through them.
+        boolean overSuggestions = suggestions != null && suggestions.isMouseOver(mouseX, mouseY);
+        super.render(graphics, overSuggestions ? -1 : mouseX, overSuggestions ? -1 : mouseY, partialTick);
+        if (hoveredSlot != null && !hoveredSlot.hasItem() && hoveredSlot.index < ProgrammingStationBlockEntity.SLOT_COUNT && menu.getCarried().isEmpty()) {
+            String slot = hoveredSlot.index == ProgrammingStationBlockEntity.DRONE_SLOT ? "slot.drone" : "slot.input";
+            KitWidget.showTooltip(List.of(Component.translatable(KEY + slot),
+                    Component.translatable(KEY + slot + ".tooltip").withStyle(ChatFormatting.GRAY)));
+        }
         if (suggestions != null && suggestions.isVisible()) {
             suggestions.render(graphics);
-            if (suggestions.isMouseOver(mouseX, mouseY)) {
-                return;
-            }
         }
-        renderTooltip(graphics, mouseX, mouseY);
-        if (isHovering(ENERGY_X, ENERGY_Y, ENERGY_WIDTH, ENERGY_HEIGHT, mouseX, mouseY)) {
-            graphics.renderTooltip(font, Component.literal(EnergyFormat.ratio(menu.getEnergy(), menu.getEnergyCapacity())), mouseX, mouseY);
-        } else if (isHovering(PROGRESS_X, PROGRESS_Y - 1, PROGRESS_WIDTH, PROGRESS_HEIGHT + 2, mouseX, mouseY) && menu.getInstalling() != null) {
-            graphics.renderTooltip(font, installingText(), mouseX, mouseY);
-        } else if (isHovering(STATUS_X, STATUS_Y, statusWidth(), STATUS_LINES * STATUS_LINE_HEIGHT, mouseX, mouseY)) {
-            renderStatusTooltip(graphics, mouseX, mouseY);
-        } else if (tab == Tab.UPGRADES) {
-            renderUpgradeTooltip(graphics, mouseX, mouseY);
-        } else if (tab == Tab.TARGETS) {
-            renderTargetTooltip(graphics, mouseX, mouseY);
-        }
-    }
-
-    private void renderUpgradeTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        DroneProgram program = program();
-        if (program == null) {
-            return;
-        }
-        UpgradeType[] types = UpgradeType.values();
-        for (int i = 0; i < types.length; i++) {
-            int x = EDITOR_X + (i / UPGRADE_ROWS) * CELL_WIDTH;
-            int y = CONTENT_Y + (i % UPGRADE_ROWS) * CELL_HEIGHT;
-            if (!isHovering(x, y, 46, CELL_HEIGHT, mouseX, mouseY)) {
-                continue;
-            }
-            UpgradeType type = types[i];
-            DroneData drone = menu.getDrone();
-            int installed = drone != null ? drone.upgradeCount(type) : 0;
-            List<Component> lines = new ArrayList<>();
-            lines.add(Component.translatable(type.getTranslationKey()));
-            lines.add(Component.translatable(type.getTranslationKey() + ".description").withStyle(ChatFormatting.GRAY));
-            if (drone != null) {
-                lines.add(Component.translatable(KEY + "upgrade.installed", installed, type.maxCount()).withStyle(ChatFormatting.GRAY));
-            }
-            if (mode() == ProgrammingMode.TEMPLATE) {
-                lines.add(Component.translatable(KEY + "upgrade.programmed", program.upgradeCount(type)).withStyle(ChatFormatting.GRAY));
-            }
-            lines.add(Component.translatable(KEY + "upgrade.in_input", menu.inputCount(type)).withStyle(ChatFormatting.GRAY));
-            if (installed < type.maxCount()) {
-                lines.add(Component.translatable(KEY + "upgrade.cost", EnergyFormat.amount(ProgramRules.installCost(type, installed + 1)))
-                        .withStyle(ChatFormatting.GRAY));
-            }
-            graphics.renderComponentTooltip(font, lines, mouseX, mouseY);
-            return;
-        }
-    }
-
-    private void renderTargetTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        for (int index : targetBoxes.keySet()) {
-            int y = TARGET_ROWS_Y + (index - targetScroll) * TARGET_ROW_HEIGHT;
-            Component ignored = ignoredReason(index);
-            if (ignored != null && isHovering(EDITOR_X + 46 - 8, y, 7, 18, mouseX, mouseY)) {
-                graphics.renderTooltip(font, ignored, mouseX, mouseY);
-            }
-        }
-    }
-
-    /** Why a stored target entry is ignored at runtime (section 2.7), or null. */
-    @Nullable
-    private Component ignoredReason(int index) {
-        DroneProgram program = program();
-        if (program == null || index >= program.config().targets().size()) {
-            return null;
-        }
-        if (index >= program.allowedTargetCount()) {
-            return Component.translatable(KEY + "target.ignored.no_slot");
-        }
-        TargetEntry entry = program.config().targets().get(index);
-        if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && program.upgradeCount(UpgradeType.PLAYER_SEEK) <= 0) {
-            return Component.translatable(KEY + "target.ignored.player_seek");
-        }
-        if (TargetBlacklist.blocks(entry)) {
-            return Component.translatable(KEY + "target.ignored.blacklisted");
-        }
-        return null;
-    }
-
-    private Component installingText() {
-        UpgradeType installing = menu.getInstalling();
-        if (installing == null) {
-            return Component.empty();
-        }
-        int percent = menu.getTime() > 0 ? menu.getProgress() * 100 / menu.getTime() : 0;
-        return Component.translatable(KEY + "status.installing", Component.translatable(installing.getTranslationKey()), percent,
-                EnergyFormat.amount(menu.getStepCost()));
     }
 
     @Override
-    protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
+    protected void renderFrame(GuiGraphics graphics) {
         int x = leftPos;
         int y = topPos;
-        sideTabs.render(graphics, mouseX, mouseY);
-        graphics.fill(x - 1, y - 1, x + imageWidth + 1, y + imageHeight + 1, PANEL_BORDER_COLOR);
-        graphics.fill(x, y, x + imageWidth, y + imageHeight, PANEL_COLOR);
-        graphics.fill(x + EDITOR_X - 2, y + CONTENT_Y - 2, x + EDITOR_X + EDITOR_WIDTH + 2, y + CONTENT_BOTTOM, EDITOR_COLOR);
-        for (int i = 0; i < ProgrammingStationMenu.SLOT_TOTAL; i++) {
-            var slot = menu.slots.get(i);
-            drawSlot(graphics, x + slot.x, y + slot.y);
+        Kit.frame(graphics, x + INVENTORY_FRAME_X, y + INVENTORY_FRAME_Y, INVENTORY_FRAME_WIDTH, HEIGHT - INVENTORY_FRAME_Y);
+        Kit.frame(graphics, x, y, WIDTH, CONSOLE_HEIGHT);
+        // Join the two frames: cover the console's bottom edge and the inventory frame's top edge between them.
+        graphics.fill(x + INVENTORY_FRAME_X + FRAME_BORDER, y + INVENTORY_FRAME_Y, x + INVENTORY_FRAME_X + INVENTORY_FRAME_WIDTH - FRAME_BORDER,
+                y + CONSOLE_HEIGHT, PANEL_COLOR);
+    }
+
+    @Override
+    protected void renderSlotBackground(GuiGraphics graphics, Slot slot, int x, int y) {
+        super.renderSlotBackground(graphics, slot, x, y);
+        if (slot.hasItem() || slot.index >= ProgrammingStationBlockEntity.SLOT_COUNT) {
+            return;
         }
-
-        graphics.fill(x + ENERGY_X - 1, y + ENERGY_Y - 1, x + ENERGY_X + ENERGY_WIDTH + 1, y + ENERGY_Y + ENERGY_HEIGHT + 1, SLOT_BORDER_COLOR);
-        graphics.fill(x + ENERGY_X, y + ENERGY_Y, x + ENERGY_X + ENERGY_WIDTH, y + ENERGY_Y + ENERGY_HEIGHT, BAR_BACKGROUND_COLOR);
-        int energyHeight = scaled(menu.getEnergy(), menu.getEnergyCapacity(), ENERGY_HEIGHT);
-        graphics.fill(x + ENERGY_X, y + ENERGY_Y + ENERGY_HEIGHT - energyHeight, x + ENERGY_X + ENERGY_WIDTH, y + ENERGY_Y + ENERGY_HEIGHT,
-                ENERGY_BAR_COLOR);
-
-        graphics.fill(x + PROGRESS_X, y + PROGRESS_Y, x + PROGRESS_X + PROGRESS_WIDTH, y + PROGRESS_Y + PROGRESS_HEIGHT, BAR_BACKGROUND_COLOR);
-        if (menu.getInstalling() != null) {
-            int progressWidth = scaled(menu.getProgress(), menu.getTime(), PROGRESS_WIDTH);
-            graphics.fill(x + PROGRESS_X, y + PROGRESS_Y, x + PROGRESS_X + progressWidth, y + PROGRESS_Y + PROGRESS_HEIGHT, PROGRESS_COLOR);
-        }
-
-        if (colorButton != null) {
-            DroneProgram program = program();
-            if (program != null) {
-                int swatchX = colorButton.getX() - 16;
-                int swatchY = colorButton.getY() + 2;
-                graphics.fill(swatchX, swatchY, swatchX + 14, swatchY + 14, SLOT_BORDER_COLOR);
-                graphics.fill(swatchX + 1, swatchY + 1, swatchX + 13, swatchY + 13, 0xFF000000 | program.config().color().getTextureDiffuseColor());
-            }
+        if (slot.index == ProgrammingStationBlockEntity.DRONE_SLOT) {
+            Kit.ghost(graphics, new ItemStack(ModItems.DRONE.get()), x + 1, y + 1);
+        } else {
+            UpgradeType[] types = UpgradeType.values();
+            Kit.ghost(graphics, new ItemStack(ModItems.upgrade(types[(int) (Util.getMillis() / GHOST_CYCLE_MILLIS % types.length)]).get()), x + 1, y + 1);
         }
     }
 
     @Override
-    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        graphics.drawString(font, title, titleLabelX, titleLabelY, LABEL_COLOR, false);
-        graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, LABEL_COLOR, false);
+    protected void renderContents(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
+        renderBay(graphics);
+        int x = leftPos + EDITOR_X;
+        int y = topPos + EDITOR_Y;
+        Kit.display(graphics, x, y, EDITOR_WIDTH, EDITOR_HEIGHT);
+        graphics.fill(x + 1, y, x + EDITOR_WIDTH - 1, y + 1, accent());
         DroneProgram program = program();
         if (program == null) {
-            Component empty = Component.translatable(mode() == ProgrammingMode.DIRECT ? KEY + "no_drone" : KEY + "loading");
-            graphics.drawWordWrap(font, empty, EDITOR_X + 2, CONTENT_Y + 4, EDITOR_WIDTH - 4, MUTED_COLOR);
-        } else {
-            switch (tab) {
-                case UPGRADES -> renderUpgradeLabels(graphics, program);
-                case TARGETS -> renderTargetLabels(graphics, program);
-                case SETTINGS -> renderSettingsLabels(graphics, program);
-            }
+            Component empty = Component.translatable(direct() ? KEY + "no_drone" : KEY + "loading");
+            graphics.drawWordWrap(font, empty, x + 4, y + 5, EDITOR_WIDTH - 8, Kit.DISPLAY_TEXT_DIM);
+            return;
         }
-        Status status = status();
-        List<String> lines = statusLines(status.text());
-        for (int i = 0; i < lines.size(); i++) {
-            graphics.drawString(font, lines.get(i), STATUS_X, STATUS_Y + i * STATUS_LINE_HEIGHT, status.color(), false);
+        switch (tab) {
+            case UPGRADES -> renderUpgrades(graphics, program, x, y);
+            case TARGETS -> renderTargets(graphics, program, x, y);
+            case BEHAVIOR -> renderBehavior(graphics, program, x, y);
+            case IDENTITY -> renderIdentity(graphics, program, x, y);
         }
     }
 
-    private int statusWidth() {
-        return imageWidth - 2 * STATUS_X;
+    private void header(GuiGraphics graphics, Tab shown, int x, int y) {
+        graphics.drawString(font, Kit.upper(Component.translatable(KEY + "tab." + shown.name().toLowerCase())), x + 3, y + HEADER_Y, Kit.DISPLAY_TEXT,
+                false);
+    }
+
+    private void label(GuiGraphics graphics, Component text, int x, int y) {
+        Kit.smallText(graphics, font, Kit.upper(text), x, y, Kit.DISPLAY_TEXT_DIM, false);
     }
 
     /**
-     * The status wrapped into at most {@link #STATUS_LINES} lines. Text that still doesn't fit ends the last line
-     * with an ellipsis, and the full text shows as a tooltip (see {@link #renderStatusTooltip}).
+     * The drone bay: the drone (the program's color) circling its patrol radius, scaled to the largest radius its
+     * Patrol upgrades allow, or hovering without Patrol. A ring around the drone slot shows the install progress.
      */
-    private List<String> statusLines(Component text) {
-        int width = statusWidth();
-        List<String> lines = new ArrayList<>();
-        font.getSplitter().splitLines(text, width, text.getStyle()).forEach(line -> lines.add(line.getString()));
-        if (lines.size() <= STATUS_LINES) {
-            return lines;
-        }
-        List<String> shown = new ArrayList<>(lines.subList(0, STATUS_LINES));
-        String last = font.plainSubstrByWidth(shown.getLast(), width - font.width(ELLIPSIS)).stripTrailing();
-        shown.set(STATUS_LINES - 1, last + ELLIPSIS);
-        return shown;
-    }
-
-    /** The full status text, only when it didn't fit in the status area. */
-    private void renderStatusTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
-        Component text = status().text();
-        if (font.getSplitter().splitLines(text, statusWidth(), text.getStyle()).size() > STATUS_LINES) {
-            graphics.renderTooltip(font, font.split(text, 200), mouseX, mouseY);
-        }
-    }
-
-    private void renderUpgradeLabels(GuiGraphics graphics, DroneProgram program) {
-        DroneData drone = menu.getDrone();
-        UpgradeType installing = menu.getInstalling();
-        UpgradeType[] types = UpgradeType.values();
-        for (int i = 0; i < types.length; i++) {
-            UpgradeType type = types[i];
-            int x = EDITOR_X + (i / UPGRADE_ROWS) * CELL_WIDTH;
-            int y = CONTENT_Y + (i % UPGRADE_ROWS) * CELL_HEIGHT;
-            graphics.renderItem(new ItemStack(ModItems.upgrade(type).get()), x, y + 1);
-            String text;
-            int color;
-            if (mode() == ProgrammingMode.DIRECT) {
-                text = program.upgradeCount(type) + "/" + type.maxCount();
-                color = LABEL_COLOR;
-            } else if (drone == null) {
-                text = String.valueOf(program.upgradeCount(type));
-                color = LABEL_COLOR;
+    private void renderBay(GuiGraphics graphics) {
+        int x = leftPos + BAY_X;
+        int y = topPos + BAY_Y;
+        Kit.display(graphics, x, y, BAY_WIDTH, BAY_HEIGHT);
+        DroneProgram program = program();
+        if (program != null) {
+            float centerX = x + BAY_WIDTH / 2F;
+            float centerY = y + ORBIT_Y;
+            DyeColor color = program.config().color();
+            graphics.enableScissor(x + 1, y + 1, x + BAY_WIDTH - 1, y + BAY_HEIGHT - 1);
+            if (program.upgradeCount(UpgradeType.PATROL) > 0) {
+                float radiusX = ORBIT_MIN + ORBIT_RANGE * Kit.fraction(currentRadius(), maxRadius());
+                float radiusY = radiusX * ORBIT_TILT;
+                DronePreview.drawOrbit(graphics, centerX, centerY, radiusX, radiusY, accent());
+                graphics.fill(Mth.floor(centerX) - 1, Mth.floor(centerY) - 1, Mth.floor(centerX) + 1, Mth.floor(centerY) + 1, accent());
+                dronePreview.renderOrbiting(graphics, color, centerX, centerY, radiusX, radiusY, DRONE_SCALE);
             } else {
-                int installed = drone.upgradeCount(type);
-                int wanted = program.upgradeCount(type);
-                text = installed + "/" + wanted;
-                color = installed == wanted ? (wanted > 0 ? OK_COLOR : MUTED_COLOR) : installed < wanted ? WARNING_COLOR : ERROR_COLOR;
+                dronePreview.renderHovering(graphics, color, centerX, centerY, DRONE_SCALE);
             }
-            if (type == installing) {
-                color = PROGRESS_COLOR;
-            }
-            graphics.drawString(font, text, x + 18, y + 6, color, false);
+            graphics.disableScissor();
         }
-        String slots = Component.translatable(KEY + "slots", DroneStats.totalUpgrades(program.upgrades()),
-                ServerConfig.get(ServerConfig.UPGRADES_TOTAL_SLOTS)).getString();
-        graphics.drawString(font, slots, EDITOR_X + 2, FOOTER_Y + 3, LABEL_COLOR, false);
-    }
-
-    private void renderTargetLabels(GuiGraphics graphics, DroneProgram program) {
-        int rows = Math.max(program.allowedTargetCount(), program.config().targets().size());
-        Component header = Component.translatable(KEY + "target.header", program.config().targets().size(), program.allowedTargetCount());
-        graphics.drawString(font, header, EDITOR_X + 2, CONTENT_Y + 1, LABEL_COLOR, false);
-        if (rows > VISIBLE_TARGET_ROWS) {
-            String range = (targetScroll + 1) + "-" + Math.min(rows, targetScroll + VISIBLE_TARGET_ROWS) + " / " + rows;
-            graphics.drawString(font, range, EDITOR_X + EDITOR_WIDTH - font.width(range) - 2, CONTENT_Y + 1, MUTED_COLOR, false);
-        }
-        for (int index : targetBoxes.keySet()) {
-            if (ignoredReason(index) != null) {
-                int y = TARGET_ROWS_Y + (index - targetScroll) * TARGET_ROW_HEIGHT;
-                graphics.drawString(font, "!", EDITOR_X + 46 - 6, y + 5, ERROR_COLOR, false);
-            }
+        if (menu.getDrone() != null) {
+            renderRing(graphics);
         }
     }
 
-    private void renderSettingsLabels(GuiGraphics graphics, DroneProgram program) {
-        int y = CONTENT_Y + 5;
-        graphics.drawString(font, Component.translatable(KEY + "follow_distance"), EDITOR_X + 2, y, LABEL_COLOR, false);
-        y += SETTINGS_ROW_HEIGHT;
-        graphics.drawString(font, Component.translatable(KEY + "label"), EDITOR_X + 2, y, LABEL_COLOR, false);
-        y += SETTINGS_ROW_HEIGHT;
-        graphics.drawString(font, Component.translatable(KEY + "color"), EDITOR_X + 2, y, LABEL_COLOR, false);
-        if (program.upgradeCount(UpgradeType.PATROL) > 0) {
-            y += SETTINGS_ROW_HEIGHT;
-            graphics.drawString(font, Component.translatable(KEY + "patrol_center"), EDITOR_X + 2, y, LABEL_COLOR, false);
-            y += SETTINGS_ROW_HEIGHT;
-            graphics.drawString(font, Component.translatable(KEY + "patrol_radius"), EDITOR_X + 2, y, LABEL_COLOR, false);
+    /** A ring around the drone slot, filling clockwise from the top as an install step runs. */
+    private void renderRing(GuiGraphics graphics) {
+        // The slot box's center, a pixel corner.
+        int centerX = leftPos + ProgrammingStationMenu.DRONE_X + 8;
+        int centerY = topPos + ProgrammingStationMenu.DRONE_Y + 8;
+        float progress = menu.getInstalling() != null ? Kit.fraction(menu.getProgress(), menu.getTime()) : 0;
+        double circumference = Mth.TWO_PI * RING_RADIUS;
+        for (double along = 0; along < circumference; along += 0.5) {
+            double angle = along / RING_RADIUS - Math.PI / 2;
+            int px = Mth.floor(centerX + Math.cos(angle) * RING_RADIUS);
+            int py = Mth.floor(centerY + Math.sin(angle) * RING_RADIUS);
+            graphics.fill(px, py, px + 1, py + 1, along / circumference < progress ? OK_COLOR : TRACK_COLOR);
         }
     }
 
-    private record Status(Component text, int color) {}
+    private void renderUpgrades(GuiGraphics graphics, DroneProgram program, int x, int y) {
+        header(graphics, Tab.UPGRADES, x, y);
+        // The slot bar: one segment per upgrade slot, lit when used. Numbers only in the tooltip.
+        int used = DroneStats.totalUpgrades(program.upgrades());
+        int slots = ServerConfig.get(ServerConfig.UPGRADES_TOTAL_SLOTS);
+        int right = x + SLOT_BAR_RIGHT;
+        if (slots <= MAX_SLOT_SEGMENTS) {
+            for (int i = 0; i < slots; i++) {
+                int segmentX = right - (slots - i) * 2;
+                graphics.fill(segmentX, y + SLOT_BAR_Y, segmentX + 1, y + SLOT_BAR_Y + SLOT_BAR_HEIGHT, i < used ? accent() : TRACK_COLOR);
+            }
+        } else {
+            int barWidth = MAX_SLOT_SEGMENTS * 2;
+            graphics.fill(right - barWidth, y + SLOT_BAR_Y, right, y + SLOT_BAR_Y + SLOT_BAR_HEIGHT, TRACK_COLOR);
+            graphics.fill(right - barWidth, y + SLOT_BAR_Y, right - barWidth + Math.round(barWidth * Kit.fraction(used, slots)),
+                    y + SLOT_BAR_Y + SLOT_BAR_HEIGHT, accent());
+        }
+        int maxScroll = maxTileScroll();
+        if (maxScroll > 0) {
+            int rows = maxScroll + TILE_ROWS;
+            int trackHeight = TILE_ROWS * TILE_PITCH_Y - 2;
+            int trackY = y + TILE_Y;
+            graphics.fill(x + TILE_SCROLLBAR_X, trackY, x + TILE_SCROLLBAR_X + 3, trackY + trackHeight, TRACK_COLOR);
+            int thumbHeight = trackHeight * TILE_ROWS / rows;
+            int thumbY = trackY + (trackHeight - thumbHeight) * tileScroll / maxScroll;
+            graphics.fill(x + TILE_SCROLLBAR_X, thumbY, x + TILE_SCROLLBAR_X + 3, thumbY + thumbHeight, accent());
+        }
+    }
 
-    /** The status under the editor: the most important problem or what the station is doing. */
-    private Status status() {
+    private void renderTargets(GuiGraphics graphics, DroneProgram program, int x, int y) {
+        header(graphics, Tab.TARGETS, x, y);
+        Component slots = Component.translatable(KEY + "target.slots", program.config().targets().size(), program.allowedTargetCount());
+        Kit.smallText(graphics, font, slots, x + EDITOR_WIDTH - 4 - Kit.smallWidth(font, slots), y + HEADER_Y + 1, Kit.DISPLAY_TEXT, false);
+        int rows = targetRows(program);
+        if (rows > VISIBLE_ROWS) {
+            int trackY = y + ROW_Y;
+            int trackHeight = VISIBLE_ROWS * ROW_PITCH - 2;
+            graphics.fill(x + ROW_SCROLLBAR_X, trackY, x + ROW_SCROLLBAR_X + 2, trackY + trackHeight, TRACK_COLOR);
+            int thumbHeight = Math.max(4, trackHeight * VISIBLE_ROWS / rows);
+            int thumbY = trackY + (trackHeight - thumbHeight) * targetScroll / (rows - VISIBLE_ROWS);
+            graphics.fill(x + ROW_SCROLLBAR_X, thumbY, x + ROW_SCROLLBAR_X + 2, thumbY + thumbHeight, accent());
+        }
+
+        // The selected row's preview, with what it shows right now under it.
+        int previewX = x + PREVIEW_X;
+        int previewY = y + PREVIEW_Y;
+        graphics.blitSprite(Kit.CELL, previewX, previewY, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+        TargetEntry entry = storedTarget(selectedRow);
+        Component caption;
+        if (entry != null) {
+            targetPreview.render(graphics, entry, previewX + 1, previewY + 1, PREVIEW_WIDTH - 2, PREVIEW_HEIGHT - 2, selectedRow);
+            caption = targetPreview.caption(entry, selectedRow);
+        } else {
+            caption = Component.translatable(KEY + "target.none");
+        }
+        int captionWidth = Kit.smallWidth(font, caption);
+        int captionX = captionWidth <= PREVIEW_WIDTH ? previewX + (PREVIEW_WIDTH - captionWidth) / 2 : previewX;
+        Kit.scrollingText(graphics, font, caption, captionX, y + PREVIEW_Y + PREVIEW_HEIGHT + 3, PREVIEW_WIDTH, 7, entry != null ? Kit.DISPLAY_TEXT : Kit.DISPLAY_TEXT_DIM,
+                false, true);
+        Kit.scrollingText(graphics, font, Component.translatable(KEY + "target.hint"), x + 3, y + 96, EDITOR_WIDTH - 7, 7,
+                Kit.DISPLAY_TEXT_DIM, false, true);
+    }
+
+    private void renderBehavior(GuiGraphics graphics, DroneProgram program, int x, int y) {
+        header(graphics, Tab.BEHAVIOR, x, y);
+        y += BODY_SHIFT;
+        label(graphics, Component.translatable(KEY + "follow_distance.header"), x + 3, y + 15);
+        label(graphics, Component.translatable(KEY + "patrol_center"), x + 3, y + 41);
+        if (program.upgradeCount(UpgradeType.PATROL) <= 0) {
+            graphics.drawWordWrap(font, Component.translatable(KEY + "patrol.none"), x + 3, y + 51, EDITOR_WIDTH - 7, Kit.DISPLAY_TEXT_DIM);
+            return;
+        }
+        label(graphics, Component.translatable(KEY + "patrol_radius.header", maxRadius()), x + 3, y + 69);
+    }
+
+    private void renderIdentity(GuiGraphics graphics, DroneProgram program, int x, int y) {
+        header(graphics, Tab.IDENTITY, x, y);
+        y += BODY_SHIFT;
+        label(graphics, Component.translatable(KEY + "label"), x + 3, y + 15);
+        label(graphics, Component.translatable(KEY + "color"), x + 3, y + 42);
+        DyeColor color = program.config().color();
+        // The color's name beside the palette, on up to two lines.
+        int nameX = x + 3 + 8 * SWATCH_PITCH + 2;
+        int nameWidth = x + EDITOR_WIDTH - 3 - nameX;
+        List<FormattedCharSequence> lines = font.split(Component.translatable("color.minecraft." + color.getName()), (int) (nameWidth / Kit.SMALL));
+        for (int i = 0; i < Math.min(2, lines.size()); i++) {
+            Kit.smallText(graphics, font, lines.get(i), nameX, y + 54 + i * 7, Kit.DISPLAY_TEXT, false);
+        }
+
+        // The nameplate: the label in the drone's color, then its ID.
+        label(graphics, Component.translatable(KEY + "nameplate"), x + 3, y + 81);
+        int plateX = x + 3;
+        int plateY = y + 89;
+        int plateWidth = EDITOR_WIDTH - 7;
+        graphics.fill(plateX, plateY, plateX + plateWidth, plateY + 14, NAMEPLATE_BACKGROUND);
+        String label = program.config().label();
+        Component name = label.isEmpty()
+                ? Component.translatable(KEY + "nameplate.no_label").withStyle(ChatFormatting.GRAY)
+                : Component.literal(label).withColor(color.getTextColor());
+        DroneData drone = menu.getDrone();
+        if (drone != null && drone.hasDroneId()) {
+            name = name.copy().append(Component.literal(" #" + drone.droneId()).withStyle(ChatFormatting.GRAY));
+        }
+        int nameWidthPx = font.width(name);
+        int textX = nameWidthPx <= plateWidth - 4 ? plateX + (plateWidth - nameWidthPx) / 2 : plateX + 2;
+        Kit.scrollingText(graphics, font, name, textX, plateY + 3, plateWidth - 4, 9, Kit.WHITE, true, false);
+    }
+
+    private List<Component> bayTooltip() {
+        DroneProgram program = program();
+        if (program == null) {
+            return List.of(Component.translatable(KEY + "bay"), Component.translatable(KEY + "slot.drone.tooltip").withStyle(ChatFormatting.GRAY));
+        }
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.translatable(KEY + "bay"));
+        lines.add(program.upgradeCount(UpgradeType.PATROL) > 0
+                ? Component.translatable(KEY + "bay.patrol", currentRadius(), maxRadius()).withStyle(ChatFormatting.GRAY)
+                : Component.translatable(KEY + "bay.hover").withStyle(ChatFormatting.GRAY));
+        lines.add(Component.translatable(KEY + "bay.preview").withStyle(ChatFormatting.DARK_GRAY));
+        return lines;
+    }
+
+    // --- Status ---
+
+    private StatusStrip.Status status(Kit.Light light, boolean blink, Component text) {
+        return new StatusStrip.Status(light, blink, text);
+    }
+
+    /** The most important problem, or what the station is doing. */
+    private StatusStrip.Status status() {
         if (editError != null) {
-            return new Status(editError, ERROR_COLOR);
+            return status(Kit.Light.BAD, false, editError);
         }
         DroneData drone = menu.getDrone();
         UpgradeType installing = menu.getInstalling();
-        if (mode() == ProgrammingMode.DIRECT) {
+        if (direct()) {
             if (drone == null) {
-                return new Status(Component.translatable(KEY + "status.insert_drone"), MUTED_COLOR);
+                return status(Kit.Light.IDLE, false, Component.translatable(KEY + "status.insert_drone"));
             }
             if (installing != null) {
-                return installingStatus();
+                return installingStatus(installing);
             }
-            return new Status(Component.translatable(KEY + "status.direct_hint"), MUTED_COLOR);
+            return status(Kit.Light.IDLE, false, Component.translatable(KEY + "status.direct_hint"));
         }
         DroneProgram template = menu.getTemplate();
         if (template == null) {
-            return new Status(Component.empty(), MUTED_COLOR);
+            return status(Kit.Light.IDLE, false, Component.empty());
         }
         if (!DroneStats.withinUpgradeLimits(template.upgrades())) {
-            return new Status(Component.translatable(KEY + "status.template_invalid"), ERROR_COLOR);
+            return status(Kit.Light.BAD, true, Component.translatable(KEY + "status.template_invalid"));
         }
         if (drone == null) {
-            return new Status(Component.translatable(KEY + "status.insert_drone_template"), MUTED_COLOR);
+            return status(Kit.Light.IDLE, false, Component.translatable(KEY + "status.insert_drone_template"));
         }
         if (!menu.isAccepted()) {
-            return new Status(Component.translatable(KEY + "status.reinsert_drone"), WARNING_COLOR);
+            return status(Kit.Light.WARN, false, Component.translatable(KEY + "status.reinsert_drone"));
         }
         List<UpgradeType> extra = new ArrayList<>();
         List<UpgradeType> missing = new ArrayList<>();
@@ -1068,27 +1498,28 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
             }
         }
         if (!extra.isEmpty()) {
-            return new Status(Component.translatable(KEY + "status.extra_upgrades", names(extra)), ERROR_COLOR);
+            return status(Kit.Light.BAD, true, Component.translatable(KEY + "status.extra_upgrades", names(extra)));
         }
         if (installing != null) {
-            return installingStatus();
+            return installingStatus(installing);
         }
         if (!missing.isEmpty()) {
-            return new Status(Component.translatable(KEY + "status.missing_upgrades", names(missing)), WARNING_COLOR);
+            return status(Kit.Light.WARN, false, Component.translatable(KEY + "status.missing_upgrades", names(missing)));
         }
         if (template.matches(drone)) {
-            return new Status(Component.translatable(KEY + "status.complete"), OK_COLOR);
+            return status(Kit.Light.OK, false, Component.translatable(KEY + "status.complete"));
         }
-        return new Status(Component.translatable(KEY + "status.working"), MUTED_COLOR);
+        return status(Kit.Light.OK, false, Component.translatable(KEY + "status.working"));
     }
 
-    private Status installingStatus() {
+    private StatusStrip.Status installingStatus(UpgradeType installing) {
         int perTick = menu.getTime() > 0 ? menu.getStepCost() / menu.getTime() : 0;
+        Component name = Component.translatable(installing.getTranslationKey());
         if (menu.getEnergy() < perTick) {
-            return new Status(Component.translatable(KEY + "status.no_power", Component.translatable(menu.getInstalling().getTranslationKey())),
-                    WARNING_COLOR);
+            return status(Kit.Light.WARN, false, Component.translatable(KEY + "status.no_power", name));
         }
-        return new Status(installingText(), OK_COLOR);
+        return status(Kit.Light.OK, false, Component.translatable(KEY + "status.installing", name, installPercent(),
+                EnergyFormat.amount(menu.getStepCost())));
     }
 
     private static Component names(List<UpgradeType> types) {
@@ -1102,22 +1533,116 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         return result;
     }
 
-    private static void drawSlot(GuiGraphics graphics, int x, int y) {
-        graphics.fill(x - 1, y - 1, x + 17, y + 17, SLOT_BORDER_COLOR);
-        graphics.fill(x, y, x + 16, y + 16, SLOT_COLOR);
+    // --- Mode switch and tabs ---
+
+    /** The Direct/Template switch: the active half is filled with the mode's accent. */
+    private class ModeSwitch extends KitWidget {
+        ModeSwitch(int x, int y) {
+            super(x, y, MODE_WIDTH, MODE_HEIGHT);
+            tooltip(() -> List.of(Component.translatable(KEY + "mode"),
+                    Component.translatable(KEY + "mode.tooltip").withStyle(ChatFormatting.GRAY)));
+        }
+
+        @Override
+        protected void draw(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            graphics.blitSprite(Kit.TOGGLE, getX(), getY(), width, height);
+            int half = (width - 2) / 2;
+            ProgrammingMode[] modes = ProgrammingMode.values();
+            for (int i = 0; i < modes.length; i++) {
+                int halfX = getX() + 1 + i * half;
+                boolean on = modes[i] == mode();
+                if (on) {
+                    graphics.fill(halfX, getY() + 1, halfX + half, getY() + height - 1, accent());
+                }
+                Component text = Component.translatable(modes[i].getTranslationKey());
+                Kit.smallText(graphics, font, text, halfX + (half - Kit.smallWidth(font, text)) / 2F, getY() + 3.5F,
+                        on ? SEGMENT_ON_TEXT : SEGMENT_OFF_TEXT, false);
+            }
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (!visible || button != 0 || !isMouseOver(mouseX, mouseY)) {
+                return false;
+            }
+            ProgrammingMode clicked = mouseX < getX() + width / 2.0 ? ProgrammingMode.DIRECT : ProgrammingMode.TEMPLATE;
+            if (clicked != mode()) {
+                playDownSound(minecraft.getSoundManager());
+                send(EditProgramPayload.setMode(menu.containerId, clicked));
+            }
+            return true;
+        }
     }
 
-    private static int scaled(int value, int max, int size) {
-        return max <= 0 ? 0 : (int) Math.min(size, (long) value * size / max);
+    /** A tab over the editor. The selected one joins the editor and has the accent on its top edge. */
+    private class EditorTab extends KitWidget {
+        private final Tab target;
+
+        EditorTab(int x, int y, Tab target) {
+            super(x, y, TAB_WIDTH, TAB_HEIGHT);
+            this.target = target;
+            tooltip(() -> List.of(Component.translatable(KEY + "tab." + target.name().toLowerCase())));
+        }
+
+        @Override
+        protected void draw(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            int x = getX();
+            int y = getY();
+            boolean on = tab == target;
+            if (on) {
+                // One row taller, over the editor's top edge, so it joins the editor.
+                graphics.blitSprite(TAB_SELECTED, x, y, width, height);
+                graphics.fill(x + 1, y + 1, x + width - 1, y + 2, accent());
+            } else {
+                graphics.blitSprite(isHovered() ? TAB_HIGHLIGHTED : TAB, x, y, width, height - 1);
+            }
+            switch (target) {
+                case UPGRADES -> Kit.item(graphics, new ItemStack(ModItems.upgrade(UpgradeType.SIGHT).get()), x + 7, y + 2, 10);
+                case TARGETS -> graphics.blitSprite(ICON_TARGET, x + 8, y + 3, 9, 9);
+                case BEHAVIOR -> graphics.blitSprite(ICON_ROUTE, x + 8, y + 3, 9, 8);
+                case IDENTITY -> graphics.blitSprite(ICON_NAME_TAG, x + 8, y + 4, 9, 6);
+            }
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (!visible || button != 0 || !isMouseOver(mouseX, mouseY)) {
+                return false;
+            }
+            if (tab != target) {
+                playDownSound(minecraft.getSoundManager());
+                tab = target;
+                rebuildWidgets();
+            }
+            return true;
+        }
     }
 
-    /** An edit box that commits its value on Enter and when it loses focus. */
-    private static class CommitBox extends EditBox {
-        private final Consumer<CommitBox> onCommit;
+    // --- Fields ---
 
-        CommitBox(Font font, int x, int y, int width, int height, Component message, Consumer<CommitBox> onCommit) {
-            super(font, x, y, width, height, message);
+    /**
+     * A text field on a display: a dark box with the text inset, an accent border while focused or selected, and a
+     * tooltip built when hovered. It commits its value on Enter and when it loses focus.
+     */
+    private class FieldBox extends EditBox {
+        private static final int PADDING_X = 3;
+        private final Consumer<FieldBox> onCommit;
+        /** Drawn with a dashed border while empty: an empty target row. */
+        boolean dashed;
+        BooleanSupplier selected = () -> false;
+        /** Shows an amber "!" at the right end: an ignored target entry. */
+        BooleanSupplier warning = () -> false;
+        Supplier<List<Component>> tooltipLines = List::of;
+
+        FieldBox(int x, int y, int width, int height, Component message, Consumer<FieldBox> onCommit) {
+            super(ProgrammingStationScreen.this.font, x, y, width, height, message);
             this.onCommit = onCommit;
+            setBordered(false);
+            setTextColor(Kit.DISPLAY_TEXT & 0xFFFFFF);
+        }
+
+        private int paddingY() {
+            return (height - 7) / 2;
         }
 
         void showValue(String value) {
@@ -1127,7 +1652,41 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
         }
 
         void setInvalid(boolean invalid) {
-            setTextColor(invalid ? BOX_ERROR_COLOR : BOX_TEXT_COLOR);
+            setTextColor(invalid ? INVALID_TEXT : Kit.DISPLAY_TEXT & 0xFFFFFF);
+        }
+
+        @Override
+        public int getInnerWidth() {
+            // EditBox can ask before this box's fields are set.
+            return width - 2 * PADDING_X - (warning != null && warning.getAsBoolean() ? 6 : 0);
+        }
+
+        @Override
+        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+            if (!isVisible()) {
+                return;
+            }
+            boolean empty = dashed && getValue().isEmpty() && !isFocused();
+            graphics.blitSprite(empty ? Kit.FIELD_EMPTY : Kit.FIELD, getX(), getY(), width, height);
+            if (isFocused() || selected.getAsBoolean()) {
+                Kit.outline(graphics, getX(), getY(), width, height, accent());
+            }
+            // EditBox draws its text at its own corner without a border, so shift it inside the box.
+            graphics.pose().pushPose();
+            graphics.pose().translate(PADDING_X, paddingY(), 0);
+            super.renderWidget(graphics, mouseX - PADDING_X, mouseY - paddingY(), partialTick);
+            graphics.pose().popPose();
+            if (warning.getAsBoolean()) {
+                graphics.drawString(font, "!", getX() + width - 6, getY() + paddingY(), WARN_COLOR, false);
+            }
+            if (isHovered() && !isFocused()) {
+                KitWidget.showTooltip(tooltipLines.get());
+            }
+        }
+
+        @Override
+        public void onClick(double mouseX, double mouseY) {
+            super.onClick(mouseX - PADDING_X, mouseY);
         }
 
         @Override
@@ -1148,5 +1707,4 @@ public class ProgrammingStationScreen extends AbstractContainerScreen<Programmin
             return super.keyPressed(keyCode, scanCode, modifiers);
         }
     }
-
 }

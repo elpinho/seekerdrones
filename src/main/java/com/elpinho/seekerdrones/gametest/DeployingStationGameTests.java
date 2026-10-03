@@ -446,9 +446,11 @@ public class DeployingStationGameTests {
 
         // Everything is fed through capabilities.
         IItemHandler factoryItems = helper.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, factoryAbs, null);
-        helper.assertTrue(factoryItems.insertItem(0, new ItemStack(ModItems.DRONE_ROTOR.get(), 4), false).isEmpty(), "Rotors inserted");
-        helper.assertTrue(factoryItems.insertItem(1, new ItemStack(ModItems.SEEKER_CORE.get(), 1), false).isEmpty(), "Core inserted");
-        helper.assertTrue(factoryItems.insertItem(2, new ItemStack(Items.IRON_INGOT, 4), false).isEmpty(), "Iron inserted");
+        for (int rotorSlot = 0; rotorSlot < 4; rotorSlot++) {
+            helper.assertTrue(factoryItems.insertItem(rotorSlot, new ItemStack(ModItems.DRONE_ROTOR.get(), 1), false).isEmpty(), "Rotor inserted");
+        }
+        helper.assertTrue(factoryItems.insertItem(4, new ItemStack(ModItems.SEEKER_CORE.get(), 1), false).isEmpty(), "Core inserted");
+        helper.assertTrue(factoryItems.insertItem(5, new ItemStack(Items.IRON_INGOT, 4), false).isEmpty(), "Iron inserted");
         IFluidHandler tank = helper.getLevel().getCapability(Capabilities.FluidHandler.BLOCK, factoryAbs, null);
         helper.assertTrue(tank.fill(new FluidStack(Fluids.LAVA, 1000), IFluidHandler.FluidAction.EXECUTE) == 1000, "Lava filled");
         helper.assertTrue(helper.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK, factoryAbs, null)

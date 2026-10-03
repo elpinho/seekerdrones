@@ -147,32 +147,22 @@ public class DroneStatusScreen extends PanelScreen {
                 .tooltip(() -> List.of(
                         Component.translatable("screen.seekerdrones.drone_status.health"),
                         healthText().copy().withStyle(ChatFormatting.GRAY)));
-        addRenderableWidget(new Area(leftPos + RADAR_X, topPos + RADAR_Y, RADAR_SIZE, RADAR_SIZE)).tooltip(this::radarTooltip);
+        addRenderableWidget(new KitWidget.Area(leftPos + RADAR_X, topPos + RADAR_Y, RADAR_SIZE, RADAR_SIZE)).tooltip(this::radarTooltip);
         // The sight and follow rows: the exact meaning, in blocks.
-        addRenderableWidget(new Area(leftPos + RADAR_X, topPos + SIGHT_Y - 1, RADAR_SIZE, 8)).tooltip(() -> List.of(
+        addRenderableWidget(new KitWidget.Area(leftPos + RADAR_X, topPos + SIGHT_Y - 1, RADAR_SIZE, 8)).tooltip(() -> List.of(
                 Component.translatable("screen.seekerdrones.drone_status.sight.tooltip", status.sightRange())));
-        addRenderableWidget(new Area(leftPos + RADAR_X, topPos + FOLLOW_Y - 1, RADAR_SIZE, 8)).tooltip(() -> List.of(
+        addRenderableWidget(new KitWidget.Area(leftPos + RADAR_X, topPos + FOLLOW_Y - 1, RADAR_SIZE, 8)).tooltip(() -> List.of(
                 Component.translatable("screen.seekerdrones.drone_status.follow.tooltip", status.data().config().followDistance())));
         for (int i = 0; i < VISIBLE_CELLS; i++) {
             int index = i;
-            addRenderableWidget(new Area(leftPos + COLUMN_X + i * CELL_SIZE, topPos + CELL_Y, CELL_SIZE, CELL_SIZE))
+            addRenderableWidget(new KitWidget.Area(leftPos + COLUMN_X + i * CELL_SIZE, topPos + CELL_Y, CELL_SIZE, CELL_SIZE))
                     .tooltip(() -> upgradeTooltip(upgradeScroll + index));
         }
         for (int i = 0; i < VISIBLE_CARDS; i++) {
             int index = i;
-            addRenderableWidget(new Area(leftPos + COLUMN_X + i * CARD_PITCH, topPos + CARD_Y, CARD_WIDTH, CARD_HEIGHT))
+            addRenderableWidget(new KitWidget.Area(leftPos + COLUMN_X + i * CARD_PITCH, topPos + CARD_Y, CARD_WIDTH, CARD_HEIGHT))
                     .tooltip(() -> targetTooltip(targetScroll + index));
         }
-    }
-
-    /** An invisible hover area that only shows a tooltip. */
-    private static class Area extends KitWidget {
-        Area(int x, int y, int width, int height) {
-            super(x, y, width, height);
-        }
-
-        @Override
-        protected void draw(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
     }
 
     private Component healthText() {

@@ -59,6 +59,16 @@ public abstract class KitWidget extends AbstractWidget {
         return false;
     }
 
+    /** An invisible hover area that only shows a tooltip. */
+    public static class Area extends KitWidget {
+        public Area(int x, int y, int width, int height) {
+            super(x, y, width, height);
+        }
+
+        @Override
+        protected void draw(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {}
+    }
+
     @Override
     protected void updateWidgetNarration(NarrationElementOutput output) {
         defaultButtonNarrationText(output);

@@ -43,12 +43,13 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
     static final int DATA_ACCEPTED = 7;
     static final int DATA_VALUES = 8;
 
-    public static final int DRONE_X = 32;
-    public static final int DRONE_Y = 20;
-    public static final int INPUT_X = 26;
-    public static final int INPUT_Y = 52;
-    public static final int INVENTORY_X = 60;
-    public static final int INVENTORY_Y = 178;
+    // Item positions in the screen's layout: the drone slot in the bay, the input under it, the inventory centered below.
+    public static final int DRONE_X = 42;
+    public static final int DRONE_Y = 60;
+    public static final int INPUT_X = 25;
+    public static final int INPUT_Y = 85;
+    public static final int INVENTORY_X = 43;
+    public static final int INVENTORY_Y = 171;
 
     private static final int PLAYER_SLOTS_START = ProgrammingStationBlockEntity.SLOT_COUNT;
     private static final int PLAYER_SLOTS_END = PLAYER_SLOTS_START + 36;

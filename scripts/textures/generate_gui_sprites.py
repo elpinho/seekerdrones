@@ -46,6 +46,7 @@ HEALTH_HIGH = (255, 128, 134, 255)
 HEALTH = (224, 68, 75, 255)
 HEALTH_LOW = (139, 29, 35, 255)
 
+LIGHTS_OK = (74, 222, 128, 255)
 LIGHTS = {
     "ok": (74, 222, 128),
     "warn": (251, 191, 36),
@@ -407,6 +408,161 @@ def radar_sweep():
     return img
 
 
+def seg_distance(px, py, ax, ay, bx, by):
+    """Distance from point p to the segment a-b."""
+    dx, dy = bx - ax, by - ay
+    t = max(0, min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
+    return math.hypot(px - ax - t * dx, py - ay - t * dy)
+
+
+# The Drone Factory blueprint's geometry, in the display's inner pixels (the game draws the arm traces and rotor rings
+# over it with the same numbers, see DroneFactoryScreen).
+# The 3-pixel margin around the drone leaves room for the rotor rings (radius 12.5) inside the display.
+BLUEPRINT_CENTER = (42, 36)
+BLUEPRINT_ROTORS = ((14, 14), (70, 14), (14, 58), (70, 58))
+
+
+def blueprint():
+    """The Drone Factory's blueprint display: a grid, the drone's arms and body, in a recessed frame."""
+    w, h = 86, 74
+    img = new(w, h)
+    inset(img, (10, 26, 43, 255))
+    grid = (17, 42, 64, 255)
+    arm = (18, 54, 86, 255)
+    body = (14, 40, 64, 255)
+    body_edge = (63, 134, 198, 255)
+    cx, cy = BLUEPRINT_CENTER
+    for x in range(1, w - 1):
+        for y in range(1, h - 1):
+            ix, iy = x - 1, y - 1
+            px, py = ix + 0.5, iy + 0.5
+            color = None
+            # Lines every 5 pixels, placed so the grid is symmetric in both directions.
+            if ix % 5 == 4 or iy % 5 == 3:
+                color = grid
+            if any(seg_distance(px, py, cx, cy, rx, ry) <= 3.5 for rx, ry in BLUEPRINT_ROTORS):
+                color = arm
+            # The body: a rounded box 24 x 54 at (30, 9).
+            bx0, by0, bx1, by1, r = 30, 9, 54, 63, 5
+            qx = min(max(px, bx0 + r), bx1 - r)
+            qy = min(max(py, by0 + r), by1 - r)
+            d = math.hypot(px - qx, py - qy)
+            if d <= r:
+                color = body_edge if d > r - 1 else body
+            if color:
+                img.putpixel((x, y), color)
+    return img
+
+
+ARROW_ROWS = [
+    "..........#.......",
+    "..........##......",
+    "..........#.#.....",
+    "..........#..#....",
+    "###########...#...",
+    "#..............#..",
+    "#..............#..",
+    "###########...#...",
+    "..........#..#....",
+    "..........#.#.....",
+    "..........##......",
+    "..........#.......",
+]
+
+
+def arrow(fill):
+    """The Factory's progress arrow, filled from the left by the game. Its outline matches the slots' shadow."""
+    img = new(18, 12)
+    for y, row in enumerate(ARROW_ROWS):
+        inside = False
+        cells = [x for x, ch in enumerate(row) if ch == "#"]
+        for x, ch in enumerate(row):
+            if ch == "#":
+                img.putpixel((x, y), SLOT_SHADOW)
+            elif cells and cells[0] < x < cells[-1] and (y in (5, 6) or x > 10):
+                img.putpixel((x, y), fill)
+    return img
+
+
+def remove_button(highlighted=False):
+    """A small red button with a cross, for removing a row."""
+    img = new(10, 10, (90, 34, 38, 255) if highlighted else (58, 26, 28, 255))
+    outline(img, (106, 42, 46, 255))
+    for i in range(3, 7):
+        img.putpixel((i, i), (255, 154, 154, 255))
+        img.putpixel((9 - i, i), (255, 154, 154, 255))
+    return img
+
+
+# Programming Station: the editor's tabs, the dark fields and buttons on a display, the slider knob and the icons.
+FIELD = (5, 9, 11, 255)
+FIELD_BORDER = (51, 80, 79, 255)
+FIELD_EMPTY_BORDER = (41, 64, 63, 255)
+DISPLAY_BUTTON = (21, 38, 42, 255)
+DISPLAY_BUTTON_BORDER = (45, 74, 78, 255)
+DISPLAY_BUTTON_HIGHLIGHTED = (27, 50, 54, 255)
+DISPLAY_INK = (143, 229, 214, 255)
+
+
+def editor_tab(fill, light):
+    """A tab on top of the editor display: rounded top, open bottom (it joins the display)."""
+    w, h = 16, 13
+    img = new(w, h, fill)
+    for x in range(w):
+        img.putpixel((x, 0), BLACK)
+    for y in range(h):
+        img.putpixel((0, y), BLACK)
+        img.putpixel((w - 1, y), BLACK)
+    if light:
+        for x in range(1, w - 1):
+            img.putpixel((x, 1), light)
+        for y in range(1, h):
+            img.putpixel((1, y), light)
+    for x, y in ((0, 0), (w - 1, 0)):
+        img.putpixel((x, y), CLEAR)
+    return img
+
+
+def field(border, fill=FIELD):
+    img = new(16, 16, fill)
+    outline(img, border)
+    return img
+
+
+def dashed_field():
+    """An empty target row: a field with a dashed border (tiled by its own nine-slice edges)."""
+    img = new(16, 16, FIELD)
+    for i in range(16):
+        on = i % 4 < 2
+        color = FIELD_EMPTY_BORDER if on else FIELD
+        for x, y in ((i, 0), (i, 15), (0, i), (15, i)):
+            img.putpixel((x, y), color)
+    return img
+
+
+def slider_knob():
+    img = new(4, 10, (207, 214, 214, 255))
+    outline(img, BLACK)
+    return img
+
+
+ICONS = {
+    "info": (["..BBB..", ".BBWBB.", "BBBBBBB", "BBWWBBB", "BBBWBBB", "BBBWBBB", ".BWWWB.", "..BBB.."], {"B": (58, 123, 213, 255), "W": WHITE}),
+    "pin": (["..RRR..", ".RRRRR.", ".RRWRR.", ".RRRRR.", "..RRR..", "...R...", "...R..."], {"R": (255, 106, 106, 255), "W": WHITE}),
+    "egg": ([
+        "..EEE..", ".EEEEE.", ".EdEEE.", "EEEEdEE", "EEdEEEE", "EEEEEdE", ".EEEEE.", "..EEE.."],
+        {"E": (90, 166, 74, 255), "d": (47, 90, 40, 255)}),
+    "tag": ([".H..H..", "HHHHHHH", ".H..H..", ".H..H..", "HHHHHHH", ".H..H.."], {"H": (201, 166, 255, 255)}),
+    "target": ([
+        "....R....", "..RRRRR..", ".R..R..R.", ".R.....R.", "RRR.R.RRR", ".R.....R.", ".R..R..R.", "..RRRRR..", "....R...."],
+        {"R": (255, 112, 118, 255)}),
+    "route": ([
+        "..WWWWW..", ".W.....W.", "W.......W", "W...C...W", "W.......W", "W.......W", ".W.....W.", "..WW.WW.."],
+        {"W": (159, 210, 255, 255), "C": WHITE}),
+    "name_tag": (["..TTTTTTT", ".TTTTTTTT", "TT.TTTTTT", "TTTTTTTTT", ".TTTTTTTT", "..TTTTTTT"], {"T": (226, 196, 134, 255)}),
+}
+
+
 def nine_slice(w, h, border):
     return {"gui": {"scaling": {"type": "nine_slice", "width": w, "height": h, "border": border}}}
 
@@ -458,7 +614,22 @@ def outputs():
         "charging/dock": (dock(), STRETCH),
         "drone_status/radar": (radar(), STRETCH),
         "drone_status/radar_sweep": (radar_sweep(), None),
+        "factory/blueprint": (blueprint(), STRETCH),
+        "factory/arrow": (arrow(SLOT), None),
+        "factory/arrow_filled": (arrow(LIGHTS_OK), None),
+        "remove_button": (remove_button(), None),
+        "remove_button_highlighted": (remove_button(highlighted=True), None),
+        "field": (field(FIELD_BORDER), nine_slice(16, 16, 1)),
+        "field_empty": (dashed_field(), nine_slice(16, 16, 1)),
+        "display_button": (field(DISPLAY_BUTTON_BORDER, DISPLAY_BUTTON), nine_slice(16, 16, 1)),
+        "display_button_highlighted": (field(DISPLAY_INK, DISPLAY_BUTTON_HIGHLIGHTED), nine_slice(16, 16, 1)),
+        "slider_knob": (slider_knob(), nine_slice(4, 10, 1)),
+        "programming/tab": (editor_tab((169, 169, 169, 255), (218, 218, 218, 255)), nine_slice(16, 13, 2)),
+        "programming/tab_highlighted": (editor_tab((189, 189, 189, 255), (230, 230, 230, 255)), nine_slice(16, 13, 2)),
+        "programming/tab_selected": (editor_tab(DISPLAY, None), nine_slice(16, 13, 2)),
     }
+    for name, (rows, colors) in ICONS.items():
+        sprites[f"icon/{name}"] = (pixels(rows, colors), None)
     for name in LIGHTS:
         sprites[f"light/{name}"] = (light(name), None)
     return sprites

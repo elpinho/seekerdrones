@@ -43,11 +43,16 @@ public abstract class MachineScreen<M extends AbstractContainerMenu> extends Abs
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         sideTabs.render(graphics, mouseX, mouseY);
-        Kit.frame(graphics, leftPos, topPos, imageWidth, imageHeight);
+        renderFrame(graphics);
         renderContents(graphics, partialTick, mouseX, mouseY);
         for (Slot slot : menu.slots) {
             renderSlotBackground(graphics, slot, leftPos + slot.x - 1, topPos + slot.y - 1);
         }
+    }
+
+    /** Draws the frame. Screens that aren't a plain rectangle override this. */
+    protected void renderFrame(GuiGraphics graphics) {
+        Kit.frame(graphics, leftPos, topPos, imageWidth, imageHeight);
     }
 
     /** Draws the screen's displays and decorations over the frame, under the slots and widgets. */

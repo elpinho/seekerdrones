@@ -64,8 +64,8 @@ public class SeekerDronesJeiPlugin implements IModPlugin {
                 return screen.getSideTabAreas();
             }
         });
-        registration.addRecipeClickArea(DroneFactoryScreen.class, DroneFactoryScreen.PROGRESS_X, DroneFactoryScreen.PROGRESS_Y - 4,
-                DroneFactoryScreen.PROGRESS_WIDTH, DroneFactoryScreen.PROGRESS_HEIGHT + 8, DroneAssemblyCategory.TYPE);
+        registration.addRecipeClickArea(DroneFactoryScreen.class, DroneFactoryScreen.ARROW_X, DroneFactoryScreen.ARROW_Y,
+                DroneFactoryScreen.ARROW_WIDTH, DroneFactoryScreen.ARROW_HEIGHT, DroneAssemblyCategory.TYPE);
     }
 
     @Override

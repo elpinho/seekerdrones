@@ -59,10 +59,6 @@ public record EditProgramPayload(int containerId, Action action, UpgradeType upg
         return new EditProgramPayload(containerId, Action.SET_CONFIG, UpgradeType.PATROL, 0, Optional.of(config));
     }
 
-    public static EditProgramPayload copyFromDrone(int containerId) {
-        return new EditProgramPayload(containerId, Action.COPY_FROM_DRONE, UpgradeType.PATROL, 0, Optional.empty());
-    }
-
     @Override
     public Type<? extends CustomPacketPayload> type() {
         return TYPE;
@@ -83,7 +79,6 @@ public record EditProgramPayload(int containerId, Action action, UpgradeType upg
             case REMOVE -> station.removeUpgrade(payload.upgrade(), player);
             case SET_COUNT -> station.setProgramCount(payload.upgrade(), payload.value());
             case SET_CONFIG -> payload.config().ifPresent(station::setConfig);
-            case COPY_FROM_DRONE -> station.copyFromDrone();
         }
     }
 
@@ -95,8 +90,7 @@ public record EditProgramPayload(int containerId, Action action, UpgradeType upg
         REMOVE,
         /** Template mode: set the programmed count of the type. */
         SET_COUNT,
-        SET_CONFIG,
-        COPY_FROM_DRONE;
+        SET_CONFIG;
 
         private static final IntFunction<Action> BY_ID = ByIdMap.continuous(Enum::ordinal, values(), ByIdMap.OutOfBoundsStrategy.ZERO);
         public static final StreamCodec<ByteBuf, Action> STREAM_CODEC = ByteBufCodecs.idMapper(BY_ID, Enum::ordinal);

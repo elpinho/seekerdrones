@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * The machine GUI kit (IMPROVEMENTS.md, "Machine GUI style pass"): the shared sprites, colors and drawing helpers.
@@ -43,6 +44,13 @@ public final class Kit {
     public static final ResourceLocation SCROLLBAR_THUMB = sprite("scrollbar_thumb");
     public static final ResourceLocation ICON_ENERGY = sprite("icon/energy");
     public static final ResourceLocation ICON_HEALTH = sprite("icon/health");
+    public static final ResourceLocation ICON_INFO = sprite("icon/info");
+    /** Dark text fields and buttons that sit on a display. */
+    public static final ResourceLocation FIELD = sprite("field");
+    public static final ResourceLocation FIELD_EMPTY = sprite("field_empty");
+    public static final ResourceLocation DISPLAY_BUTTON = sprite("display_button");
+    public static final ResourceLocation DISPLAY_BUTTON_HIGHLIGHTED = sprite("display_button_highlighted");
+    public static final ResourceLocation SLIDER_KNOB = sprite("slider_knob");
 
     // Text colors.
     /** Labels on the gray panel, like vanilla's container titles. */
@@ -55,6 +63,8 @@ public final class Kit {
     public static final int CHIP_TEXT = 0xFFD8DDE3;
     /** Scale notches on gauges and bars. */
     public static final int NOTCH = 0x8CFFFFFF;
+    /** Laid over a ghost item so it reads as a faint hint, in the slot's own color. */
+    private static final int GHOST_FADE = 0xB08B8B8B;
 
     /** "Small" text is the normal font drawn at this scale (the mockup's smaller labels). */
     public static final float SMALL = 0.75F;
@@ -82,6 +92,33 @@ public final class Kit {
     /** An 18x18 slot box whose item sits at ({@code x + 1}, {@code y + 1}). */
     public static void slot(GuiGraphics graphics, int x, int y) {
         graphics.blitSprite(SLOT, x, y, 18, 18);
+    }
+
+    /** A faint item in an empty slot (item position x, y), showing what goes there. */
+    public static void ghost(GuiGraphics graphics, ItemStack stack, int x, int y) {
+        graphics.renderFakeItem(stack, x, y);
+        graphics.pose().pushPose();
+        graphics.pose().translate(0, 0, 200);
+        graphics.fill(x, y, x + 16, y + 16, GHOST_FADE);
+        graphics.pose().popPose();
+    }
+
+    /** Draws an item at (x, y) scaled to {@code size} pixels. */
+    public static void item(GuiGraphics graphics, ItemStack stack, float x, float y, int size) {
+        PoseStack pose = graphics.pose();
+        pose.pushPose();
+        pose.translate(x, y, 0);
+        pose.scale(size / 16F, size / 16F, 1);
+        graphics.renderItem(stack, 0, 0);
+        pose.popPose();
+    }
+
+    /** A one-pixel outline inside the box. */
+    public static void outline(GuiGraphics graphics, int x, int y, int width, int height, int color) {
+        graphics.fill(x, y, x + width, y + 1, color);
+        graphics.fill(x, y + height - 1, x + width, y + height, color);
+        graphics.fill(x, y + 1, x + 1, y + height - 1, color);
+        graphics.fill(x + width - 1, y + 1, x + width, y + height - 1, color);
     }
 
     /**

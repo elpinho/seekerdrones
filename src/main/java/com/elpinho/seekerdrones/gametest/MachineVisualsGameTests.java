@@ -65,7 +65,7 @@ public class MachineVisualsGameTests {
             }
             if (tick == 30) {
                 helper.assertTrue(factory.getProgress() > 0, "Sanity: build should have progressed");
-                factory.getItems().setStackInSlot(2, ItemStack.EMPTY); // progress stops
+                factory.getItems().setStackInSlot(5, ItemStack.EMPTY); // progress stops
             }
             if (tick > 30 && tick <= 30 + 15) {
                 helper.assertTrue(working(helper, REL), "Factory should still show working within the idle delay, tick " + tick);
@@ -251,9 +251,11 @@ public class MachineVisualsGameTests {
     }
 
     private static void fillFactory(DroneFactoryBlockEntity factory) {
-        factory.getItems().setStackInSlot(0, new ItemStack(ModItems.DRONE_ROTOR.get(), 4));
-        factory.getItems().setStackInSlot(1, new ItemStack(ModItems.SEEKER_CORE.get(), 1));
-        factory.getItems().setStackInSlot(2, new ItemStack(Items.IRON_INGOT, 4));
+        for (int i = 0; i < 4; i++) {
+            factory.getItems().setStackInSlot(i, new ItemStack(ModItems.DRONE_ROTOR.get(), 1));
+        }
+        factory.getItems().setStackInSlot(4, new ItemStack(ModItems.SEEKER_CORE.get(), 1));
+        factory.getItems().setStackInSlot(5, new ItemStack(Items.IRON_INGOT, 4));
         factory.getFluidHandler().fill(new FluidStack(Fluids.LAVA, 1000), IFluidHandler.FluidAction.EXECUTE);
     }
 

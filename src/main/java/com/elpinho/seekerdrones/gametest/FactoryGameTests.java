@@ -11,12 +11,19 @@ import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.DronePermissions;
 import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
+import com.elpinho.seekerdrones.factory.DroneFactoryMenu;
+import com.elpinho.seekerdrones.factory.FactorySlots;
+import com.elpinho.seekerdrones.factory.FactoryStatus;
 import com.elpinho.seekerdrones.operator.OperatorGroups;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModItems;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.entity.HopperBlockEntity;
+import net.neoforged.neoforge.capabilities.Capabilities;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -69,9 +76,8 @@ public class FactoryGameTests {
         UUID groupId = factory.getGroupId().orElseThrow();
 
         // One extra iron ingot and 500 extra mB of lava, to prove leftovers stay and only the recipe amount is spent.
-        factory.getItems().setStackInSlot(0, new ItemStack(ModItems.DRONE_ROTOR.get(), 4));
-        factory.getItems().setStackInSlot(1, new ItemStack(ModItems.SEEKER_CORE.get(), 1));
-        factory.getItems().setStackInSlot(2, new ItemStack(Items.IRON_INGOT, 5));
+        fillItems(factory);
+        factory.getItems().setStackInSlot(FactorySlots.FIRST_PLATING, new ItemStack(Items.IRON_INGOT, 5));
         factory.getFluidHandler().fill(new FluidStack(Fluids.LAVA, 1500), IFluidHandler.FluidAction.EXECUTE);
         factory.getEnergyStorage().receiveEnergy(Integer.MAX_VALUE, false);
 
@@ -89,9 +95,11 @@ public class FactoryGameTests {
                     "Built drone should be at full health, was " + built.health() + "/" + DroneStats.maxHealth(built));
             helper.assertTrue(built.upgrades().isEmpty(), "A freshly built drone should have no upgrades");
 
-            helper.assertTrue(factory.getItems().getStackInSlot(0).isEmpty(), "All 4 Drone Rotors should be consumed");
-            helper.assertTrue(factory.getItems().getStackInSlot(1).isEmpty(), "The Seeker Core should be consumed");
-            ItemStack leftoverIron = factory.getItems().getStackInSlot(2);
+            for (int i = 0; i < FactorySlots.ROTOR_SLOTS; i++) {
+                helper.assertTrue(factory.getItems().getStackInSlot(i).isEmpty(), "Drone Rotor in slot " + i + " should be consumed");
+            }
+            helper.assertTrue(factory.getItems().getStackInSlot(FactorySlots.CORE).isEmpty(), "The Seeker Core should be consumed");
+            ItemStack leftoverIron = factory.getItems().getStackInSlot(FactorySlots.FIRST_PLATING);
             helper.assertTrue(leftoverIron.getItem() == Items.IRON_INGOT && leftoverIron.getCount() == 1,
                     "Only 4 of the 5 iron ingots should be consumed, 1 should remain, slot had " + leftoverIron);
             helper.assertTrue(factory.getFluid().getAmount() == 500,
@@ -170,7 +178,7 @@ public class FactoryGameTests {
     public static void automationItemHandlerRestrictsInsertAndExtract(GameTestHelper helper) {
         DroneFactoryBlockEntity factory = placeFactory(helper, new BlockPos(4, 3, 4));
         ItemStack ironStack = new ItemStack(Items.IRON_INGOT, 4);
-        factory.getItems().setStackInSlot(0, ironStack.copy());
+        factory.getItems().setStackInSlot(FactorySlots.FIRST_PLATING, ironStack.copy());
         DroneData outputData = DroneData.createNew().withDroneId("AUTO0001");
         factory.getItems().setStackInSlot(DroneFactoryBlockEntity.OUTPUT_SLOT, DroneItem.createStack(outputData));
 
@@ -182,9 +190,9 @@ public class FactoryGameTests {
         helper.assertFalse(automation.isItemValid(DroneFactoryBlockEntity.OUTPUT_SLOT, toInsert),
                 "The output slot should never report as valid for automation inserts");
 
-        ItemStack extractedFromInput = automation.extractItem(0, 64, false);
+        ItemStack extractedFromInput = automation.extractItem(FactorySlots.FIRST_PLATING, 64, false);
         helper.assertTrue(extractedFromInput.isEmpty(), "Automation should not be able to extract from an input slot, got " + extractedFromInput);
-        helper.assertTrue(ItemStack.matches(factory.getItems().getStackInSlot(0), ironStack),
+        helper.assertTrue(ItemStack.matches(factory.getItems().getStackInSlot(FactorySlots.FIRST_PLATING), ironStack),
                 "The input slot's contents should be unchanged after a denied extraction");
 
         ItemStack extractedOutput = automation.extractItem(DroneFactoryBlockEntity.OUTPUT_SLOT, 64, false);
@@ -201,16 +209,14 @@ public class FactoryGameTests {
     public static void mismatchedInputsNeverProgress(GameTestHelper helper) {
         // Case A: items match, but the tank holds water instead of lava.
         DroneFactoryBlockEntity waterFactory = placeFactory(helper, new BlockPos(2, 3, 2));
-        waterFactory.getItems().setStackInSlot(0, new ItemStack(ModItems.DRONE_ROTOR.get(), 4));
-        waterFactory.getItems().setStackInSlot(1, new ItemStack(ModItems.SEEKER_CORE.get(), 1));
-        waterFactory.getItems().setStackInSlot(2, new ItemStack(Items.IRON_INGOT, 4));
+        fillItems(waterFactory);
         waterFactory.getFluidHandler().fill(new FluidStack(Fluids.WATER, 1000), IFluidHandler.FluidAction.EXECUTE);
         waterFactory.getEnergyStorage().receiveEnergy(Integer.MAX_VALUE, false);
 
         // Case B: fluid matches, but the Seeker Core is missing.
         DroneFactoryBlockEntity missingCoreFactory = placeFactory(helper, new BlockPos(6, 3, 6));
-        missingCoreFactory.getItems().setStackInSlot(0, new ItemStack(ModItems.DRONE_ROTOR.get(), 4));
-        missingCoreFactory.getItems().setStackInSlot(2, new ItemStack(Items.IRON_INGOT, 4));
+        fillItems(missingCoreFactory);
+        missingCoreFactory.getItems().setStackInSlot(FactorySlots.CORE, ItemStack.EMPTY);
         missingCoreFactory.getFluidHandler().fill(new FluidStack(Fluids.LAVA, 1000), IFluidHandler.FluidAction.EXECUTE);
         missingCoreFactory.getEnergyStorage().receiveEnergy(Integer.MAX_VALUE, false);
 
@@ -324,10 +330,259 @@ public class FactoryGameTests {
 
     /** Fills the Factory's inputs and tank with exactly the base drone assembly recipe (no leftovers). */
     private static void fillRecipeInputs(DroneFactoryBlockEntity factory) {
-        factory.getItems().setStackInSlot(0, new ItemStack(ModItems.DRONE_ROTOR.get(), 4));
-        factory.getItems().setStackInSlot(1, new ItemStack(ModItems.SEEKER_CORE.get(), 1));
-        factory.getItems().setStackInSlot(2, new ItemStack(Items.IRON_INGOT, 4));
+        fillItems(factory);
         factory.getFluidHandler().fill(new FluidStack(Fluids.LAVA, 1000), IFluidHandler.FluidAction.EXECUTE);
+    }
+
+    /** Fills the item slots with exactly the base recipe: a rotor in each rotor slot, the core, 4 iron in slot 5. */
+    private static void fillItems(DroneFactoryBlockEntity factory) {
+        for (int i = 0; i < FactorySlots.ROTOR_SLOTS; i++) {
+            factory.getItems().setStackInSlot(i, new ItemStack(ModItems.DRONE_ROTOR.get(), 1));
+        }
+        factory.getItems().setStackInSlot(FactorySlots.CORE, new ItemStack(ModItems.SEEKER_CORE.get(), 1));
+        factory.getItems().setStackInSlot(FactorySlots.FIRST_PLATING, new ItemStack(Items.IRON_INGOT, 4));
+    }
+
+    private static IItemHandler capability(GameTestHelper helper, BlockPos rel, Direction side) {
+        IItemHandler handler = helper.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, helper.absolutePos(rel), side);
+        if (handler == null) {
+            throw new GameTestAssertException("No item handler capability on side " + side);
+        }
+        return handler;
+    }
+
+    // --- 9. Slot roles: hand insertion (DESIGN.md section 7.1) ---
+
+    @SuppressWarnings("deprecation")
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void menuSlotsAcceptOnlyTheirRole(GameTestHelper helper) {
+        DroneFactoryBlockEntity factory = placeFactory(helper, new BlockPos(4, 3, 4));
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        DroneFactoryMenu menu = (DroneFactoryMenu) factory.createMenu(1, player.getInventory(), player);
+
+        ItemStack rotor = new ItemStack(ModItems.DRONE_ROTOR.get());
+        ItemStack core = new ItemStack(ModItems.SEEKER_CORE.get());
+        ItemStack iron = new ItemStack(Items.IRON_INGOT);
+        ItemStack dirt = new ItemStack(Items.DIRT);
+        for (int slot = 0; slot < FactorySlots.COUNT; slot++) {
+            boolean rotorOk = slot < FactorySlots.CORE;
+            helper.assertTrue(menu.getSlot(slot).mayPlace(rotor) == rotorOk, "Rotor mayPlace in slot " + slot + " should be " + rotorOk);
+            helper.assertTrue(menu.getSlot(slot).mayPlace(core) == (slot == FactorySlots.CORE), "Core mayPlace in slot " + slot);
+            helper.assertTrue(menu.getSlot(slot).mayPlace(iron) == (slot == FactorySlots.FIRST_PLATING), "Iron mayPlace in slot " + slot);
+            helper.assertFalse(menu.getSlot(slot).mayPlace(dirt), "Dirt mayPlace in slot " + slot);
+        }
+        helper.succeed();
+    }
+
+    @SuppressWarnings("deprecation")
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void shiftClickRoutesItemsToTheirRoleSlots(GameTestHelper helper) {
+        DroneFactoryBlockEntity factory = placeFactory(helper, new BlockPos(4, 3, 4));
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        DroneFactoryMenu menu = (DroneFactoryMenu) factory.createMenu(1, player.getInventory(), player);
+        int first = FactorySlots.COUNT; // first main-inventory slot in the menu = player inventory index 9
+
+        // Each shift-click moves one rotor (slots hold 1), so a stack of 4 needs four clicks.
+        player.getInventory().setItem(9, new ItemStack(ModItems.DRONE_ROTOR.get(), 4));
+        for (int i = 0; i < 4; i++) {
+            menu.quickMoveStack(player, first);
+        }
+        for (int i = 0; i < FactorySlots.ROTOR_SLOTS; i++) {
+            ItemStack stack = factory.getItems().getStackInSlot(i);
+            helper.assertTrue(stack.getItem() == ModItems.DRONE_ROTOR.get() && stack.getCount() == 1,
+                    "Rotor slot " + i + " should hold exactly one rotor, has " + stack);
+        }
+        helper.assertTrue(player.getInventory().getItem(9).isEmpty(), "All 4 rotors should have left the player's inventory, left " + player.getInventory().getItem(9));
+        helper.assertTrue(factory.getItems().getStackInSlot(FactorySlots.CORE).isEmpty(), "Rotors must not land in the core slot");
+        helper.assertTrue(factory.getItems().getStackInSlot(FactorySlots.FIRST_PLATING).isEmpty(), "Rotors must not land in a plating slot");
+
+        player.getInventory().setItem(10, new ItemStack(ModItems.SEEKER_CORE.get(), 1));
+        menu.quickMoveStack(player, first + 1);
+        helper.assertTrue(factory.getItems().getStackInSlot(FactorySlots.CORE).getItem() == ModItems.SEEKER_CORE.get(),
+                "Core should go to slot 4, slot has " + factory.getItems().getStackInSlot(FactorySlots.CORE));
+
+        player.getInventory().setItem(11, new ItemStack(Items.IRON_INGOT, 10));
+        menu.quickMoveStack(player, first + 2);
+        ItemStack plating = factory.getItems().getStackInSlot(FactorySlots.FIRST_PLATING);
+        helper.assertTrue(plating.getItem() == Items.IRON_INGOT && plating.getCount() == 10, "10 iron should go to slot 5, slot has " + plating);
+        helper.assertTrue(factory.getItems().getStackInSlot(FactorySlots.FIRST_PLATING + 1).isEmpty(), "Iron must not land in plating slot 6");
+
+        player.getInventory().setItem(12, new ItemStack(Items.DIRT, 10));
+        menu.quickMoveStack(player, first + 3);
+        helper.assertTrue(player.getInventory().getItem(12).getCount() == 10, "Dirt should stay in the player's inventory");
+        for (int i = 0; i < FactorySlots.COUNT; i++) {
+            helper.assertFalse(factory.getItems().getStackInSlot(i).is(Items.DIRT), "Dirt must not land in Factory slot " + i);
+        }
+        helper.assertTrue(factory.getItems().getStackInSlot(FactorySlots.OUTPUT).isEmpty(), "Nothing should land in the output slot");
+        helper.succeed();
+    }
+
+    // --- 10. Slot roles: automation capability (DESIGN.md section 7.1) ---
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void automationCapabilityObeysSlotRoles(GameTestHelper helper) {
+        BlockPos rel = new BlockPos(4, 3, 4);
+        DroneFactoryBlockEntity factory = placeFactory(helper, rel);
+        for (Direction side : new Direction[] {Direction.UP, Direction.DOWN, Direction.NORTH, Direction.EAST}) {
+            IItemHandler handler = capability(helper, rel, side);
+            // Dirt is rejected everywhere.
+            for (int slot = 0; slot < FactorySlots.COUNT; slot++) {
+                ItemStack back = handler.insertItem(slot, new ItemStack(Items.DIRT, 4), false);
+                helper.assertTrue(back.getCount() == 4, "Dirt should be rejected in slot " + slot + " on " + side + ", got back " + back);
+            }
+            // Rotors: one per rotor slot, rest returned; nothing elsewhere.
+            for (int slot = 0; slot < FactorySlots.COUNT; slot++) {
+                ItemStack back = handler.insertItem(slot, new ItemStack(ModItems.DRONE_ROTOR.get(), 4), false);
+                int expected = slot < FactorySlots.ROTOR_SLOTS ? 3 : 4;
+                helper.assertTrue(back.getCount() == expected, "Inserting 4 rotors into slot " + slot + " on " + side + " should return " + expected + ", got " + back);
+            }
+            for (int slot = 0; slot < FactorySlots.COUNT; slot++) {
+                ItemStack held = factory.getItems().getStackInSlot(slot);
+                if (slot < FactorySlots.ROTOR_SLOTS) {
+                    helper.assertTrue(held.getItem() == ModItems.DRONE_ROTOR.get() && held.getCount() == 1, "Rotor slot " + slot + " should hold one rotor, has " + held);
+                    factory.getItems().setStackInSlot(slot, ItemStack.EMPTY);
+                } else {
+                    helper.assertTrue(held.isEmpty(), "Slot " + slot + " should be empty after rotor inserts, has " + held);
+                }
+            }
+            // Iron goes only into slot 5, core only into slot 4.
+            for (int slot = 0; slot < FactorySlots.COUNT; slot++) {
+                ItemStack backIron = handler.insertItem(slot, new ItemStack(Items.IRON_INGOT, 4), true);
+                helper.assertTrue(backIron.isEmpty() == (slot == FactorySlots.FIRST_PLATING), "Iron simulate-insert into slot " + slot + " returned " + backIron);
+                ItemStack backCore = handler.insertItem(slot, new ItemStack(ModItems.SEEKER_CORE.get()), true);
+                helper.assertTrue(backCore.isEmpty() == (slot == FactorySlots.CORE), "Core simulate-insert into slot " + slot + " returned " + backCore);
+                helper.assertFalse(handler.isItemValid(slot, new ItemStack(Items.DIRT)), "Dirt must not be valid in slot " + slot);
+            }
+        }
+
+        // Extraction: nothing from inputs, the drone from the output.
+        IItemHandler handler = capability(helper, rel, Direction.NORTH);
+        factory.getItems().setStackInSlot(FactorySlots.FIRST_PLATING, new ItemStack(Items.IRON_INGOT, 4));
+        factory.getItems().setStackInSlot(0, new ItemStack(ModItems.DRONE_ROTOR.get()));
+        for (int slot = 0; slot < FactorySlots.INPUT_SLOTS; slot++) {
+            helper.assertTrue(handler.extractItem(slot, 64, false).isEmpty(), "Extraction from input slot " + slot + " should give nothing");
+        }
+        helper.assertTrue(factory.getItems().getStackInSlot(FactorySlots.FIRST_PLATING).getCount() == 4, "Iron should still be in slot 5");
+        factory.getItems().setStackInSlot(FactorySlots.OUTPUT, DroneItem.createStack(DroneData.createNew().withDroneId("ROLE0001")));
+        ItemStack out = handler.extractItem(FactorySlots.OUTPUT, 64, false);
+        helper.assertTrue(!out.isEmpty() && DroneItem.getData(out).droneId().equals("ROLE0001"), "Output should be extractable, got " + out);
+        helper.succeed();
+    }
+
+    // --- 11. Slot roles: a real hopper (DESIGN.md section 7.1) ---
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void hopperFillsFactoryByRoleAndNeverTouchesPlatingTwoOrOutput(GameTestHelper helper) {
+        BlockPos factoryRel = new BlockPos(4, 3, 4);
+        BlockPos hopperRel = new BlockPos(4, 4, 4);
+        DroneFactoryBlockEntity factory = placeFactory(helper, factoryRel);
+        helper.setBlock(hopperRel, Blocks.HOPPER.defaultBlockState());
+        HopperBlockEntity hopper = (HopperBlockEntity) helper.getLevel().getBlockEntity(helper.absolutePos(hopperRel));
+        hopper.setItem(0, new ItemStack(ModItems.DRONE_ROTOR.get(), 4));
+        hopper.setItem(1, new ItemStack(ModItems.SEEKER_CORE.get(), 1));
+        hopper.setItem(2, new ItemStack(Items.IRON_INGOT, 4));
+
+        helper.succeedWhen(() -> {
+            for (int i = 0; i < FactorySlots.ROTOR_SLOTS; i++) {
+                ItemStack stack = factory.getItems().getStackInSlot(i);
+                if (stack.getItem() != ModItems.DRONE_ROTOR.get() || stack.getCount() != 1) {
+                    throw new GameTestAssertException("Rotor slot " + i + " holds " + stack);
+                }
+            }
+            if (factory.getItems().getStackInSlot(FactorySlots.CORE).getItem() != ModItems.SEEKER_CORE.get()) {
+                throw new GameTestAssertException("Core slot holds " + factory.getItems().getStackInSlot(FactorySlots.CORE));
+            }
+            ItemStack iron = factory.getItems().getStackInSlot(FactorySlots.FIRST_PLATING);
+            if (iron.getItem() != Items.IRON_INGOT || iron.getCount() != 4) {
+                throw new GameTestAssertException("Plating slot 5 holds " + iron);
+            }
+            helper.assertTrue(factory.getItems().getStackInSlot(FactorySlots.FIRST_PLATING + 1).isEmpty(), "Plating slot 6 must stay empty");
+            helper.assertTrue(factory.getItems().getStackInSlot(FactorySlots.OUTPUT).isEmpty(), "Output must stay empty");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void hopperLeavesRejectedItemsInTheHopper(GameTestHelper helper) {
+        BlockPos factoryRel = new BlockPos(4, 3, 4);
+        BlockPos hopperRel = new BlockPos(4, 4, 4);
+        DroneFactoryBlockEntity factory = placeFactory(helper, factoryRel);
+        helper.setBlock(hopperRel, Blocks.HOPPER.defaultBlockState());
+        HopperBlockEntity hopper = (HopperBlockEntity) helper.getLevel().getBlockEntity(helper.absolutePos(hopperRel));
+        hopper.setItem(0, new ItemStack(Items.DIRT, 8));
+        helper.runAfterDelay(40, () -> {
+            helper.assertTrue(hopper.getItem(0).getCount() == 8, "Dirt should stay in the hopper, has " + hopper.getItem(0));
+            for (int i = 0; i < FactorySlots.COUNT; i++) {
+                helper.assertTrue(factory.getItems().getStackInSlot(i).isEmpty(), "Factory slot " + i + " should be empty");
+            }
+            helper.succeed();
+        });
+    }
+
+    // --- 12. Status (DESIGN.md sections 7.1, 8.5) ---
+
+    private static void expectStatus(GameTestHelper helper, DroneFactoryBlockEntity factory, FactoryStatus expected, String why) {
+        helper.assertTrue(factory.getStatus() == expected, why + ": expected " + expected + " but was " + factory.getStatus());
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void statusWalksThroughMissingFluidNoEnergyBuildingAndIdle(GameTestHelper helper) {
+        DroneFactoryBlockEntity factory = placeFactory(helper, new BlockPos(4, 3, 4));
+        helper.runAfterDelay(3, () -> {
+            expectStatus(helper, factory, FactoryStatus.IDLE, "Empty factory");
+            fillItems(factory);
+            helper.runAfterDelay(3, () -> {
+                expectStatus(helper, factory, FactoryStatus.MISSING_FLUID, "Items match, tank empty");
+                factory.getFluidHandler().fill(new FluidStack(Fluids.WATER, 1000), IFluidHandler.FluidAction.EXECUTE);
+                helper.runAfterDelay(3, () -> {
+                    expectStatus(helper, factory, FactoryStatus.MISSING_FLUID, "Items match, tank has water");
+                    factory.getFluidHandler().drain(1000, IFluidHandler.FluidAction.EXECUTE);
+                    factory.getFluidHandler().fill(new FluidStack(Fluids.LAVA, 500), IFluidHandler.FluidAction.EXECUTE);
+                    helper.runAfterDelay(3, () -> {
+                        expectStatus(helper, factory, FactoryStatus.MISSING_FLUID, "Items match, only 500 mB lava");
+                        factory.getFluidHandler().fill(new FluidStack(Fluids.LAVA, 500), IFluidHandler.FluidAction.EXECUTE);
+                        helper.runAfterDelay(3, () -> {
+                            expectStatus(helper, factory, FactoryStatus.NO_ENERGY, "Everything matches, no FE");
+                            factory.getEnergyStorage().receiveEnergy(Integer.MAX_VALUE, false);
+                            helper.runAfterDelay(3, () -> {
+                                expectStatus(helper, factory, FactoryStatus.BUILDING, "Everything matches with FE");
+                                factory.getItems().setStackInSlot(FactorySlots.CORE, ItemStack.EMPTY);
+                                factory.getFluidHandler().drain(1000, IFluidHandler.FluidAction.EXECUTE);
+                                helper.runAfterDelay(3, () -> {
+                                    expectStatus(helper, factory, FactoryStatus.IDLE, "Core removed");
+                                    helper.succeed();
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void statusIsOutputFullWhenOutputSlotTaken(GameTestHelper helper) {
+        DroneFactoryBlockEntity factory = placeFactory(helper, new BlockPos(4, 3, 4));
+        fillRecipeInputs(factory);
+        factory.getEnergyStorage().receiveEnergy(Integer.MAX_VALUE, false);
+        factory.getItems().setStackInSlot(FactorySlots.OUTPUT, new ItemStack(Items.DIRT));
+        helper.runAfterDelay(5, () -> {
+            expectStatus(helper, factory, FactoryStatus.OUTPUT_FULL, "Output slot taken");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void itemInSecondPlatingSlotStopsTheRecipeMatching(GameTestHelper helper) {
+        DroneFactoryBlockEntity factory = placeFactory(helper, new BlockPos(4, 3, 4));
+        fillRecipeInputs(factory);
+        factory.getEnergyStorage().receiveEnergy(Integer.MAX_VALUE, false);
+        factory.getItems().setStackInSlot(FactorySlots.FIRST_PLATING + 1, new ItemStack(Items.IRON_INGOT, 1));
+        helper.runAfterDelay(20, () -> {
+            helper.assertTrue(factory.getStatus() != FactoryStatus.BUILDING, "Status should not be BUILDING, was " + factory.getStatus());
+            helper.assertTrue(factory.getProgress() == 0, "No progress expected, progress=" + factory.getProgress());
+            helper.assertTrue(factory.getItems().getStackInSlot(FactorySlots.OUTPUT).isEmpty(), "No drone should be built");
+            helper.succeed();
+        });
     }
 
     @Nullable

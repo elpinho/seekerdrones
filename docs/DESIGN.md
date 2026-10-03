@@ -334,7 +334,9 @@ All machines accept energy through the NeoForge `IEnergyStorage` capability, ite
 - **A slot only accepts items for its role:** an item fits a slot if some loaded `drone_assembly` recipe has a matching ingredient for that slot. This applies to players and automation alike, so piped items go into the slot for their role, or don't go in at all. Empty slots show a ghost icon of what goes there.
 - Buffers: `factory.energyCapacity` FE and a fluid tank of `factory.tankCapacity` mB. The tank accepts any fluid; recipe matching decides whether it is used.
 - The output drone is **fully charged** at base capacity, has no upgrades and has default config. It is linked to this Factory's Operator Group and gets a new persistent drone ID.
-- The GUI has the input slots in the drone layout, a fluid tank, an energy bar, progress, an output slot, a **status line** (Idle, Building, Waiting for power, Missing fluid, Output full) and an **Operator list** side tab (owner only).
+- **GUI** (the machine GUI kit, 182 × 200: a little bigger than the other machines' 176 × 194 so the rotor rings fit inside the blueprint, with the player inventory centered): the energy and fluid gauges on the left (the recipe's FE per tick and fluid in their tooltips), then the input slots in the drone layout over a **blueprint** display (rotors on the arms, the core in the middle, plating above and below it). Each arm traces out from the center over a quarter of the build, and dashed rings turn around the rotors, clipped to the display. Empty slots show a faint ghost of what goes there (cycling through the loaded recipes' items once a second), and their tooltip names the role and what it takes. A progress arrow (clicking it opens the JEI category) leads to a large output slot.
+  - A **status strip** with a light, from a synced status value: Idle (gray), Building (green, with the progress and FE per tick), Waiting for power (amber), Missing fluid (red, blinking; the inputs match a recipe but the tank doesn't hold its fluid, and the hint names the fluid and amount) or Output full (amber; a build is ready but the output is taken).
+  - Side tabs: **Operators** (owner only, above the energy unit tab, section 5.4). It unfolds into a panel with the owner line, the operators with their heads and a remove button per row (3 rows, scrolling with the mouse wheel and a thin scrollbar beyond that), and a name field with an add button (Enter also adds). The line under the list shows the operator count, or the server's reply to the owner's last edit until the next one. Clicking the panel's header folds it.
 - **Operation:** seven input slots (above) and one output slot. Automation can only insert into the inputs and only extract from the output. The tank accepts fluid on every side and can also be filled or emptied with a bucket. The recipe is looked up again only when the inputs, the tank or the loaded recipes change. FE is spent evenly over the processing time and the build pauses while FE runs short. Items and fluid are taken only when the drone is done. A build only runs while the output slot is empty. If the inputs stop matching the recipe, progress resets and the FE already spent is lost.
 - The Operator list adds players by name. Only players who are online or who have joined the server before (its profile cache) can be added.
 
@@ -345,13 +347,13 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
 - **Block:** it faces the player when placed. The facing only decides where the front texture is.
 - **Slots:** one drone slot and an **upgrade input** of 9 slots that only accepts upgrade items. There are no output slots: the station never pushes items out (see *Automation* below).
 - **Energy:** an FE buffer of `programmingStation.energyCapacity`, filled on every side.
-- **Mode** (a GUI button, default **Direct**):
+- **Mode** (the GUI's Direct/Template switch, default **Direct**):
   - **Direct:** the editor always shows the drone in the slot. Inserting a drone loads its upgrades and settings into the editor, and every edit applies to that drone:
-    - **+** on an upgrade row starts installing one upgrade of that type (an install step, below). It is only enabled while the upgrade input holds one of that type, the per-type cap and the total slot limit allow it, and no other step is running.
-    - **−** removes one installed upgrade (manual removal, below).
+    - **Left-clicking** an upgrade's tile starts installing one upgrade of that type (an install step, below). It only works while the upgrade input holds one of that type, the per-type cap and the total slot limit allow it, and no other step is running.
+    - **Right-clicking** a tile removes one installed upgrade (manual removal, below).
     - Settings edits are written to the drone at once.
     - Without a drone in the slot, the editor is empty and disabled.
-  - **Template:** the station stores a **program** (template) that persists without a drone. Every drone in the slot is brought to match it, one step at a time. The upgrade rows show *installed / programmed* counts and **+**/**−** change the programmed count. A **Copy from drone** button sets the program to the current drone's upgrades and settings.
+  - **Template:** the station stores a **program** (template) that persists without a drone. Every drone in the slot is brought to match it, one step at a time. The upgrade tiles show the installed against the programmed counts, and left/right-clicking a tile raises or lowers the programmed count.
   - Switching modes cancels a running install step and **never changes the drone in the slot**. The template only applies to drones inserted while Template mode is active: a drone that was already in the slot is left alone (the GUI says so) until it is taken out and inserted again. The template is kept while in Direct mode.
 - **Program** (the template in Template mode, the drone's own values in Direct mode):
   - the count for each upgrade type,
@@ -360,8 +362,8 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
   - **Follow distance:** 1 to `drone.maxFollowDistance` blocks.
   - **Patrol center** (x, y, z, in the station's dimension; optional, with a **Here** button for the block above the station and a **Clear** button) and **patrol radius** (optional; the max for the programmed Patrol count is shown). Only shown with Patrol in the program.
   - **Label:** up to 32 characters.
-  - **Color:** a button that cycles through the 16 dye colors (left-click forward, right-click back).
-- **Validation:** a program that would exceed the per-type caps or the total slot limit can't be saved: **+** is disabled at the cap. The server re-checks every edit. If the server config later lowers a cap below a saved template, the station stops and shows a warning until the template is fixed.
+  - **Color:** one of the 16 dye colors, picked from a palette.
+- **Validation:** a program that would exceed the per-type caps or the total slot limit can't be saved: a tile can't be raised past the cap. The server re-checks every edit. If the server config later lowers a cap below a saved template, the station stops and shows a warning until the template is fixed.
 - **Operation (Template mode):** with a drone in the slot, the station works toward the program one step at a time:
   - It writes the configured settings (targets, follow distance, patrol center, patrol radius, label, color) onto the drone. This is instant and costs no FE.
   - It installs a missing upgrade from the upgrade input (an install step). Types are tried in a fixed order, skipping types with none in the input.
@@ -370,13 +372,23 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
 - **FE cost per upgrade installed:**
   - The base cost is `baseCost[type] × n`, where `n` is the index of the upgrade being installed within its type (1st, 2nd…).
   - Installing an **Energy** upgrade also costs the FE capacity that the upgrade adds (`upgrades.energy.perUpgrade`). That FE goes into the drone, so the new capacity arrives full.
-- **Manual removal:** a player removes installed upgrades one at a time from the GUI: with **−** in Direct mode, or with the **Remove** button that Template mode shows on rows where the drone has more than the program asks for. The removed upgrade goes into **that player's inventory** (a full refund), or drops at their feet if it is full. Removal is instant and costs no FE. Removing an Energy or Health upgrade lowers the max, and anything above the new max is lost. The station **never** removes upgrades on its own. In Template mode, a drone with more upgrades than the program asks for doesn't match, so it is never complete, and the GUI shows a warning.
+- **Manual removal:** a player removes installed upgrades one at a time from the GUI: with a right-click on its tile in Direct mode, or with **Shift+right-click** in Template mode on a tile where the drone has more than the program asks for. The removed upgrade goes into **that player's inventory** (a full refund), or drops at their feet if it is full. Removal is instant and costs no FE. Removing an Energy or Health upgrade lowers the max, and anything above the new max is lost. The station **never** removes upgrades on its own. In Template mode, a drone with more upgrades than the program asks for doesn't match, so it is never complete, and the GUI shows a warning.
 - **Complete:** in Template mode, a drone inserted in Template mode is complete once its upgrades and settings match the program exactly.
 - **Automation** (item capability, every side):
   - Drones can be inserted into the drone slot while it's empty, and upgrade items into the upgrade input.
   - The drone can be **extracted only in Template mode, and only once it is complete**. The station never pushes it out: a hopper below or an extracting pipe pulls it, like the Factory's output (section 7.1). In Direct mode automation can never extract the drone. Players can always take it out by hand.
   - The upgrade input can't be extracted by automation.
 - **Breaking the station** drops the drone and the upgrade input. The item keeps the mode and the template in a data component (`seekerdrones:programming_station`), so placing it again restores them.
+- **GUI** (the machine GUI kit, 244 × 252: a wide console with the standard 176-wide inventory centered below it):
+  - The left column has the energy gauge, the **drone bay** and the 3×3 upgrade input under it. Empty slots show ghosts (a drone, the upgrades in turn). The bay is a client-side preview of the program's drone in its color, circling its patrol radius (scaled to the largest radius its Patrol upgrades allow), or hovering without Patrol. It never shows a real position. A ring around the drone slot fills while an install step runs.
+  - The **Direct/Template switch** is in the title row. The accent color follows the mode (blue for Direct, amber for Template) on the switch, the selected tab and the editor's top edge.
+  - The editor has four tabs: **Upgrades**, **Targets**, **Behavior** and **Identity**. In Direct mode without a drone, the editor is empty.
+  - **Upgrades:** a grid of tiles, 5 wide with 3 rows visible. With more than 15 upgrade types, the mouse wheel scrolls it and a scrollbar appears. Each tile shows the upgrade's icon and a pip per upgrade its type allows (a segmented bar when the per-type cap is above 8). In Direct mode lit pips are installed. In Template mode green is installed, amber is missing and red is extra (lit pips are programmed while there's no drone). Exact counts (installed, programmed, in the input), the next install's cost and the controls are only in the tooltip. Hovering a tile shows which clicks would do something. A bar with one segment per upgrade slot shows the slots used, with the numbers in its tooltip.
+  - **Targets:** one row per slot (see *Targets* above). Empty rows have a dashed border and say "+ add target". The kind button shows the kind as an icon (a spawn egg, a #, the player's face). Ignored entries get an amber "!" with the reason in the tooltip. Clicking a row selects it, and a preview beside the list shows the selected entry, like the drone status screen's target cards (section 2.4): entities turn, tags cycle through their members and players use their tab-list skin. Beyond 5 rows, the list scrolls with the mouse wheel.
+  - **Behavior:** the follow distance as a slider with a number field. With Patrol in the program, the patrol center (x, y and z fields, **Here** and **Clear**) and the patrol radius as a slider (up to the programmed max) with a number field. A slider sets its value when it's released.
+  - **Identity:** the label field, a palette of the 16 dye colors with the selected color's name, and a nameplate preview (the label in the drone's color and, with a drone in the slot, its ID).
+  - A **status strip** with a light: hints while idle (gray), installing, complete or working (green), waiting for upgrades or energy or for the drone to be re-inserted (amber), and a rejected edit, extra upgrades or a program over the limits (red; the last two blink).
+  - Side tabs: the energy unit (section 5.4) and **Help**, whose tooltip explains Direct and Template mode.
 
 ### 7.3 Drone Deploying Station
 
@@ -403,7 +415,7 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
 - Drone docking and queuing follow section 5.3.
 - **GUI:** right-clicking the station opens a read-only status screen (176 wide, no inventory). Anyone can open it, since stations have no access control in v1 (section 6.2). It refreshes about once a second and shows:
   - **Status**, as a pill in the title row: Idle (gray), Drone docking (amber; a drone has claimed the station but hasn't docked yet), Charging or Repairing (green; Repairing means full energy, still healing), or Out of power (red; a drone is docked but the station has 0 FE).
-  - The station's **stored FE / capacity** as a gauge on the left, and its **charge rate** (`chargingStation.chargeRate` FE/t) in the display's corner.
+  - The station's **stored FE / capacity** as a gauge on the left, and, while a drone holds the station, the FE per tick it is actually giving the drone (at most `chargingStation.chargeRate`, less when the drone is nearly full or the station is running out; 0 while docking or only repairing) in the display's corner and the gauge's tooltip.
   - The **repair fluid** as a gauge on the right, drawn with the fluid's texture, with its name and amount in the tooltip.
   - The **owner** (the placer's name and head), or "None" if a non-player placed it, in a side tab that unfolds to show the name. This decides which drones may use the station (section 5.2).
   - The **drone** holding the station, in the middle display: a 3D preview in its color over the dock pad (higher while still docking), its label in its color and its ID, and its energy and health as bars. Arrows show charge flowing in while charging and repair fluid while it heals. "No drone" if no drone holds it.
@@ -509,7 +521,8 @@ The drone entity saves the same data in its entity NBT. Only the fields the clie
 
 - JEI is an optional dependency: its API is compile-only, and the plugin (`compat.jei`) only loads when JEI is installed. For the dev client, JEI goes in `runs/client/mods`.
 - Crafting recipes show up without any code. The plugin adds a **Drone Assembly** category for `seekerdrones:drone_assembly`: the item inputs with counts, the fluid, FE, processing time and the drone output. The Drone Factory is its catalyst.
-- Clicking the Factory GUI's progress bar opens the category, and JEI's transfer button fills the Factory's input slots from the player's inventory. It never fills the tank.
+- The category lays out the item inputs like the Factory (a 3x3 grid: rotors in the corners, plating above and below the core), with the plating counts on the stacks. An unused second plating slot shows empty.
+- Clicking the Factory GUI's progress arrow opens the category, and JEI's transfer button fills the Factory's input slots from the player's inventory, each into its role's slot. It never fills the tank.
 
 ---
 

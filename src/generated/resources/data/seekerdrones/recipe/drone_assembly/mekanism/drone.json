@@ -6,20 +6,15 @@
     }
   ],
   "type": "seekerdrones:drone_assembly",
+  "core": {
+    "item": "seekerdrones:seeker_core"
+  },
   "energy": 100000,
   "fluid": {
     "amount": 500,
     "tag": "c:ethene"
   },
-  "items": [
-    {
-      "count": 4,
-      "item": "seekerdrones:drone_rotor"
-    },
-    {
-      "count": 1,
-      "item": "seekerdrones:seeker_core"
-    },
+  "plating": [
     {
       "count": 4,
       "tag": "c:ingots/steel"
@@ -29,5 +24,8 @@
       "tag": "c:alloys/ultimate"
     }
   ],
+  "rotor": {
+    "item": "seekerdrones:drone_rotor"
+  },
   "time": 300
 }

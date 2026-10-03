@@ -6,7 +6,6 @@ import java.util.UUID;
 import java.util.function.IntFunction;
 
 import com.elpinho.seekerdrones.SeekerDrones;
-import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.drone.DroneState;
@@ -34,9 +33,10 @@ import net.minecraft.world.level.material.Fluid;
  * @param open      true to open the screen, false to refresh one that is already open
  * @param fluid     the fluid in the tank, or the repair fluid it takes if the tank is empty
  * @param ownerName the placer's name (or UUID if it can't be resolved), empty if a non-player placed the station
+ * @param transferRate the FE per tick the station is giving the drone right now
  * @param drone     the drone holding the station, if any
  */
-public record StationStatusPayload(BlockPos pos, boolean open, Status status, int energy, int capacity, int chargeRate, Fluid fluid,
+public record StationStatusPayload(BlockPos pos, boolean open, Status status, int energy, int capacity, int transferRate, Fluid fluid,
         int fluidAmount, int tankCapacity, String ownerName, Optional<DockedDrone> drone) implements CustomPacketPayload {
     public static final Type<StationStatusPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "station_status"));
 
@@ -52,7 +52,7 @@ public record StationStatusPayload(BlockPos pos, boolean open, Status status, in
                 Status.STREAM_CODEC.encode(buf, payload.status());
                 ByteBufCodecs.VAR_INT.encode(buf, payload.energy());
                 ByteBufCodecs.VAR_INT.encode(buf, payload.capacity());
-                ByteBufCodecs.VAR_INT.encode(buf, payload.chargeRate());
+                ByteBufCodecs.VAR_INT.encode(buf, payload.transferRate());
                 FLUID_CODEC.encode(buf, payload.fluid());
                 ByteBufCodecs.VAR_INT.encode(buf, payload.fluidAmount());
                 ByteBufCodecs.VAR_INT.encode(buf, payload.tankCapacity());
@@ -81,7 +81,7 @@ public record StationStatusPayload(BlockPos pos, boolean open, Status status, in
         String ownerName = station.getOwner().map(uuid -> playerName(level.getServer(), uuid)).orElse("");
         Fluid fluid = station.getFluid().isEmpty() ? RepairFluid.displayFluid() : station.getFluid().getFluid();
         return new StationStatusPayload(station.getBlockPos(), open, status, station.getEnergy(), station.getEnergyStorage().getMaxEnergyStored(),
-                ServerConfig.get(ServerConfig.CHARGING_STATION_CHARGE_RATE), fluid, station.getFluid().getAmount(), station.getTankCapacity(),
+                drone.isPresent() ? station.getTransferRate() : 0, fluid, station.getFluid().getAmount(), station.getTankCapacity(),
                 ownerName, drone);
     }
 

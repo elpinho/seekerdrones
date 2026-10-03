@@ -198,7 +198,7 @@ public class DeployingStationBlockEntity extends BlockEntity implements MenuProv
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("block.seekerdrones.deploying_station");
+        return Component.translatable("screen.seekerdrones.deploying_station");
     }
 
     @Override

@@ -55,6 +55,9 @@ public class ChargingStationBlockEntity extends BlockEntity {
     @Nullable
     private UUID claimant;
     private long claimTime;
+    /** The FE given to a drone on {@link #lastTransferTime} (see {@link #getTransferRate}). */
+    private int lastTransfer;
+    private long lastTransferTime = Long.MIN_VALUE;
     /** Game time the docked drone last took FE or healed. Starts idle; game time is never negative. */
     private long lastWork = -MachineWorkingState.IDLE_DELAY - 1;
 
@@ -113,7 +116,19 @@ public class ChargingStationBlockEntity extends BlockEntity {
             energy.stored -= taken;
             setChanged();
         }
+        if (level != null) {
+            lastTransfer = taken;
+            lastTransferTime = level.getGameTime();
+        }
         return taken;
+    }
+
+    /**
+     * The FE per tick the station is giving a drone: what it gave on the last tick, or 0 if it gave nothing on the
+     * last tick or this one. Only for the status screen, so it isn't saved.
+     */
+    public int getTransferRate() {
+        return level != null && level.getGameTime() - lastTransferTime <= 1 ? lastTransfer : 0;
     }
 
     public Optional<UUID> getOwner() {

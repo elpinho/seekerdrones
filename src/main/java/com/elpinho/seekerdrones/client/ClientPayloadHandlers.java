@@ -34,8 +34,8 @@ public final class ClientPayloadHandlers {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.player != null && minecraft.player.containerMenu instanceof DroneFactoryMenu menu && menu.containerId == payload.containerId()) {
             menu.setOperators(payload);
-            if (minecraft.screen instanceof FactoryOperatorsScreen screen) {
-                screen.update(payload);
+            if (minecraft.screen instanceof DroneFactoryScreen screen) {
+                screen.onOperatorsUpdated(payload);
             }
         }
     }

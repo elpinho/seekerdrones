@@ -64,8 +64,9 @@ public class SideTabs {
         }
         for (SideTab tab : tabs) {
             if (tab.isVisible() && tab.isMouseOver(mouseX, mouseY)) {
-                Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
-                tab.click();
+                if (tab.click(mouseX, mouseY)) {
+                    Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                }
                 return true;
             }
         }

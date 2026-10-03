@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.client;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -103,11 +104,16 @@ public class ChargingStationScreen extends PanelScreen {
     protected void init() {
         super.init();
         addRenderableWidget(new Gauges.Energy(leftPos + 8, topPos + 16, 12, 86, () -> Kit.fraction(status.energy(), status.capacity())))
-                .tooltip(() -> List.of(
-                        Component.translatable("screen.seekerdrones.charging_station.energy"),
-                        Component.literal(EnergyFormat.ratio(status.energy(), status.capacity())).withStyle(ChatFormatting.GRAY),
-                        Component.translatable("screen.seekerdrones.charging_station.charge_rate", EnergyFormat.rate(status.chargeRate()))
-                                .withStyle(ChatFormatting.GRAY)));
+                .tooltip(() -> {
+                    List<Component> lines = new ArrayList<>();
+                    lines.add(Component.translatable("screen.seekerdrones.charging_station.energy"));
+                    lines.add(Component.literal(EnergyFormat.ratio(status.energy(), status.capacity())).withStyle(ChatFormatting.GRAY));
+                    if (drone().isPresent()) {
+                        lines.add(Component.translatable("screen.seekerdrones.charging_station.charge_rate", EnergyFormat.rate(status.transferRate()))
+                                .withStyle(ChatFormatting.GRAY));
+                    }
+                    return lines;
+                });
         addRenderableWidget(new Gauges.FluidTank(leftPos + 156, topPos + 16, 12, 86, () -> status.fluid(), () -> status.fluidAmount(),
                 () -> status.tankCapacity()))
                 .tooltip(() -> List.of(
@@ -177,10 +183,12 @@ public class ChargingStationScreen extends PanelScreen {
         int x = leftPos + DISPLAY_X;
         int y = topPos + DISPLAY_Y;
         Kit.display(graphics, x, y, DISPLAY_WIDTH, DISPLAY_HEIGHT);
-        graphics.blitSprite(Kit.ICON_ENERGY, x + 4, y + 4, 6, 8);
-        Kit.smallText(graphics, font, EnergyFormat.rate(status.chargeRate()), x + 13, y + 5, Kit.DISPLAY_TEXT, false);
-
         Optional<DockedDrone> docked = drone();
+        // What the station is actually giving the drone, only while a drone holds it.
+        if (docked.isPresent()) {
+            graphics.blitSprite(Kit.ICON_ENERGY, x + 4, y + 4, 6, 8);
+            Kit.smallText(graphics, font, EnergyFormat.rate(status.transferRate()), x + 13, y + 5, Kit.DISPLAY_TEXT, false);
+        }
         if (docked.isPresent() && status.status() != Status.NO_POWER) {
             renderFlows(graphics, x, y, docked.get());
         }

@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
+import javax.annotation.Nullable;
+
 import com.elpinho.seekerdrones.energy.EnergyFormat;
 import com.elpinho.seekerdrones.energy.EnergyUnit;
 import com.elpinho.seekerdrones.energy.MekanismEnergy;
@@ -35,11 +37,20 @@ public class SideTab {
     private BooleanSupplier visible = () -> true;
     private Runnable onClick = () -> {};
 
+    /** Handles a click on an unfolded panel's body, at the panel's top-left position. Returns whether it was used. */
+    @FunctionalInterface
+    public interface PanelClick {
+        boolean click(double mouseX, double mouseY, int x, int y);
+    }
+
     // An optional panel the tab unfolds into.
     int panelWidth;
     int panelHeight;
     private Drawer panel;
     boolean expanded;
+    @Nullable
+    private PanelClick panelClick;
+    private int headerHeight;
 
     // Laid out by SideTabs.
     int x;
@@ -71,6 +82,25 @@ public class SideTab {
         this.panelHeight = height;
         this.panel = panel;
         return this;
+    }
+
+    /**
+     * Gives the panel controls: clicks below the top {@code headerHeight} pixels go to {@code click} instead of folding
+     * the panel. Only the header folds it.
+     */
+    public SideTab panelClick(int headerHeight, PanelClick click) {
+        this.headerHeight = headerHeight;
+        this.panelClick = click;
+        return this;
+    }
+
+    /** The tab's (or its unfolded panel's) left edge, as laid out for this frame. */
+    public int getX() {
+        return x;
+    }
+
+    public int getY() {
+        return y;
     }
 
     public boolean isVisible() {
@@ -111,11 +141,16 @@ public class SideTab {
         return tooltip.get();
     }
 
-    void click() {
+    /** Returns whether the click did something (and should play the click sound). */
+    boolean click(double mouseX, double mouseY) {
+        if (isExpanded() && panelClick != null && mouseY >= y + headerHeight) {
+            return panelClick.click(mouseX, mouseY, x, y);
+        }
         if (panel != null) {
             expanded = !expanded;
         }
         onClick.run();
+        return true;
     }
 
     /**

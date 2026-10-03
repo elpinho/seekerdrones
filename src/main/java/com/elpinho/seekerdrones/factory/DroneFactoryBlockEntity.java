@@ -41,13 +41,15 @@ import net.neoforged.neoforge.items.ItemStackHandler;
 
 /**
  * Drone Factory (DESIGN.md section 7.1): builds drones from items, fluid and FE with {@code seekerdrones:drone_assembly}
- * recipes. FE is spent evenly over the processing time; items and fluid are taken when the drone is done. The output
+ * recipes, with the inputs in slots by role ({@link FactorySlots}). FE is spent evenly over the processing time; items and fluid are taken when the drone is done. The output
  * drone is fully charged, gets a new drone ID and is linked to this Factory's Operator Group (section 6.1).
  */
 public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider {
-    public static final int INPUT_SLOTS = 6;
-    public static final int OUTPUT_SLOT = INPUT_SLOTS;
-    public static final int SLOT_COUNT = INPUT_SLOTS + 1;
+    public static final int INPUT_SLOTS = FactorySlots.INPUT_SLOTS;
+    public static final int OUTPUT_SLOT = FactorySlots.OUTPUT;
+    public static final int SLOT_COUNT = FactorySlots.COUNT;
+    /** Before slot roles the Factory had six inputs, with the output in slot 6. */
+    private static final int LEGACY_SLOT_COUNT = 7;
 
     private static final String TAG_ITEMS = "Items";
     private static final String TAG_TANK = "Tank";
@@ -59,7 +61,7 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
     /** Bumped when recipes reload, so every Factory looks its recipe up again. */
     private static int recipeGeneration;
 
-    private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
+    private final ItemStackHandler items = new FactorySlots.Handler(this::getLevel) {
         @Override
         protected void onContentsChanged(int slot) {
             setChanged();
@@ -87,11 +89,14 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
     // Recipe cache (section 8.4 spirit: no recipe lookup every tick).
     @Nullable
     private RecipeHolder<DroneAssemblyRecipe> recipe;
+    /** Whether the inputs match a recipe whose fluid the tank lacks, found with the recipe. */
+    private boolean fluidMissing;
     private boolean recipeDirty = true;
     private int cachedGeneration = -1;
 
     private final ContainerData data = new FactoryData();
     private final MachineWorkingState working = new MachineWorkingState();
+    private FactoryStatus status = FactoryStatus.IDLE;
 
     public DroneFactoryBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.DRONE_FACTORY.get(), pos, state);
@@ -135,6 +140,10 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
         return progress;
     }
 
+    public FactoryStatus getStatus() {
+        return status;
+    }
+
     // --- Processing ---
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, DroneFactoryBlockEntity factory) {
@@ -153,15 +162,22 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
                 resetProgress();
             }
         }
-        if (recipe == null || !items.getStackInSlot(OUTPUT_SLOT).isEmpty()) {
+        if (recipe == null) {
+            status = fluidMissing ? FactoryStatus.MISSING_FLUID : FactoryStatus.IDLE;
+            return false;
+        }
+        if (!items.getStackInSlot(OUTPUT_SLOT).isEmpty()) {
+            status = FactoryStatus.OUTPUT_FULL;
             return false;
         }
         DroneAssemblyRecipe assembly = recipe.value();
         int remainingTicks = assembly.time() - progress;
         int cost = remainingTicks <= 1 ? assembly.energy() - energySpent : assembly.energy() / assembly.time();
         if (energy.stored < cost) {
+            status = FactoryStatus.NO_ENERGY;
             return false;
         }
+        status = FactoryStatus.BUILDING;
         energy.stored -= cost;
         energySpent += cost;
         progress++;
@@ -175,9 +191,13 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
     @Nullable
     private RecipeHolder<DroneAssemblyRecipe> findRecipe(Level level) {
         DroneAssemblyInput input = input();
+        fluidMissing = false;
         for (RecipeHolder<DroneAssemblyRecipe> holder : level.getRecipeManager().getAllRecipesFor(ModRecipeTypes.DRONE_ASSEMBLY.get())) {
-            if (holder.value().matches(input, level)) {
-                return holder;
+            if (holder.value().itemsMatch(input.items())) {
+                if (holder.value().fluid().test(input.fluid())) {
+                    return holder;
+                }
+                fluidMissing = true;
             }
         }
         return null;
@@ -192,18 +212,16 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
     }
 
     private void finish(Level level, DroneAssemblyRecipe assembly) {
-        DroneAssemblyInput input = input();
-        Optional<int[]> allocation = assembly.allocate(input.items());
-        if (allocation.isEmpty() || !assembly.fluid().test(tank.getFluid())) {
+        if (!assembly.itemsMatch(input().items()) || !assembly.fluid().test(tank.getFluid())) {
             // Can't happen while the cache is fresh, but never build a drone for free.
             resetProgress();
             recipeDirty = true;
             return;
         }
-        int[] taken = allocation.get();
         for (int i = 0; i < INPUT_SLOTS; i++) {
-            if (taken[i] > 0) {
-                items.extractItem(i, taken[i], false);
+            int count = assembly.countFor(i);
+            if (count > 0) {
+                items.extractItem(i, count, false);
             }
         }
         tank.drain(assembly.fluid().amount(), IFluidHandler.FluidAction.EXECUTE);
@@ -262,8 +280,17 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
             // Keep the slot count even if a saved handler had a different size.
             ItemStackHandler loaded = new ItemStackHandler();
             loaded.deserializeNBT(registries, itemsTag);
-            for (int i = 0; i < Math.min(SLOT_COUNT, loaded.getSlots()); i++) {
-                items.setStackInSlot(i, loaded.getStackInSlot(i));
+            if (loaded.getSlots() == LEGACY_SLOT_COUNT) {
+                // A Factory saved before slot roles: its output moves to the new output slot. Inputs keep their slot
+                // numbers and can be taken out by hand if they're in the wrong role.
+                for (int i = 0; i < LEGACY_SLOT_COUNT - 1; i++) {
+                    items.setStackInSlot(i, loaded.getStackInSlot(i));
+                }
+                items.setStackInSlot(OUTPUT_SLOT, loaded.getStackInSlot(LEGACY_SLOT_COUNT - 1));
+            } else {
+                for (int i = 0; i < Math.min(SLOT_COUNT, loaded.getSlots()); i++) {
+                    items.setStackInSlot(i, loaded.getStackInSlot(i));
+                }
             }
         }
         tank.setCapacity(ServerConfig.get(ServerConfig.FACTORY_TANK_CAPACITY));
@@ -398,6 +425,7 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
                 case DroneFactoryMenu.DATA_TANK_CAPACITY -> tank.getCapacity();
                 case DroneFactoryMenu.DATA_FLUID_ID -> tank.isEmpty() ? -1
                         : BuiltInRegistries.FLUID.getId(tank.getFluid().getFluid());
+                case DroneFactoryMenu.DATA_STATUS -> status.ordinal();
                 default -> 0;
             };
             return index % 2 == 0 ? value & 0xFFFF : value >>> 16;

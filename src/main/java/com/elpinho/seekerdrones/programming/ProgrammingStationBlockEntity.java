@@ -338,16 +338,6 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         }
     }
 
-    /** Template mode: the template becomes the drone's upgrades and settings, if they fit the caps. */
-    public void copyFromDrone() {
-        getDrone().ifPresent(drone -> {
-            if (mode == ProgrammingMode.TEMPLATE && DroneStats.withinUpgradeLimits(drone.upgrades())) {
-                template = DroneProgram.of(drone);
-                programChanged();
-            }
-        });
-    }
-
     private void programChanged() {
         programVersion++;
         setChanged();
@@ -357,7 +347,7 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
 
     @Override
     public Component getDisplayName() {
-        return Component.translatable("block.seekerdrones.programming_station");
+        return Component.translatable("screen.seekerdrones.programming_station");
     }
 
     @Override

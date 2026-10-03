@@ -9,24 +9,22 @@
     }
   ],
   "type": "seekerdrones:drone_assembly",
+  "core": {
+    "item": "seekerdrones:seeker_core"
+  },
   "energy": 50000,
   "fluid": {
     "amount": 1000,
     "fluid": "minecraft:lava"
   },
-  "items": [
-    {
-      "count": 4,
-      "item": "seekerdrones:drone_rotor"
-    },
-    {
-      "count": 1,
-      "item": "seekerdrones:seeker_core"
-    },
+  "plating": [
     {
       "count": 4,
       "tag": "c:ingots/iron"
     }
   ],
+  "rotor": {
+    "item": "seekerdrones:drone_rotor"
+  },
   "time": 200
 }

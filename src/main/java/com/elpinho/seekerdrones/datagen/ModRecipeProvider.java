@@ -21,6 +21,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.level.material.Fluids;
 import net.neoforged.neoforge.common.Tags;
 import net.neoforged.neoforge.common.conditions.ModLoadedCondition;
@@ -141,9 +142,9 @@ public class ModRecipeProvider extends RecipeProvider {
                 .unlockedBy(getHasName(Items.CRAFTER), has(Items.CRAFTER))
                 .save(output);
         output.accept(assemblyId("drone"), new DroneAssemblyRecipe(
-                List.of(SizedIngredient.of(ModItems.DRONE_ROTOR.get(), 4),
-                        SizedIngredient.of(ModItems.SEEKER_CORE.get(), 1),
-                        SizedIngredient.of(Tags.Items.INGOTS_IRON, 4)),
+                Ingredient.of(ModItems.DRONE_ROTOR.get()),
+                Ingredient.of(ModItems.SEEKER_CORE.get()),
+                List.of(SizedIngredient.of(Tags.Items.INGOTS_IRON, 4)),
                 SizedFluidIngredient.of(Fluids.LAVA, 1_000),
                 50_000, 200), null);
     }
@@ -151,10 +152,9 @@ public class ModRecipeProvider extends RecipeProvider {
     /** The Mekanism drone assembly (section 7.5). Its crafting recipes are in {@link MekanismRecipeProvider}. */
     private void buildMekanismAssembly(RecipeOutput output) {
         output.accept(assemblyId("mekanism/drone"), new DroneAssemblyRecipe(
-                List.of(SizedIngredient.of(ModItems.DRONE_ROTOR.get(), 4),
-                        SizedIngredient.of(ModItems.SEEKER_CORE.get(), 1),
-                        SizedIngredient.of(INGOTS_STEEL, 4),
-                        SizedIngredient.of(ALLOYS_ULTIMATE, 2)),
+                Ingredient.of(ModItems.DRONE_ROTOR.get()),
+                Ingredient.of(ModItems.SEEKER_CORE.get()),
+                List.of(SizedIngredient.of(INGOTS_STEEL, 4), SizedIngredient.of(ALLOYS_ULTIMATE, 2)),
                 SizedFluidIngredient.of(RepairFluid.ETHENE, 500),
                 100_000, 300), null);
     }
