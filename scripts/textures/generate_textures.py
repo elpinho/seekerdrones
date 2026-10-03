@@ -10,6 +10,9 @@ hotbar (icons must read on both), and the block faces.
 """
 
 import argparse
+import json
+import math
+import random
 from pathlib import Path
 
 from PIL import Image, ImageChops
@@ -477,38 +480,6 @@ def machine_face(symbol):
 
 
 MACHINE_SYMBOLS = {
-    # The bottom of every machine: a vent grille.
-    "machine_bottom": [
-        "hhhhhhhh",
-        "........",
-        "hhhhhhhh",
-        "........",
-        "hhhhhhhh",
-        "........",
-        "hhhhhhhh",
-        "........",
-    ],
-    # Charging Station: a battery on the sides, a charging pad on top.
-    "charging_station_side": [
-        "...ll...",
-        "..llll..",
-        "..lnnl..",
-        "..leel..",
-        "..lEel..",
-        "..leel..",
-        "..leel..",
-        "..llll..",
-    ],
-    "charging_station_top": [
-        "........",
-        ".eeeeee.",
-        ".e....e.",
-        ".e.EE.e.",
-        ".e.EE.e.",
-        ".e....e.",
-        ".eeeeee.",
-        "........",
-    ],
     # Deploying Station: launch chevrons on the sides, an open hatch on top.
     "deploying_station_side": [
         "........",
@@ -585,6 +556,208 @@ MACHINE_SYMBOLS = {
 }
 
 
+# Gunmetal machines (replacing machine_face one machine at a time). Each machine is drawn as a physical device in
+# dark gunmetal: a beveled frame with corner bolts around a recessed body that holds the machine's parts. The machine
+# GUI kit's accents carry over (dark glass, teal glow, green energy, status lights), not its gray panel. Every lit
+# face has a "_working" variant for the `working` block state. Digits are the casing shades, dark to light.
+MACHINE_PALETTE = {
+    "0": (14, 17, 21, 255),  # gaps, outlines
+    "1": (30, 34, 41, 255),
+    "2": (40, 45, 53, 255),  # body
+    "3": (49, 55, 64, 255),
+    "4": (59, 66, 76, 255),
+    "5": (68, 76, 86, 255),
+    "6": (80, 89, 100, 255),  # frame
+    "7": (98, 108, 120, 255),  # frame highlight
+    "8": (128, 138, 150, 255),  # bolts
+    "x": (13, 20, 24, 255),  # glass
+    "y": (22, 34, 40, 255),  # glass reflection
+    "a": (96, 52, 30, 255),  # copper shadow
+    "b": (150, 82, 46, 255),  # copper
+    "c": (199, 115, 63, 255),  # copper highlight
+    "d": (240, 168, 112, 255),  # copper glint
+    "g": (27, 113, 52, 255),  # energy shadow
+    "G": (53, 194, 92, 255),  # energy
+    "H": (150, 250, 175, 255),  # energy glint
+    "T": (63, 120, 114, 255),  # dim teal
+    "t": (143, 229, 214, 255),  # teal
+    "u": (23, 101, 46, 255),  # energy shadow, darker
+    "v": (32, 124, 58, 255),  # energy shadow, lighter
+    "e": (22, 56, 36, 255),  # unlit light strip
+    "i": (70, 78, 88, 255),  # idle light
+    "j": (40, 46, 54, 255),  # idle light shadow
+}
+
+
+def framed(inner):
+    """Wraps 12 rows of 12 keys in the frame: lit on the top and left, shaded on the bottom and right, with bolts."""
+    assert len(inner) == 12 and all(len(row) == 12 for row in inner), inner
+    rows = ["7777777777777774", "7866666666666683"]
+    rows += ["76" + row + "31" for row in inner]
+    rows += ["7833333333333381", "5111111111111111"]
+    return rows
+
+
+def worn(rows):
+    """Speckles flat metal (the body and the frame) with nearby shades from a fixed hash, so it isn't flat."""
+    out = []
+    for y, row in enumerate(rows):
+        keys = []
+        for x, key in enumerate(row):
+            h = (x * 73 + y * 151 + x * y * 17) % 23
+            if key == "2" and h in (0, 7):
+                key = "3"
+            elif key == "2" and h == 13:
+                key = "1"
+            elif key == "6" and h in (3, 11):
+                key = "5"
+            keys.append(key)
+        out.append("".join(keys))
+    return out
+
+
+def machine(rows):
+    return grid(worn(rows), MACHINE_PALETTE)
+
+
+def lit(rows, region, swaps):
+    """The working variant: `swaps` applied inside region (x0, y0, x1, y1, inclusive)."""
+    x0, y0, x1, y1 = region
+    return ["".join(swaps.get(key, key) if x0 <= x <= x1 and y0 <= y <= y1 else key for x, key in enumerate(row))
+            for y, row in enumerate(rows)]
+
+
+# The bottom of every machine: vent slats.
+MACHINE_BOTTOM = framed([
+    "111111111111",
+    "122222222222",
+    "120000000032",
+    "123444444432",
+    "122222222222",
+    "120000000032",
+    "123444444432",
+    "122222222222",
+    "120000000032",
+    "123444444432",
+    "122222222222",
+    "122222222222",
+])
+
+# Charging Station front: a cell clamped in a glass chamber between vents. While charging, the chamber fills with a
+# green glow (animated): a bright glob drifts around inside it, sparks kindle at random, and the glow's shades shift.
+CHARGING_STATION_FRONT = framed([
+    "111111111111",
+    "122577775222",
+    "1330xyxx0332",
+    "1000xTTx0002",
+    "1330xTtx0332",
+    "1000xTTx0002",
+    "1330xTTx0332",
+    "1000xTTx0002",
+    "1330xxxx0332",
+    "122577775222",
+    "122222222222",
+    "134432222ij2",
+])
+CHARGING_STATION_CHAMBER = (6, 4, 4, 7)  # x, y, width, height
+
+
+def charging_station_front_working(frames=16):
+    base = lit(lit(CHARGING_STATION_FRONT, (2, 2, 13, 13), {"i": "H", "j": "G"}),
+               (6, 4, 9, 10), {"x": "g", "y": "g", "T": "g", "t": "g"})
+    x0, y0, w, h = CHARGING_STATION_CHAMBER
+    out = []
+    for f in range(frames):
+        rows = [list(row) for row in base]
+        phase = 2 * math.pi * f / frames
+        # The glob's path and size use whole-number frequencies, so the animation loops.
+        gx = 1.5 + 0.9 * math.sin(phase + 0.4) + 0.3 * math.sin(3 * phase)
+        gy = 3.0 + 1.6 * math.sin(2 * phase + 1.1) + 0.6 * math.cos(phase)
+        r = 1.9 + 0.35 * math.sin(3 * phase + 0.5)
+        sparks = random.Random(f * 7919)
+        for cy in range(h):
+            for cx in range(w):
+                v = 1 - math.hypot(cx - gx, (cy - gy) * 0.85) / r
+                key = "H" if v > 0.35 else "G" if v > -0.1 else "g"
+                if key == "g":
+                    shade = random.Random((f // 4) * 131 + cy * 17 + cx).random()
+                    key = "u" if shade < 0.3 else "v" if shade > 0.7 else "g"
+                if sparks.random() < 0.06:
+                    key = "G" if key == "H" else "H" if key == "G" else "G"
+                rows[y0 + cy][x0 + cx] = key
+        out.append(machine(["".join(row) for row in rows]))
+    return out
+
+
+# Charging Station back: three upright capacitors with copper bands; their contacts glow while charging.
+CHARGING_STATION_BACK = framed([
+    "111111111111",
+    "10T000T000T0",
+    "157505750575",
+    "167505670567",
+    "167505670567",
+    "1dcb0dcb0dcb",
+    "1aba0aba0aba",
+    "167505670567",
+    "157505750575",
+    "100000000000",
+    "122222222222",
+    "134432222ij2",
+])
+CHARGING_STATION_BACK_WORKING = lit(CHARGING_STATION_BACK, (2, 2, 13, 13), {"T": "H", "i": "H", "j": "G"})
+
+# Charging Station sides: vents with a light strip across the middle, lit while charging.
+CHARGING_STATION_SIDE = framed([
+    "111111111111",
+    "100000000002",
+    "134444444432",
+    "100000000002",
+    "134444444432",
+    "100000000002",
+    "10eeeeeeee02",
+    "100000000002",
+    "134444444432",
+    "100000000002",
+    "134444444432",
+    "122222222222",
+])
+CHARGING_STATION_SIDE_WORKING = lit(lit(CHARGING_STATION_SIDE, (2, 2, 13, 13), {"e": "G"}), (5, 8, 10, 8), {"G": "H"})
+
+# Charging Station top: the landing pad, an emitter ring around a contact plate, with clamps in the corners.
+CHARGING_STATION_TOP = framed([
+    "761111111167",
+    "612222222216",
+    "1222TTTT2221",
+    "122T0000T221",
+    "12T0y66x0T21",
+    "12T0x65x0T21",
+    "12T0x54x0T21",
+    "12T0x44x0T21",
+    "122T0000T221",
+    "1222TTTT2221",
+    "612222222216",
+    "761222222167",
+])
+# While a drone is docked: the ring and the plate light up.
+CHARGING_STATION_TOP_WORKING = lit(
+    CHARGING_STATION_TOP, (4, 4, 11, 11), {"T": "t", "x": "g", "y": "G", "6": "H", "5": "G", "4": "g"})
+
+MACHINES = {
+    "machine_bottom": MACHINE_BOTTOM,
+    "charging_station_side": CHARGING_STATION_SIDE,
+    "charging_station_side_working": CHARGING_STATION_SIDE_WORKING,
+    "charging_station_front": CHARGING_STATION_FRONT,
+    "charging_station_back": CHARGING_STATION_BACK,
+    "charging_station_back_working": CHARGING_STATION_BACK_WORKING,
+    "charging_station_top": CHARGING_STATION_TOP,
+    "charging_station_top_working": CHARGING_STATION_TOP_WORKING,
+}
+# Animated faces: name -> (frames, game ticks per frame).
+ANIMATED_MACHINES = {
+    "charging_station_front_working": (charging_station_front_working(), 2),
+}
+
+
 def outputs():
     textures = {
         "entity/drone.png": drone_entity(),
@@ -597,7 +770,20 @@ def outputs():
         textures[f"item/{name}_upgrade.png"] = upgrade(name)
     for name, symbol in MACHINE_SYMBOLS.items():
         textures[f"block/{name}.png"] = machine_face(symbol)
+    for name, rows in MACHINES.items():
+        textures[f"block/{name}.png"] = machine(rows)
+    for name, (frames, frametime) in ANIMATED_MACHINES.items():
+        textures[f"block/{name}.png"] = animation(frames, frametime)
     return textures
+
+
+def animation(frames, frametime):
+    """Stacks the frames vertically, as Minecraft expects, and records the .mcmeta to write beside it."""
+    strip = Image.new("RGBA", (16, 16 * len(frames)))
+    for i, frame in enumerate(frames):
+        strip.paste(frame, (0, 16 * i))
+    strip.info["mcmeta"] = {"animation": {"frametime": frametime}}
+    return strip
 
 
 INVENTORY_SLOT = (139, 139, 139, 255)
@@ -616,7 +802,7 @@ def contact_sheet(textures, scale=6):
         drone.alpha_composite(layer)
         items.append(drone)
     items = [img for img in items if img is not textures["item/drone.png"]]
-    blocks = [img for name, img in textures.items() if name.startswith("block/")]
+    blocks = [img.crop((0, 0, 16, 16)) for name, img in textures.items() if name.startswith("block/")]
 
     cell = 20
     width = max(len(items), len(blocks)) * cell
@@ -642,6 +828,8 @@ def main():
         path.parent.mkdir(parents=True, exist_ok=True)
         img.save(path)
         print(f"wrote {path.relative_to(ROOT)}")
+        if "mcmeta" in img.info:
+            path.with_name(path.name + ".mcmeta").write_text(json.dumps(img.info["mcmeta"], indent=2) + "\n")
         if args.preview:
             preview = args.preview / name
             preview.parent.mkdir(parents=True, exist_ok=True)

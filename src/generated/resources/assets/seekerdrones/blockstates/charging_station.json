@@ -1,7 +1,64 @@
 {
   "variants": {
-    "": {
+    "facing=east,repairing=false,working=false": {
+      "model": "seekerdrones:block/charging_station",
+      "y": 90
+    },
+    "facing=east,repairing=false,working=true": {
+      "model": "seekerdrones:block/charging_station_working",
+      "y": 90
+    },
+    "facing=east,repairing=true,working=false": {
+      "model": "seekerdrones:block/charging_station",
+      "y": 90
+    },
+    "facing=east,repairing=true,working=true": {
+      "model": "seekerdrones:block/charging_station_working",
+      "y": 90
+    },
+    "facing=north,repairing=false,working=false": {
       "model": "seekerdrones:block/charging_station"
+    },
+    "facing=north,repairing=false,working=true": {
+      "model": "seekerdrones:block/charging_station_working"
+    },
+    "facing=north,repairing=true,working=false": {
+      "model": "seekerdrones:block/charging_station"
+    },
+    "facing=north,repairing=true,working=true": {
+      "model": "seekerdrones:block/charging_station_working"
+    },
+    "facing=south,repairing=false,working=false": {
+      "model": "seekerdrones:block/charging_station",
+      "y": 180
+    },
+    "facing=south,repairing=false,working=true": {
+      "model": "seekerdrones:block/charging_station_working",
+      "y": 180
+    },
+    "facing=south,repairing=true,working=false": {
+      "model": "seekerdrones:block/charging_station",
+      "y": 180
+    },
+    "facing=south,repairing=true,working=true": {
+      "model": "seekerdrones:block/charging_station_working",
+      "y": 180
+    },
+    "facing=west,repairing=false,working=false": {
+      "model": "seekerdrones:block/charging_station",
+      "y": 270
+    },
+    "facing=west,repairing=false,working=true": {
+      "model": "seekerdrones:block/charging_station_working",
+      "y": 270
+    },
+    "facing=west,repairing=true,working=false": {
+      "model": "seekerdrones:block/charging_station",
+      "y": 270
+    },
+    "facing=west,repairing=true,working=true": {
+      "model": "seekerdrones:block/charging_station_working",
+      "y": 270
     }
   }
 }

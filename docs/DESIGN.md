@@ -475,7 +475,8 @@ Upgrade and Charging Station recipes stay placeholders until the balance pass (s
   - **Programming Station:** red dust flecks flickering just above the top, like powered redstone.
   - **Charging Station:** electric sparks around the dock, plus hearts while `repairing`.
   - **Deploying Station:** it has no working state. Each deploy sends a block event, and clients show a small burst of cloud particles from the top.
-- The `working` state can also switch the model to a lit "on" texture. The blockstates are generated for it, but the placeholder textures don't have one yet (see ROADMAP.md M9).
+- The `working` state can also switch the model to a lit "on" texture. The blockstates are generated for it; of the placeholder textures, only the Charging Station's have one so far (see ROADMAP.md M9).
+  - **Charging Station:** it faces the player when placed (cosmetic only). The front is a cell in a glass chamber, the back a capacitor bank and the sides vents with a light strip. While working, the chamber fills with an animated green glow (a drifting glob with sparks), and the capacitor contacts, the light strip, the status lights and the top pad light up. The faces never show the stored energy or fluid, and `repairing` has no texture of its own (the hearts show it).
 
 ---
 

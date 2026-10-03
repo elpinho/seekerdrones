@@ -10,6 +10,7 @@ import com.elpinho.seekerdrones.network.StationStatusPayload;
 import com.mojang.serialization.MapCodec;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,14 +21,19 @@ import net.minecraft.world.ItemInteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.Mirror;
 import net.minecraft.world.level.block.RenderShape;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.neoforged.neoforge.fluids.FluidUtil;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -35,15 +41,18 @@ import net.neoforged.neoforge.network.PacketDistributor;
 /**
  * Drone Charging Station (DESIGN.md section 7.4). Registers itself in the dimension's station registry when placed,
  * with its placer's UUID if a player placed it, and unregisters when removed. {@link MachineWorkingState#WORKING} is
- * set while it serves a drone, and {@link #REPAIRING} while that drone is also being healed.
+ * set while it serves a drone, and {@link #REPAIRING} while that drone is also being healed. It faces the player
+ * when placed; the facing is only cosmetic.
  */
 public class ChargingStationBlock extends BaseEntityBlock {
     public static final MapCodec<ChargingStationBlock> CODEC = simpleCodec(ChargingStationBlock::new);
+    public static final DirectionProperty FACING = HorizontalDirectionalBlock.FACING;
     public static final BooleanProperty REPAIRING = BooleanProperty.create("repairing");
 
     public ChargingStationBlock(Properties properties) {
         super(properties);
-        registerDefaultState(stateDefinition.any().setValue(MachineWorkingState.WORKING, false).setValue(REPAIRING, false));
+        registerDefaultState(stateDefinition.any().setValue(FACING, Direction.NORTH).setValue(MachineWorkingState.WORKING, false)
+                .setValue(REPAIRING, false));
     }
 
     @Override
@@ -53,7 +62,22 @@ public class ChargingStationBlock extends BaseEntityBlock {
 
     @Override
     protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        builder.add(MachineWorkingState.WORKING, REPAIRING);
+        builder.add(FACING, MachineWorkingState.WORKING, REPAIRING);
+    }
+
+    @Override
+    public BlockState getStateForPlacement(BlockPlaceContext context) {
+        return defaultBlockState().setValue(FACING, context.getHorizontalDirection().getOpposite());
+    }
+
+    @Override
+    protected BlockState rotate(BlockState state, Rotation rotation) {
+        return state.setValue(FACING, rotation.rotate(state.getValue(FACING)));
+    }
+
+    @Override
+    protected BlockState mirror(BlockState state, Mirror mirror) {
+        return state.rotate(mirror.getRotation(state.getValue(FACING)));
     }
 
     /** The station has no ticker: this scheduled tick turns the working state off once the drone stops reporting work. */

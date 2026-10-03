@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "seekerdrones:block/machine_bottom",
+    "east": "seekerdrones:block/charging_station_side_working",
+    "north": "seekerdrones:block/charging_station_front_working",
+    "particle": "seekerdrones:block/charging_station_side_working",
+    "south": "seekerdrones:block/charging_station_back_working",
+    "up": "seekerdrones:block/charging_station_top_working",
+    "west": "seekerdrones:block/charging_station_side_working"
+  }
+}
