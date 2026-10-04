@@ -3,13 +3,13 @@ package com.elpinho.seekerdrones.datagen;
 import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.deploying.DeployingShaft;
 import com.elpinho.seekerdrones.deploying.DeployingStationBlock;
+import com.elpinho.seekerdrones.factory.DroneFactoryBlock;
 import com.elpinho.seekerdrones.machine.MachineWorkingState;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.station.ChargingStationBlock;
 
 import net.minecraft.data.PackOutput;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
 import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
@@ -26,7 +26,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // Placeholder textures from scripts/textures/generate_textures.py until the M9 art pass. All machines share
         // the bottom face.
         chargingStation();
-        machine(ModBlocks.DRONE_FACTORY.get(), "drone_factory");
+        droneFactory();
         deployingStation();
         horizontalBlock(ModBlocks.PROGRAMMING_STATION.get(), models().orientableWithBottom("programming_station",
                 modLoc("block/programming_station_side"),
@@ -86,10 +86,27 @@ public class ModBlockStateProvider extends BlockStateProvider {
                 .texture("particle", modLoc(base + "_side"));
     }
 
-    private void machine(Block block, String name) {
-        simpleBlockWithItem(block, models().cubeBottomTop(name,
-                modLoc("block/" + name + "_side"),
-                modLoc("block/machine_bottom"),
-                modLoc("block/" + name + "_top")));
+    /**
+     * The assembly bay on the front, the toothed drum on the left side (seen from the front), the fan on the right, the
+     * parts intake on the back and the blueprint on top. While {@link MachineWorkingState#WORKING}, all but the back are
+     * animated.
+     */
+    private void droneFactory() {
+        ModelFile idle = droneFactoryModel("drone_factory", "");
+        ModelFile working = droneFactoryModel("drone_factory_working", "_working");
+        getVariantBuilder(ModBlocks.DRONE_FACTORY.get()).forAllStates(state -> ConfiguredModel.builder()
+                .modelFile(state.getValue(MachineWorkingState.WORKING) ? working : idle)
+                .rotationY(((int) state.getValue(DroneFactoryBlock.FACING).toYRot() + 180) % 360)
+                .build());
+        simpleBlockItem(ModBlocks.DRONE_FACTORY.get(), idle);
+    }
+
+    /** The front faces north, so the viewer's left is east; the blockstate rotates it. */
+    private ModelFile droneFactoryModel(String name, String suffix) {
+        String base = "block/drone_factory";
+        return models().cube(name, modLoc("block/machine_bottom"), modLoc(base + "_top" + suffix),
+                        modLoc(base + "_front" + suffix), modLoc(base + "_back"), modLoc(base + "_drum" + suffix),
+                        modLoc(base + "_fan" + suffix))
+                .texture("particle", modLoc(base + "_back"));
     }
 }

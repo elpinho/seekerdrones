@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "seekerdrones:block/machine_bottom",
+    "east": "seekerdrones:block/drone_factory_drum_working",
+    "north": "seekerdrones:block/drone_factory_front_working",
+    "particle": "seekerdrones:block/drone_factory_back",
+    "south": "seekerdrones:block/drone_factory_back",
+    "up": "seekerdrones:block/drone_factory_top_working",
+    "west": "seekerdrones:block/drone_factory_fan_working"
+  }
+}

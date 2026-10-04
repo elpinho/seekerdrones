@@ -1,7 +1,34 @@
 {
   "variants": {
-    "": {
+    "facing=east,working=false": {
+      "model": "seekerdrones:block/drone_factory",
+      "y": 90
+    },
+    "facing=east,working=true": {
+      "model": "seekerdrones:block/drone_factory_working",
+      "y": 90
+    },
+    "facing=north,working=false": {
       "model": "seekerdrones:block/drone_factory"
+    },
+    "facing=north,working=true": {
+      "model": "seekerdrones:block/drone_factory_working"
+    },
+    "facing=south,working=false": {
+      "model": "seekerdrones:block/drone_factory",
+      "y": 180
+    },
+    "facing=south,working=true": {
+      "model": "seekerdrones:block/drone_factory_working",
+      "y": 180
+    },
+    "facing=west,working=false": {
+      "model": "seekerdrones:block/drone_factory",
+      "y": 270
+    },
+    "facing=west,working=true": {
+      "model": "seekerdrones:block/drone_factory_working",
+      "y": 270
     }
   }
 }

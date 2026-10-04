@@ -480,27 +480,6 @@ def machine_face(symbol):
 
 
 MACHINE_SYMBOLS = {
-    # Drone Factory: a gear on the sides, an assembly grid on top.
-    "drone_factory_side": [
-        "...ll...",
-        ".l.ll.l.",
-        "..llll..",
-        "lllhhlll",
-        "lllhhlll",
-        "..llll..",
-        ".l.ll.l.",
-        "...ll...",
-    ],
-    "drone_factory_top": [
-        "ll.ll.ll",
-        "lm.lm.lm",
-        "........",
-        "ll.eE.ll",
-        "lm.ee.lm",
-        "........",
-        "ll.ll.ll",
-        "lm.lm.lm",
-    ],
     # Programming Station: a screen on the front, a keyboard on top, plain vents on the other sides.
     "programming_station_front": [
         "nnnnnnnn",
@@ -574,6 +553,10 @@ MACHINE_PALETTE = {
     "q": (110, 22, 20, 255),  # button shadow
     "p": (84, 26, 22, 255),  # unlit redstone
     "P": (250, 56, 40, 255),  # lit redstone
+    "n": (12, 28, 44, 255),  # blueprint screen
+    "N": (22, 50, 74, 255),  # blueprint grid
+    "B": (46, 104, 150, 255),  # blueprint line
+    "o": (84, 150, 204, 255),  # blueprint line, lit
 }
 
 
@@ -812,6 +795,203 @@ DEPLOYING_STATION_BACK = framed([
     "120000000022",
 ])
 
+# Drone Factory front: a viewport into the assembly bay, the drone side-on on its cradle (rotors on masts, arms, the
+# body with its lens at the front), and the status light.
+DRONE_FACTORY_FRONT = framed([
+    "111111111111",
+    "1yxxxxxxxxx2",
+    "1xyxxxxxxxx2",
+    "1x667xx766x2",
+    "1xxx5xx5xxx2",
+    "1xx445544xx2",
+    "1xxt56655xx2",
+    "1xxxT4444xx2",
+    "1xxxxxxxxxx2",
+    "1x3xxxxxx3x2",
+    "136666666632",
+    "134432222ij2",
+])
+# The drone's pixels in the bay, which starts at texture pixel (3, 3), by part: R rotors, M masts, A arms, B body,
+# L lens.
+DRONE_FACTORY_BAY = (3, 3)
+DRONE_FACTORY_PARTS = [
+    "..........",
+    "..........",
+    ".RRR..RRR.",
+    "...M..M...",
+    "..AABBAA..",
+    "..LBBBBB..",
+    "...LBBBB..",
+    "..........",
+    "..........",
+    "..........",
+]
+
+
+def drone_factory_front_working():
+    """While building, a drone is made in a loop: a scan line draws it as a flickering teal hologram, metal fills it in
+    from the bottom up, the lens lights and the rotors spin, then it breaks up and the bay is empty again."""
+    bx, by = DRONE_FACTORY_BAY
+    drone = [(x, y, part) for y, row in enumerate(DRONE_FACTORY_PARTS) for x, part in enumerate(row) if part != "."]
+    empty = [list(row) for row in lit(DRONE_FACTORY_FRONT, (2, 2, 13, 13), {"i": "H", "j": "G"})]
+    for x, y, _ in drone:
+        empty[by + y][bx + x] = "x"
+    rng = random.Random(9)
+
+    def flicker():
+        return "T" if rng.random() > 0.2 else "t"
+
+    def built(rows, lens, rotor_phase):
+        for x, y, part in drone:
+            key = DRONE_FACTORY_FRONT[by + y][bx + x]
+            if part == "L":
+                key = lens if key == "t" else "T"
+            elif part == "R":
+                # a bright band runs across each rotor as it spins
+                key = "7" if x - (1 if x < 5 else 6) == rotor_phase % 3 else "5"
+            rows[by + y][bx + x] = key
+
+    frames = [[row[:] for row in empty] for _ in range(3)]
+    # the scan line sweeps down, leaving the hologram above it
+    for line in range(2, 8):
+        rows = [row[:] for row in empty]
+        for x, y, _ in drone:
+            if y < line:
+                rows[by + y][bx + x] = flicker()
+        for x in range(10):
+            rows[by + line][bx + x] = "K" if DRONE_FACTORY_PARTS[line][x] != "." else "t"
+        frames.append(rows)
+    for _ in range(3):
+        rows = [row[:] for row in empty]
+        for x, y, _ in drone:
+            rows[by + y][bx + x] = flicker()
+        frames.append(rows)
+    # metal fills it in from the bottom
+    for fill in range(7, 1, -1):
+        rows = [row[:] for row in empty]
+        for x, y, _ in drone:
+            rows[by + y][bx + x] = DRONE_FACTORY_FRONT[by + y][bx + x] if y >= fill else flicker()
+        if fill <= 6:
+            rows[by + 5][bx + 2] = "T"
+        frames.append(rows)
+    for phase, lens in enumerate("Kttttt"):
+        rows = [row[:] for row in empty]
+        built(rows, lens, phase)
+        frames.append(rows)
+    # it breaks up
+    for p in (0.3, 0.6, 0.9):
+        rows = [row[:] for row in empty]
+        built(rows, "t", 0)
+        for x, y, _ in drone:
+            if rng.random() < p:
+                rows[by + y][bx + x] = "T" if rng.random() < 0.5 else "x"
+        frames.append(rows)
+    return [machine(["".join(row) for row in rows]) for rows in frames]
+
+
+# Drone Factory top: a blueprint screen, the drone from above in thin lines over a dotted grid.
+DRONE_FACTORY_TOP = framed([
+    "111111111111",
+    "1nNnnNnnNnn2",
+    "1NBBnnnnBBN2",
+    "1nBnBnnBnBn2",
+    "1NnBNBBNBnN2",
+    "1nnnBnnBnnn2",
+    "1NnnBnnBnnN2",
+    "1nnBNBBNBnn2",
+    "1nBnBnnBnBn2",
+    "1NBBnnnnBBN2",
+    "1nNnnNnnNnn2",
+    "122222222222",
+])
+
+
+def drone_factory_top_working(frames=24):
+    """A soft glow runs out along the drone's lines from the body to the rotors, one shade brighter; the grid stays."""
+    out = []
+    for f in range(frames):
+        rows = ["".join("o" if key == "B" and (math.hypot(x - 7.5, y - 7.5) / 6.4 - f / frames) % 1.0 < 0.18 else key
+                        for x, key in enumerate(row)) for y, row in enumerate(DRONE_FACTORY_TOP)]
+        out.append(machine(rows))
+    return out
+
+
+# Drone Factory back: the parts intake, a slatted grate with copper corners.
+DRONE_FACTORY_BACK = framed([
+    "111111111111",
+    "1b77777777a2",
+    "170000000052",
+    "170434343052",
+    "170000000052",
+    "170434343052",
+    "170000000052",
+    "170434343052",
+    "170000000052",
+    "170434343052",
+    "1a55555555a2",
+    "122222222222",
+])
+
+
+def drone_factory_drum(offset=0):
+    """The left side (seen from the front): a toothed drum seen side-on between its axle caps, shaded as a cylinder lit
+    from the left. Its ridges are moved down `offset` pixels: moving in a straight line keeps them exact on the grid,
+    where a turning cog can't keep its shape."""
+    shades = "455667765544"
+    rows = ["100087780002"]
+    for y in range(1, 11):
+        keys = []
+        for x in range(12):
+            if x in (0, 11):
+                key = "1" if x == 0 else "2"
+            elif x in (1, 10):
+                key = "0"
+            elif (y - offset) % 4 == 0:
+                key = str(int(shades[x]) - 3)  # a ridge
+            elif (y - offset) % 4 == 1:
+                key = str(int(shades[x]) + 1)  # its lit edge
+            else:
+                key = shades[x]
+            keys.append(key)
+        rows.append("".join(keys))
+    rows.append("100054450002")
+    return framed(rows)
+
+
+def drone_factory_fan(phase=0.0):
+    """The right side (seen from the front): an exhaust fan in a round rim. Each blade is a thin line traced along a
+    fixed curve, so it keeps its shape at any angle, with a dim trail behind it."""
+    c = 6.0
+    rows = []
+    for y in range(12):
+        keys = []
+        for x in range(12):
+            dx, dy = x + 0.5 - c, y + 0.5 - c
+            r = math.hypot(dx, dy)
+            if r > 5.9:
+                key = "1" if x == 0 or y == 0 else "2"
+            elif r > 4.9:
+                key = "7" if dx + dy < -2 else "4" if dx + dy > 2 else "5"
+            else:
+                key = "0"
+            keys.append(key)
+        rows.append(keys)
+    for trail, key in ((0.32, "2"), (0.0, "5")):
+        for blade in range(4):
+            for i in range(40):
+                r = 1.3 + 3.5 * i / 39
+                a = phase + blade * math.pi / 2 + 0.32 * r - trail
+                x, y = int(c + r * math.cos(a)), int(c + r * math.sin(a))
+                if math.hypot(x + 0.5 - c, y + 0.5 - c) < 4.9:
+                    rows[y][x] = key
+    for y in range(12):
+        for x in range(12):
+            dx, dy = x + 0.5 - c, y + 0.5 - c
+            if math.hypot(dx, dy) < 1.5:
+                rows[y][x] = "8" if dx < 0 and dy < 0 else "6"
+    return framed(["".join(row) for row in rows])
+
+
 MACHINES = {
     "machine_bottom": MACHINE_BOTTOM,
     "charging_station_side": CHARGING_STATION_SIDE,
@@ -827,11 +1007,21 @@ MACHINES = {
     "deploying_station_side": DEPLOYING_STATION_SIDE,
     "deploying_station_side_loaded": DEPLOYING_STATION_SIDE_LOADED,
     "deploying_station_back": DEPLOYING_STATION_BACK,
+    "drone_factory_front": DRONE_FACTORY_FRONT,
+    "drone_factory_top": DRONE_FACTORY_TOP,
+    "drone_factory_back": DRONE_FACTORY_BACK,
+    "drone_factory_drum": drone_factory_drum(),
+    "drone_factory_fan": drone_factory_fan(),
 }
 # Animated faces: name -> (frames, game ticks per frame).
 ANIMATED_MACHINES = {
     "charging_station_front_working": (charging_station_front_working(), 2),
     "deploying_station_side_launching": (deploying_station_side_launching(), 1),
+    "drone_factory_front_working": (drone_factory_front_working(), 2),
+    "drone_factory_top_working": (drone_factory_top_working(), 2),
+    # The drum moves one ridge per loop, the fan a quarter turn (one blade).
+    "drone_factory_drum_working": ([machine(drone_factory_drum(f)) for f in range(4)], 2),
+    "drone_factory_fan_working": ([machine(drone_factory_fan(-math.pi / 2 * f / 6)) for f in range(6)], 1),
 }
 
 
