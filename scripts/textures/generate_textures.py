@@ -482,6 +482,8 @@ MACHINE_PALETTE = {
     "i": (70, 78, 88, 255),  # idle light
     "j": (40, 46, 54, 255),  # idle light shadow
     "K": (214, 255, 246, 255),  # teal glint
+    "z": (30, 62, 66, 255),  # faint teal
+    "f": (42, 88, 90, 255),  # faint teal, lighter
     "Y": (204, 156, 40, 255),  # hazard yellow
     "Z": (156, 114, 30, 255),  # hazard yellow shadow
     "R": (196, 38, 32, 255),  # button red
@@ -554,18 +556,19 @@ MACHINE_BOTTOM = framed([
     "122222222222",
 ])
 
-# Charging Station front: a cell clamped in a glass chamber between vents. While charging, the chamber fills with a
-# green glow (animated): a bright glob drifts around inside it, sparks kindle at random, and the glow's shades shift.
+# Charging Station front: a cell clamped in a glass chamber between vents. While idle, a faint teal core glows in the
+# chamber. While charging, the chamber fills with a green glow (animated): a bright glob drifts around inside it, sparks
+# kindle at random, and the glow's shades shift.
 CHARGING_STATION_FRONT = framed([
     "111111111111",
     "122577775222",
-    "1330xyxx0332",
-    "1000xTTx0002",
-    "1330xTtx0332",
-    "1000xTTx0002",
-    "1330xTTx0332",
-    "1000xTTx0002",
-    "1330xxxx0332",
+    "1330zzzz0332",
+    "1000zffz0002",
+    "1330ftTf0332",
+    "1000fTTf0002",
+    "1330fTTf0332",
+    "1000zffz0002",
+    "1330zzzz0332",
     "122577775222",
     "122222222222",
     "134432222ij2",
@@ -735,98 +738,98 @@ DEPLOYING_STATION_BACK = framed([
     "120000000022",
 ])
 
-# Drone Factory front: a viewport into the assembly bay, the drone side-on on its cradle (rotors on masts, arms, the
-# body with its lens at the front), and the status light.
-DRONE_FACTORY_FRONT = framed([
+# Drone Factory front: a viewport into the assembly bay with the drone seen from above (rotor rings at the corners,
+# arms, the body with its canopy, the lens at the front, which is the bottom), and the status light.
+DRONE_FACTORY_BAY = (3, 3)
+DRONE_FACTORY_DRONE = [  # "." is glass
+    ".66....66.",
+    "6xx6..6xx6",
+    "6xx6..6xx6",
+    ".66555566.",
+    "...5BB5...",
+    "...5BB5...",
+    ".66555566.",
+    "6xx6tt6xx6",
+    "6xx6..6xx6",
+    ".66....66.",
+]
+DRONE_FACTORY_VIEWPORT = framed([
     "111111111111",
     "1yxxxxxxxxx2",
     "1xyxxxxxxxx2",
-    "1x667xx766x2",
-    "1xxx5xx5xxx2",
-    "1xx445544xx2",
-    "1xxt56655xx2",
-    "1xxxT4444xx2",
     "1xxxxxxxxxx2",
-    "1x3xxxxxx3x2",
-    "136666666632",
+    "1xxxxxxxxxx2",
+    "1xxxxxxxxxx2",
+    "1xxxxxxxxxx2",
+    "1xxxxxxxxxx2",
+    "1xxxxxxxxxx2",
+    "1xxxxxxxxxx2",
+    "1xxxxxxxxxx2",
     "134432222ij2",
 ])
-# The drone's pixels in the bay, which starts at texture pixel (3, 3), by part: R rotors, M masts, A arms, B body,
-# L lens.
-DRONE_FACTORY_BAY = (3, 3)
-DRONE_FACTORY_PARTS = [
-    "..........",
-    "..........",
-    ".RRR..RRR.",
-    "...M..M...",
-    "..AABBAA..",
-    "..LBBBBB..",
-    "...LBBBB..",
-    "..........",
-    "..........",
-    "..........",
-]
+
+
+def drone_factory_bay(rows, keys):
+    """Draws the drone's pixels into the bay as keys(x, y, key); None leaves the pixel as it is."""
+    rows = [list(row) for row in rows]
+    bx, by = DRONE_FACTORY_BAY
+    for y, row in enumerate(DRONE_FACTORY_DRONE):
+        for x, key in enumerate(row):
+            key = keys(x, y, key) if key != "." else None
+            if key:
+                rows[by + y][bx + x] = key
+    return ["".join(row) for row in rows]
+
+
+DRONE_FACTORY_FRONT = drone_factory_bay(DRONE_FACTORY_VIEWPORT, lambda x, y, key: key)
 
 
 def drone_factory_front_working():
     """While building, a drone is made in a loop: a scan line draws it as a flickering teal hologram, metal fills it in
-    from the bottom up, the lens lights and the rotors spin, then it breaks up and the bay is empty again."""
-    bx, by = DRONE_FACTORY_BAY
-    drone = [(x, y, part) for y, row in enumerate(DRONE_FACTORY_PARTS) for x, part in enumerate(row) if part != "."]
-    empty = [list(row) for row in lit(DRONE_FACTORY_FRONT, (2, 2, 13, 13), {"i": "H", "j": "G"})]
-    for x, y, _ in drone:
-        empty[by + y][bx + x] = "x"
+    from the body outward, the canopy takes its color, the lens lights and the rotors spin (each the opposite way to
+    its neighbors), then it breaks up and the bay is empty again."""
     rng = random.Random(9)
+    empty = lit(DRONE_FACTORY_VIEWPORT, (2, 2, 13, 13), {"i": "H", "j": "G"})
+    built = lit(DRONE_FACTORY_FRONT, (2, 2, 13, 13), {"i": "H", "j": "G"})
+    bx, by = DRONE_FACTORY_BAY
 
-    def flicker():
-        return "T" if rng.random() > 0.2 else "t"
+    def holo(x, y, key):
+        return None if key == "x" else "T" if rng.random() > 0.2 else "t"
 
-    def built(rows, lens, rotor_phase):
-        for x, y, part in drone:
-            key = DRONE_FACTORY_FRONT[by + y][bx + x]
-            if part == "L":
-                key = lens if key == "t" else "T"
-            elif part == "R":
-                # a bright band runs across each rotor as it spins
-                key = "7" if x - (1 if x < 5 else 6) == rotor_phase % 3 else "5"
-            rows[by + y][bx + x] = key
-
-    frames = [[row[:] for row in empty] for _ in range(3)]
+    frames = [empty] * 3
     # the scan line sweeps down, leaving the hologram above it
-    for line in range(2, 8):
-        rows = [row[:] for row in empty]
-        for x, y, _ in drone:
-            if y < line:
-                rows[by + y][bx + x] = flicker()
+    for line in range(10):
+        rows = [list(row) for row in drone_factory_bay(empty, lambda x, y, key: holo(x, y, key) if y < line else None)]
         for x in range(10):
-            rows[by + line][bx + x] = "K" if DRONE_FACTORY_PARTS[line][x] != "." else "t"
-        frames.append(rows)
-    for _ in range(3):
-        rows = [row[:] for row in empty]
-        for x, y, _ in drone:
-            rows[by + y][bx + x] = flicker()
-        frames.append(rows)
-    # metal fills it in from the bottom
-    for fill in range(7, 1, -1):
-        rows = [row[:] for row in empty]
-        for x, y, _ in drone:
-            rows[by + y][bx + x] = DRONE_FACTORY_FRONT[by + y][bx + x] if y >= fill else flicker()
-        if fill <= 6:
-            rows[by + 5][bx + 2] = "T"
-        frames.append(rows)
-    for phase, lens in enumerate("Kttttt"):
-        rows = [row[:] for row in empty]
-        built(rows, lens, phase)
-        frames.append(rows)
+            rows[by + line][bx + x] = "K" if DRONE_FACTORY_DRONE[line][x] not in ".x" else "t"
+        frames.append(["".join(row) for row in rows])
+    frames += [drone_factory_bay(empty, holo) for _ in range(3)]
+    # metal fills it in from the body outward; the canopy and lens stay dark until it powers up
+    for reach in (1.2, 2.4, 3.6, 4.8, 6.0):
+        frames.append(drone_factory_bay(empty, lambda x, y, key: (
+            {"B": "N", "t": "T"}.get(key, key) if math.hypot(x - 4.5, y - 4.5) < reach else holo(x, y, key))))
+    # it powers up and the rotors spin: the blades alternate diagonals in each well, and a glint runs around the ring
+    wells = [(1, 1), (7, 1), (1, 7), (7, 7)]
+    ring = [(0, -1), (1, -1), (2, 0), (2, 1), (1, 2), (0, 2), (-1, 1), (-1, 0)]  # around a well, clockwise
+    for f in range(10):
+        rows = [list(row) for row in built]
+        if f == 0:
+            for x, y in ((4, 4), (5, 4), (4, 5), (5, 5)):
+                rows[by + y][bx + x] = "N"
+            rows[by + 7][bx + 4] = rows[by + 7][bx + 5] = "K"
+        for i, (wx, wy) in enumerate(wells):
+            spin = f if i in (0, 3) else -f
+            for dx in (0, 1):
+                for dy in (0, 1):
+                    rows[by + wy + dy][bx + wx + dx] = "6" if (dx == dy) == (spin % 2 == 0) else "x"
+            hx, hy = ring[spin % 8]
+            rows[by + wy + hy][bx + wx + hx] = "8"
+        frames.append(["".join(row) for row in rows])
     # it breaks up
     for p in (0.3, 0.6, 0.9):
-        rows = [row[:] for row in empty]
-        built(rows, "t", 0)
-        for x, y, _ in drone:
-            if rng.random() < p:
-                rows[by + y][bx + x] = "T" if rng.random() < 0.5 else "x"
-        frames.append(rows)
-    return [machine(["".join(row) for row in rows]) for rows in frames]
+        frames.append(drone_factory_bay(built, lambda x, y, key: (
+            ("T" if rng.random() < 0.5 else "x") if rng.random() < p else None)))
+    return [machine(rows) for rows in frames]
 
 
 # Drone Factory top: a blueprint screen, the drone from above in thin lines over a dotted grid.
