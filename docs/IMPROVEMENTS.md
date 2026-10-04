@@ -46,6 +46,7 @@ Status: `idea` | `decided`
   - **Upgrade slots:** a "Station Speed Upgrade" item that multiplies the charge rate and heal rate, with 2–4 slots in the station GUI. The GUI is read-only today, so this needs a real menu with slots. It also needs a decision on whether the station's FE buffer grows with the upgrades, and a cap.
   - **Tiered stations:** Basic / Advanced / Elite Charging Stations, each crafted from the previous tier. Simpler, and the GUI doesn't change.
   - **Merge with multi-drone charging:** "charging stations for multiple drones" is already in the v1.x outlook (ROADMAP.md). Both are really about station throughput, so they could be designed together.
+- **One input slot per upgrade type in the Programming Station** (`idea`): today the upgrade input is a shared 3×3 grid (DESIGN.md §7.2), so piping upgrades in with automation (hoppers, pipes) can fill every slot with one upgrade type and block the others from being inserted. Give the station **one input slot per upgrade type** instead, each accepting only its own upgrade, so automation can always feed every type. Open: how this fits the 3×3 input in the GUI redesign (a slot per type means a taller or scrolling input, or a layout that only applies to automation, e.g. hidden per-type slots exposed on the sides while players keep a simple grid), the stack size per slot, and whether slots for upgrades the drone can't take anymore (cap reached or an incompatible upgrade installed) still accept items.
 
 ## Drone GUI and visuals
 
