@@ -2,11 +2,11 @@
   "parent": "minecraft:block/cube",
   "textures": {
     "down": "seekerdrones:block/machine_bottom",
-    "east": "seekerdrones:block/deploying_station_side",
+    "east": "seekerdrones:block/deploying_station_side_launching",
     "north": "seekerdrones:block/deploying_station_front",
     "particle": "seekerdrones:block/deploying_station_side",
     "south": "seekerdrones:block/deploying_station_back",
     "up": "seekerdrones:block/deploying_station_top",
-    "west": "seekerdrones:block/deploying_station_side"
+    "west": "seekerdrones:block/deploying_station_side_launching"
   }
 }

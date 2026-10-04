@@ -24,6 +24,7 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
@@ -121,6 +122,26 @@ public class DeployingStationBlockEntity extends BlockEntity implements MenuProv
         } else {
             status = check(level);
         }
+        if (getBlockState().getValue(DeployingStationBlock.SHAFT) != DeployingShaft.LAUNCHING) {
+            setShaft(level, slotShaft());
+        }
+    }
+
+    /** Called by the block's scheduled tick, {@link DeployingStationBlock#LAUNCH_TICKS} after a deploy. */
+    void endLaunch(Level level) {
+        setShaft(level, slotShaft());
+    }
+
+    private DeployingShaft slotShaft() {
+        return items.getStackInSlot(DRONE_SLOT).isEmpty() ? DeployingShaft.EMPTY : DeployingShaft.LOADED;
+    }
+
+    /** Only writes the block state when it changes (section 7.6). */
+    private void setShaft(Level level, DeployingShaft shaft) {
+        BlockState state = getBlockState();
+        if (state.getValue(DeployingStationBlock.SHAFT) != shaft) {
+            level.setBlock(worldPosition, state.setValue(DeployingStationBlock.SHAFT, shaft), Block.UPDATE_CLIENTS);
+        }
     }
 
     /** With auto-deploy off: the GUI button or a redstone pulse deploys the drone, if it can be deployed now. */
@@ -184,6 +205,8 @@ public class DeployingStationBlockEntity extends BlockEntity implements MenuProv
         items.setStackInSlot(DRONE_SLOT, ItemStack.EMPTY);
         setChanged();
         level.blockEvent(worldPosition, getBlockState().getBlock(), DeployingStationBlock.EVENT_DEPLOYED, 0);
+        setShaft(level, DeployingShaft.LAUNCHING);
+        level.scheduleTick(worldPosition, getBlockState().getBlock(), DeployingStationBlock.LAUNCH_TICKS);
     }
 
     private static int energyPerDeploy() {

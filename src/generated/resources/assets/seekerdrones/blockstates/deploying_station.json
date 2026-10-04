@@ -1,7 +1,94 @@
 {
   "variants": {
-    "": {
+    "facing=east,shaft=empty,triggered=false": {
+      "model": "seekerdrones:block/deploying_station",
+      "y": 90
+    },
+    "facing=east,shaft=empty,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered",
+      "y": 90
+    },
+    "facing=east,shaft=launching,triggered=false": {
+      "model": "seekerdrones:block/deploying_station_launching",
+      "y": 90
+    },
+    "facing=east,shaft=launching,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered_launching",
+      "y": 90
+    },
+    "facing=east,shaft=loaded,triggered=false": {
+      "model": "seekerdrones:block/deploying_station_loaded",
+      "y": 90
+    },
+    "facing=east,shaft=loaded,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered_loaded",
+      "y": 90
+    },
+    "facing=north,shaft=empty,triggered=false": {
       "model": "seekerdrones:block/deploying_station"
+    },
+    "facing=north,shaft=empty,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered"
+    },
+    "facing=north,shaft=launching,triggered=false": {
+      "model": "seekerdrones:block/deploying_station_launching"
+    },
+    "facing=north,shaft=launching,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered_launching"
+    },
+    "facing=north,shaft=loaded,triggered=false": {
+      "model": "seekerdrones:block/deploying_station_loaded"
+    },
+    "facing=north,shaft=loaded,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered_loaded"
+    },
+    "facing=south,shaft=empty,triggered=false": {
+      "model": "seekerdrones:block/deploying_station",
+      "y": 180
+    },
+    "facing=south,shaft=empty,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered",
+      "y": 180
+    },
+    "facing=south,shaft=launching,triggered=false": {
+      "model": "seekerdrones:block/deploying_station_launching",
+      "y": 180
+    },
+    "facing=south,shaft=launching,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered_launching",
+      "y": 180
+    },
+    "facing=south,shaft=loaded,triggered=false": {
+      "model": "seekerdrones:block/deploying_station_loaded",
+      "y": 180
+    },
+    "facing=south,shaft=loaded,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered_loaded",
+      "y": 180
+    },
+    "facing=west,shaft=empty,triggered=false": {
+      "model": "seekerdrones:block/deploying_station",
+      "y": 270
+    },
+    "facing=west,shaft=empty,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered",
+      "y": 270
+    },
+    "facing=west,shaft=launching,triggered=false": {
+      "model": "seekerdrones:block/deploying_station_launching",
+      "y": 270
+    },
+    "facing=west,shaft=launching,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered_launching",
+      "y": 270
+    },
+    "facing=west,shaft=loaded,triggered=false": {
+      "model": "seekerdrones:block/deploying_station_loaded",
+      "y": 270
+    },
+    "facing=west,shaft=loaded,triggered=true": {
+      "model": "seekerdrones:block/deploying_station_triggered_loaded",
+      "y": 270
     }
   }
 }

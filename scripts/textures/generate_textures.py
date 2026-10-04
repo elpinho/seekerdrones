@@ -480,27 +480,6 @@ def machine_face(symbol):
 
 
 MACHINE_SYMBOLS = {
-    # Deploying Station: launch chevrons on the sides, an open hatch on top.
-    "deploying_station_side": [
-        "........",
-        "...ee...",
-        "..eEEe..",
-        ".ee..ee.",
-        "...ee...",
-        "..eEEe..",
-        ".ee..ee.",
-        "........",
-    ],
-    "deploying_station_top": [
-        "E......E",
-        ".hhhhhh.",
-        ".hkkkkh.",
-        ".hkkkkh.",
-        ".hkkkkh.",
-        ".hkkkkh.",
-        ".hhhhhh.",
-        "E......E",
-    ],
     # Drone Factory: a gear on the sides, an assembly grid on top.
     "drone_factory_side": [
         "...ll...",
@@ -558,8 +537,9 @@ MACHINE_SYMBOLS = {
 
 # Gunmetal machines (replacing machine_face one machine at a time). Each machine is drawn as a physical device in
 # dark gunmetal: a beveled frame with corner bolts around a recessed body that holds the machine's parts. The machine
-# GUI kit's accents carry over (dark glass, teal glow, green energy, status lights), not its gray panel. Every lit
-# face has a "_working" variant for the `working` block state. Digits are the casing shades, dark to light.
+# GUI kit's accents carry over (dark glass, teal glow, green energy, status lights, and each machine's own GUI motifs),
+# not its gray panel. Lit faces are variants named after the block state that lights them (e.g. "_working"). Digits
+# are the casing shades, dark to light.
 MACHINE_PALETTE = {
     "0": (14, 17, 21, 255),  # gaps, outlines
     "1": (30, 34, 41, 255),
@@ -586,6 +566,14 @@ MACHINE_PALETTE = {
     "e": (22, 56, 36, 255),  # unlit light strip
     "i": (70, 78, 88, 255),  # idle light
     "j": (40, 46, 54, 255),  # idle light shadow
+    "K": (214, 255, 246, 255),  # teal glint
+    "Y": (204, 156, 40, 255),  # hazard yellow
+    "Z": (156, 114, 30, 255),  # hazard yellow shadow
+    "R": (196, 38, 32, 255),  # button red
+    "S": (240, 112, 92, 255),  # button glint
+    "q": (110, 22, 20, 255),  # button shadow
+    "p": (84, 26, 22, 255),  # unlit redstone
+    "P": (250, 56, 40, 255),  # lit redstone
 }
 
 
@@ -742,6 +730,88 @@ CHARGING_STATION_TOP = framed([
 CHARGING_STATION_TOP_WORKING = lit(
     CHARGING_STATION_TOP, (4, 4, 11, 11), {"T": "t", "x": "g", "y": "G", "6": "H", "5": "G", "4": "g"})
 
+# Deploying Station top: looking down the open launch shaft, its walls darker toward the pad at the bottom, with rail
+# lights dimming as they descend, inside a hazard-striped rim.
+DEPLOYING_STATION_TOP = framed([
+    "YY00YY00YY00",
+    "Yt44444444tZ",
+    "04T333333T5Z",
+    "043e1111e450",
+    "Y43110011450",
+    "Y4310350145Z",
+    "04310530145Z",
+    "043110011450",
+    "Y43e1111e450",
+    "Y4T444444T5Z",
+    "0t55555555tZ",
+    "0ZZ00ZZ00ZZ0",
+])
+
+# Deploying Station front: the launch button under a hinged glass cover, the Auto/Manual lever and a redstone port,
+# which lights up while the station is powered (the `triggered` state).
+DEPLOYING_STATION_FRONT = framed([
+    "YY00YY00YY00",
+    "Z00ZZ00ZZ00Z",
+    "122222222222",
+    "120555555022",
+    "120y1111x022",
+    "120y1qq1x022",
+    "120xqRSqx022",
+    "120xqRRqx022",
+    "120x1qq1x022",
+    "120000000022",
+    "108702220p02",
+    "100002220002",
+])
+DEPLOYING_STATION_FRONT_TRIGGERED = lit(DEPLOYING_STATION_FRONT, (2, 2, 13, 13), {"p": "P"})
+
+# Deploying Station sides: guide rails with two up-chevron lights between them. The bottom chevron lights up while a
+# drone is in the slot (`shaft=loaded`); while launching, light sweeps quickly up both (animated).
+DEPLOYING_STATION_SIDE = framed([
+    "YY00YY00YY00",
+    "Z00ZZ00ZZ00Z",
+    "143111111432",
+    "14311TT11432",
+    "1431T00T1432",
+    "143T0110T432",
+    "143111111432",
+    "14311TT11432",
+    "1431T00T1432",
+    "143T0110T432",
+    "143111111432",
+    "143111111432",
+])
+DEPLOYING_STATION_UPPER_CHEVRON = (5, 5, 10, 7)
+DEPLOYING_STATION_LOWER_CHEVRON = (5, 9, 10, 11)
+DEPLOYING_STATION_SIDE_LOADED = lit(DEPLOYING_STATION_SIDE, DEPLOYING_STATION_LOWER_CHEVRON, {"T": "t"})
+
+
+def deploying_station_side_launching():
+    """Bright light runs from the bottom chevron to the top one and fades, one game tick per frame."""
+    out = []
+    for lower, upper in (("K", "T"), ("t", "K"), ("T", "t"), ("T", "T")):
+        rows = lit(lit(DEPLOYING_STATION_SIDE, DEPLOYING_STATION_LOWER_CHEVRON, {"T": lower}),
+                   DEPLOYING_STATION_UPPER_CHEVRON, {"T": upper})
+        out.append(machine(rows))
+    return out
+
+
+# Deploying Station back: a glass window into the launch shaft, with the rail lights and the pad at the bottom.
+DEPLOYING_STATION_BACK = framed([
+    "YY00YY00YY00",
+    "00ZZ00ZZ00ZZ",
+    "120000000022",
+    "120x0xx0x022",
+    "120T0yx0T022",
+    "120x0xy0x022",
+    "120T0xx0T022",
+    "120x0xx0x022",
+    "120T0xx0T022",
+    "120x0xx0x022",
+    "120566665022",
+    "120000000022",
+])
+
 MACHINES = {
     "machine_bottom": MACHINE_BOTTOM,
     "charging_station_side": CHARGING_STATION_SIDE,
@@ -751,10 +821,17 @@ MACHINES = {
     "charging_station_back_working": CHARGING_STATION_BACK_WORKING,
     "charging_station_top": CHARGING_STATION_TOP,
     "charging_station_top_working": CHARGING_STATION_TOP_WORKING,
+    "deploying_station_top": DEPLOYING_STATION_TOP,
+    "deploying_station_front": DEPLOYING_STATION_FRONT,
+    "deploying_station_front_triggered": DEPLOYING_STATION_FRONT_TRIGGERED,
+    "deploying_station_side": DEPLOYING_STATION_SIDE,
+    "deploying_station_side_loaded": DEPLOYING_STATION_SIDE_LOADED,
+    "deploying_station_back": DEPLOYING_STATION_BACK,
 }
 # Animated faces: name -> (frames, game ticks per frame).
 ANIMATED_MACHINES = {
     "charging_station_front_working": (charging_station_front_working(), 2),
+    "deploying_station_side_launching": (deploying_station_side_launching(), 1),
 }
 
 

@@ -3,7 +3,7 @@
   "textures": {
     "down": "seekerdrones:block/machine_bottom",
     "east": "seekerdrones:block/deploying_station_side",
-    "north": "seekerdrones:block/deploying_station_front",
+    "north": "seekerdrones:block/deploying_station_front_triggered",
     "particle": "seekerdrones:block/deploying_station_side",
     "south": "seekerdrones:block/deploying_station_back",
     "up": "seekerdrones:block/deploying_station_top",

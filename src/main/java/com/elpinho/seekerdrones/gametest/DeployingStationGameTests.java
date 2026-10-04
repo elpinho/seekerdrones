@@ -7,6 +7,8 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
+import com.elpinho.seekerdrones.deploying.DeployingShaft;
+import com.elpinho.seekerdrones.deploying.DeployingStationBlock;
 import com.elpinho.seekerdrones.deploying.DeployingStationBlockEntity;
 import com.elpinho.seekerdrones.deploying.DeployingStatus;
 import com.elpinho.seekerdrones.drone.DroneConfig;
@@ -34,6 +36,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.block.Rotation;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HopperBlock;
 import net.minecraft.world.level.block.state.BlockState;
@@ -480,7 +483,120 @@ public class DeployingStationGameTests {
         });
     }
 
+    // --- 11. Block states (DESIGN.md 7.6) ---
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void newStationStartsWithEmptyShaft(GameTestHelper helper) {
+        place(helper);
+        helper.assertTrue(shaft(helper) == DeployingShaft.EMPTY, "A new station should be EMPTY, was " + shaft(helper));
+        helper.runAfterDelay(12, () -> {
+            helper.assertTrue(shaft(helper) == DeployingShaft.EMPTY, "Still EMPTY after ticking, was " + shaft(helper));
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void autoDeployOffInsertedDroneLoadsShaftThenDeployLaunchesAndReturnsToEmpty(GameTestHelper helper) {
+        DeployingStationBlockEntity station = place(helper);
+        station.setAutoDeploy(false);
+        giveEnergy(helper, 5000);
+        insertDrone(helper, DroneData.createNew());
+        BlockPos abs = helper.absolutePos(REL);
+
+        helper.runAfterDelay(3, () -> {
+            helper.assertTrue(shaft(helper) == DeployingShaft.LOADED, "Shaft should be LOADED, was " + shaft(helper));
+            helper.assertTrue(findDrone(helper, abs) == null, "No deploy with auto-deploy off");
+            station.requestDeploy();
+            helper.assertTrue(findDrone(helper, abs) != null, "requestDeploy should deploy");
+            helper.assertTrue(shaft(helper) == DeployingShaft.LAUNCHING, "Shaft should be LAUNCHING right away, was " + shaft(helper));
+            helper.runAfterDelay(DeployingStationBlock.LAUNCH_TICKS / 2, () -> {
+                helper.assertTrue(shaft(helper) == DeployingShaft.LAUNCHING, "Still LAUNCHING mid-launch, was " + shaft(helper));
+                helper.runAfterDelay(DeployingStationBlock.LAUNCH_TICKS / 2 + 3, () -> {
+                    helper.assertTrue(shaft(helper) == DeployingShaft.EMPTY, "Shaft should be EMPTY after the launch, was " + shaft(helper));
+                    helper.succeed();
+                });
+            });
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void redstonePulseDeploySetsShaftLaunchingThenEmpty(GameTestHelper helper) {
+        DeployingStationBlockEntity station = place(helper);
+        station.setAutoDeploy(false);
+        giveEnergy(helper, 5000);
+        insertDrone(helper, DroneData.createNew());
+        helper.runAfterDelay(3, () -> {
+            helper.assertTrue(shaft(helper) == DeployingShaft.LOADED, "Shaft should be LOADED, was " + shaft(helper));
+            helper.setBlock(REL.east(), Blocks.REDSTONE_BLOCK);
+            helper.assertTrue(shaft(helper) == DeployingShaft.LAUNCHING, "Shaft should be LAUNCHING after the pulse, was " + shaft(helper));
+            helper.runAfterDelay(DeployingStationBlock.LAUNCH_TICKS + 3, () -> {
+                helper.assertTrue(shaft(helper) == DeployingShaft.EMPTY, "Shaft should be EMPTY after the launch, was " + shaft(helper));
+                helper.succeed();
+            });
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void autoDeployOnInsertedDroneLaunchesShaftThenEmpty(GameTestHelper helper) {
+        DeployingStationBlockEntity station = place(helper);
+        giveEnergy(helper, 5000);
+        insertDrone(helper, DroneData.createNew());
+        BlockPos abs = helper.absolutePos(REL);
+
+        helper.runAfterDelay(3, () -> {
+            helper.assertTrue(findDrone(helper, abs) != null, "Drone should have deployed");
+            helper.assertTrue(station.getItems().getStackInSlot(0).isEmpty(), "Slot should be empty");
+            helper.assertTrue(shaft(helper) == DeployingShaft.LAUNCHING, "Shaft should be LAUNCHING, was " + shaft(helper));
+            helper.runAfterDelay(DeployingStationBlock.LAUNCH_TICKS + 3, () -> {
+                helper.assertTrue(shaft(helper) == DeployingShaft.EMPTY, "Shaft should be EMPTY after the launch, was " + shaft(helper));
+                helper.succeed();
+            });
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void droneBlockedBySpaceKeepsShaftLoadedUntilExtractedByHand(GameTestHelper helper) {
+        DeployingStationBlockEntity station = place(helper);
+        giveEnergy(helper, 5000);
+        helper.setBlock(REL.above(), Blocks.STONE);
+        insertDrone(helper, DroneData.createNew());
+        expectLoadedThenExtractedEmpties(helper, station);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void droneWithoutEnergyKeepsShaftLoadedUntilExtractedByHand(GameTestHelper helper) {
+        DeployingStationBlockEntity station = place(helper);
+        insertDrone(helper, DroneData.createNew());
+        expectLoadedThenExtractedEmpties(helper, station);
+    }
+
+    private static void expectLoadedThenExtractedEmpties(GameTestHelper helper, DeployingStationBlockEntity station) {
+        helper.runAfterDelay(15, () -> {
+            helper.assertTrue(shaft(helper) == DeployingShaft.LOADED, "Shaft should stay LOADED, was " + shaft(helper));
+            helper.assertTrue(!station.getItems().getStackInSlot(0).isEmpty(), "Drone should still be in the slot");
+            helper.assertTrue(!station.getItems().extractItem(0, 1, false).isEmpty(), "Hand extraction should return the drone");
+            helper.runAfterDelay(3, () -> {
+                helper.assertTrue(shaft(helper) == DeployingShaft.EMPTY, "Shaft should be EMPTY after extraction, was " + shaft(helper));
+                helper.succeed();
+            });
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void defaultFacingIsNorthAndRotateChangesIt(GameTestHelper helper) {
+        BlockState state = ModBlocks.DEPLOYING_STATION.get().defaultBlockState();
+        helper.assertTrue(state.getValue(DeployingStationBlock.FACING) == Direction.NORTH, "Default FACING should be NORTH");
+        helper.assertTrue(state.getValue(DeployingStationBlock.SHAFT) == DeployingShaft.EMPTY, "Default SHAFT should be EMPTY");
+        helper.assertTrue(state.rotate(Rotation.CLOCKWISE_90).getValue(DeployingStationBlock.FACING) == Direction.EAST, "Rotating NORTH by 90 should give EAST");
+        helper.assertTrue(state.rotate(Rotation.CLOCKWISE_180).getValue(DeployingStationBlock.FACING) == Direction.SOUTH, "Rotating NORTH by 180 should give SOUTH");
+        helper.succeed();
+    }
+
     // --- Helpers ---
+
+    private static DeployingShaft shaft(GameTestHelper helper) {
+        return helper.getLevel().getBlockState(helper.absolutePos(REL)).getValue(DeployingStationBlock.SHAFT);
+    }
 
     private static DeployingStationBlockEntity place(GameTestHelper helper) {
         helper.setBlock(REL, ModBlocks.DEPLOYING_STATION.get());

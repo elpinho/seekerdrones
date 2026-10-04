@@ -1,6 +1,8 @@
 package com.elpinho.seekerdrones.datagen;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.deploying.DeployingShaft;
+import com.elpinho.seekerdrones.deploying.DeployingStationBlock;
 import com.elpinho.seekerdrones.machine.MachineWorkingState;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.station.ChargingStationBlock;
@@ -8,6 +10,7 @@ import com.elpinho.seekerdrones.station.ChargingStationBlock;
 import net.minecraft.data.PackOutput;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.client.model.generators.BlockStateProvider;
 import net.neoforged.neoforge.client.model.generators.ConfiguredModel;
 import net.neoforged.neoforge.client.model.generators.ModelFile;
@@ -24,7 +27,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
         // the bottom face.
         chargingStation();
         machine(ModBlocks.DRONE_FACTORY.get(), "drone_factory");
-        machine(ModBlocks.DEPLOYING_STATION.get(), "deploying_station");
+        deployingStation();
         horizontalBlock(ModBlocks.PROGRAMMING_STATION.get(), models().orientableWithBottom("programming_station",
                 modLoc("block/programming_station_side"),
                 modLoc("block/programming_station_front"),
@@ -54,6 +57,33 @@ public class ModBlockStateProvider extends BlockStateProvider {
         return models().cube(name, modLoc("block/machine_bottom"), modLoc(base + "_top" + suffix),
                         modLoc(base + front), modLoc(base + "_back" + suffix), side, side)
                 .texture("particle", side);
+    }
+
+    /**
+     * The launch button on the front (its redstone port lit while {@link DeployingStationBlock#TRIGGERED}), chevrons on
+     * the sides (lit by {@link DeployingStationBlock#SHAFT}, animated while launching), a shaft window on the back and
+     * the open shaft on top.
+     */
+    private void deployingStation() {
+        getVariantBuilder(ModBlocks.DEPLOYING_STATION.get()).forAllStates(state -> ConfiguredModel.builder()
+                .modelFile(deployingStationModel(state))
+                .rotationY(((int) state.getValue(DeployingStationBlock.FACING).toYRot() + 180) % 360)
+                .build());
+        simpleBlockItem(ModBlocks.DEPLOYING_STATION.get(), deployingStationModel(ModBlocks.DEPLOYING_STATION.get().defaultBlockState()));
+    }
+
+    /** The front faces north; the blockstate rotates it. */
+    private ModelFile deployingStationModel(BlockState state) {
+        String base = "block/deploying_station";
+        boolean triggered = state.getValue(DeployingStationBlock.TRIGGERED);
+        DeployingShaft shaft = state.getValue(DeployingStationBlock.SHAFT);
+        String front = triggered ? "_front_triggered" : "_front";
+        String side = shaft == DeployingShaft.EMPTY ? "_side" : "_side_" + shaft.getSerializedName();
+        String name = base + (triggered ? "_triggered" : "") + (shaft == DeployingShaft.EMPTY ? "" : "_" + shaft.getSerializedName());
+        ResourceLocation sideTexture = modLoc(base + side);
+        return models().cube(name.substring("block/".length()), modLoc("block/machine_bottom"), modLoc(base + "_top"),
+                        modLoc(base + front), modLoc(base + "_back"), sideTexture, sideTexture)
+                .texture("particle", modLoc(base + "_side"));
     }
 
     private void machine(Block block, String name) {
