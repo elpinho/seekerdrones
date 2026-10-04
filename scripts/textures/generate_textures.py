@@ -451,74 +451,10 @@ def seeker_core():
 
 # --- Machine blocks ----------------------------------------------------------------------------------------------
 
-# Every machine face is the same casing: a mid-metal edge, a light frame with corner bolts, and a recessed dark
-# panel. Only the 8x8 symbol inside the panel changes, so the machines read as one family. In the symbols, "."
-# is the panel color.
-
-
-def machine_face(symbol):
-    rows = []
-    for y in range(16):
-        row = []
-        for x in range(16):
-            if x in (0, 15) or y in (0, 15):
-                key = "m"
-            elif (x, y) in ((2, 2), (13, 2), (2, 13), (13, 13)):
-                key = "W"
-            elif x in (1, 2, 13, 14) or y in (1, 2, 13, 14):
-                key = "L" if x == 1 or y == 1 else "l"
-            elif x == 3 or y == 3:
-                key = "k"
-            elif x == 12 or y == 12:
-                key = "m"
-            else:
-                key = symbol[y - 4][x - 4]
-                key = "d" if key == "." else key
-            row.append(key)
-        rows.append("".join(row))
-    return grid(rows)
-
-
-MACHINE_SYMBOLS = {
-    # Programming Station: a screen on the front, a keyboard on top, plain vents on the other sides.
-    "programming_station_front": [
-        "nnnnnnnn",
-        "neeebenn",
-        "nnnnnnnn",
-        "nbbnbbbn",
-        "nnnnnnnn",
-        "neebnnnn",
-        "nnnnnnnn",
-        "nEnnnnnn",
-    ],
-    "programming_station_top": [
-        "........",
-        ".lmlmlm.",
-        "........",
-        ".mlmlml.",
-        "........",
-        ".lmmmml.",
-        "........",
-        "........",
-    ],
-    "programming_station_side": [
-        "........",
-        "mmmmmmmm",
-        "........",
-        "mmmmmmmm",
-        "........",
-        "mmmmmmmm",
-        "........",
-        "mmmmmmmm",
-    ],
-}
-
-
-# Gunmetal machines (replacing machine_face one machine at a time). Each machine is drawn as a physical device in
-# dark gunmetal: a beveled frame with corner bolts around a recessed body that holds the machine's parts. The machine
-# GUI kit's accents carry over (dark glass, teal glow, green energy, status lights, and each machine's own GUI motifs),
-# not its gray panel. Lit faces are variants named after the block state that lights them (e.g. "_working"). Digits
-# are the casing shades, dark to light.
+# Each machine is drawn as a physical device in dark gunmetal: a beveled frame with corner bolts around a recessed
+# body that holds the machine's parts. The machine GUI kit's accents carry over (dark glass, teal glow, green energy,
+# status lights, and each machine's own GUI motifs), not its gray panel. Lit faces are variants named after the block
+# state that lights them (e.g. "_working"). Digits are the casing shades, dark to light.
 MACHINE_PALETTE = {
     "0": (14, 17, 21, 255),  # gaps, outlines
     "1": (30, 34, 41, 255),
@@ -557,6 +493,10 @@ MACHINE_PALETTE = {
     "N": (22, 50, 74, 255),  # blueprint grid
     "B": (46, 104, 150, 255),  # blueprint line
     "o": (84, 150, 204, 255),  # blueprint line, lit
+    "D": (64, 124, 214, 255),  # Direct mode blue
+    "A": (226, 150, 40, 255),  # Template mode amber
+    "w": (96, 60, 150, 255),  # card purple
+    "m": (150, 110, 210, 255),  # card purple, lit
 }
 
 
@@ -992,6 +932,206 @@ def drone_factory_fan(phase=0.0):
     return framed(["".join(row) for row in rows])
 
 
+# Programming Station front: a terminal with lines of code and a cursor, the Direct/Template switch (blue, the lever,
+# amber) and the status light.
+PROGRAMMING_STATION_FRONT = framed([
+    "111111111111",
+    "100000000002",
+    "10yxxxxxxx02",
+    "10xTTxTTTx02",
+    "10xxxxxxxx02",
+    "10xxTTTxTx02",
+    "10xxxxxxxx02",
+    "10xtxxxxxx02",
+    "100000000002",
+    "122222222222",
+    "10D87A002ij2",
+    "122222222222",
+])
+
+# Programming Station left side (seen from the front): the upgrade input, a 3x3 bay of cards in their slots, each
+# with a label in its upgrade's color.
+PROGRAMMING_STATION_CARDS = framed([
+    "111111111111",
+    "100000000002",
+    "10ZZ0qq0BB02",
+    "106506506502",
+    "100000000002",
+    "10gg0RR0ww02",
+    "106506506502",
+    "100000000002",
+    "10TT0ZZ0gg02",
+    "106506506502",
+    "100000000002",
+    "122222222ij2",
+])
+
+# Programming Station right side: a console showing the GUI's drone bay (the drone on its patrol ring), the
+# Direct/Template rocker and a row of upgrade pips.
+PROGRAMMING_STATION_CONSOLE = framed([
+    "111111111111",
+    "100000000222",
+    "10yxTTxx0222",
+    "10xTxxTx0D22",
+    "10TxxxxK0822",
+    "10TxxxxK0722",
+    "10xTxxTx0A22",
+    "10xxTTxx0222",
+    "100000000222",
+    "122222222222",
+    "10i0i0i0i0i2",
+    "122222222222",
+])
+
+# Programming Station back: a heatsink, vertical fins with a copper heat pipe across them.
+PROGRAMMING_STATION_BACK = framed([
+    "111111111111",
+    "160606060602",
+    "150505050502",
+    "150505050502",
+    "1cbcbcbcbcb2",
+    "1ababababab2",
+    "150505050502",
+    "150505050502",
+    "150505050502",
+    "140404040402",
+    "100000000002",
+    "122222222222",
+])
+
+
+def programming_station_dish():
+    """The top: an uplink dish in a round rim, lit from the top left, with four struts and a redstone emitter."""
+    c = 6.0
+    rows = []
+    for y in range(12):
+        keys = []
+        for x in range(12):
+            dx, dy = x + 0.5 - c, y + 0.5 - c
+            r = math.hypot(dx, dy)
+            if r > 5.6:
+                key = "1" if x == 0 or y == 0 else "2"
+            elif r > 4.7:
+                key = "7" if dx + dy < -2 else "3" if dx + dy > 2 else "6"
+            elif r > 4.0:
+                key = "0"
+            elif r < 1.0:
+                key = "p"
+            elif r < 1.8:
+                key = "0"
+            elif abs(dx) < 0.6 or abs(dy) < 0.6:
+                key = "1"  # a strut
+            else:
+                key = "5" if dx + dy < -1 else "3" if dx + dy > 2 else "4"
+            keys.append(key)
+        rows.append("".join(keys))
+    return framed(rows)
+
+
+PROGRAMMING_STATION_TOP = programming_station_dish()
+
+
+def programming_station_working(frames=48, beat=16):
+    """While installing, every face plays one shared loop of three install beats, so the faces stay in step (animated
+    textures run on a global clock and start together). In each beat a card on the left glows and sinks into its
+    slot, the dish's emitter flares and a teal ring ripples out, the console's next pip lights, a warm glint runs
+    along the heat pipe, and the terminal types a line. The drone circles its ring once per beat. The cards and pips
+    reset at the end of the loop, so they never stand for a real count."""
+
+    def faces(f):
+        k, b = divmod(f, beat)
+        return {"front": front(k, b), "cards": cards(k, b, f), "console": console(k, b, f), "back": back(b),
+                "top": top(b)}
+
+    def edit(rows):
+        return [list(row) for row in rows]
+
+    def put(rows, x, y, key):
+        rows[y + 2][x + 2] = key  # inner grid coordinates
+
+    def front(k, b):
+        lines = ["TTxTTTx", "xTTTxTx", "TTTTxxx"]
+        rows = edit(PROGRAMMING_STATION_FRONT)
+        put(rows, 9, 10, "H")
+        put(rows, 10, 10, "G")
+        for y in range(3, 8):
+            for x in range(3, 10):
+                put(rows, x, y, "x")
+        # the line being typed is at the bottom, the two before it scroll up
+        typed = min(7, b)
+        for line, n, y in ((lines[(k - 2) % 3], 7, 3), (lines[(k - 1) % 3], 7, 5), (lines[k], typed, 7)):
+            for i in range(n):
+                put(rows, 3 + i, y, line[i])
+        if typed < 7 or b % 4 < 2:
+            put(rows, 3 + typed if typed < 7 else 9, 7, "t")
+        return rows
+
+    def cards(k, b, f):
+        order = [(0, 0), (2, 1), (1, 2)]  # (column, row) of the card installed in each beat
+        brighter = {"Z": "Y", "q": "R", "B": "o", "g": "G", "R": "S", "w": "m", "T": "t"}
+        rows = edit(PROGRAMMING_STATION_CARDS)
+        for i, (cx, cy) in enumerate(order):
+            x, y = 2 + 3 * cx, 2 + 3 * cy
+            sunk = (i < k or (i == k and b >= 6)) and f < frames - 2
+            for dx in (0, 1):
+                key = rows[y + 2][x + dx + 2]
+                if sunk:
+                    put(rows, x + dx, y, "0")
+                elif i == k and b < 6:
+                    put(rows, x + dx, y, brighter.get(key, key))
+        return rows
+
+    def console(k, b, f):
+        rows = edit(PROGRAMMING_STATION_CONSOLE)
+        ring = sorted(((x, y) for y in range(2, 8) for x in range(2, 8) if rows[y + 2][x + 2] in "TK"),
+                      key=lambda p: math.atan2(p[1] - 4.5, p[0] - 4.5))
+        for x, y in ring:
+            put(rows, x, y, "T")
+        pos = f * len(ring) / beat
+        for behind, key in ((2, "t"), (1, "t"), (0, "K")):
+            put(rows, *ring[int(pos - behind) % len(ring)], key)
+        for i in range(3):
+            if i < k or (i == k and b >= 7):
+                put(rows, 2 + 2 * i, 10, "G")
+        return rows
+
+    def back(b):
+        warmer = {"a": "b", "b": "c", "c": "d"}
+        rows = edit(PROGRAMMING_STATION_BACK)
+        for y in (4, 5):
+            for x in range(12):
+                key = rows[y + 2][x + 2]
+                d = x - (b - 6) * 1.6
+                if key in warmer and b >= 6 and -2.5 < d <= 0.5:
+                    put(rows, x, y, warmer[warmer[key]] if d > -1 and key != "c" else warmer[key])
+        return rows
+
+    def top(b):
+        lighter = {"3": "4", "4": "5", "5": "6", "6": "7"}
+        rows = edit(PROGRAMMING_STATION_TOP)
+        edge = 1.6 + (b - 6) * 0.45
+        for y in range(12):
+            for x in range(12):
+                r = math.hypot(x + 0.5 - 6, y + 0.5 - 6)
+                key = rows[y + 2][x + 2]
+                if key == "p":
+                    put(rows, x, y, "S" if b in (6, 7) else "P")
+                elif key == "0" and r < 1.8 and b in (6, 7, 8):
+                    put(rows, x, y, "q")
+                elif 6 <= b <= 13 and key in "345":
+                    if abs(r - edge) < 0.55:
+                        put(rows, x, y, "t" if b < 9 else "T" if b < 12 else lighter[key])
+                    elif 0 < edge - r < 1.0 and b < 12:
+                        put(rows, x, y, lighter[lighter[key]] if b < 10 else lighter[key])
+        return rows
+
+    out = {}
+    for f in range(frames):
+        for face, rows in faces(f).items():
+            out.setdefault(face, []).append(machine(["".join(row) for row in rows]))
+    return out
+
+
 MACHINES = {
     "machine_bottom": MACHINE_BOTTOM,
     "charging_station_side": CHARGING_STATION_SIDE,
@@ -1012,6 +1152,11 @@ MACHINES = {
     "drone_factory_back": DRONE_FACTORY_BACK,
     "drone_factory_drum": drone_factory_drum(),
     "drone_factory_fan": drone_factory_fan(),
+    "programming_station_front": PROGRAMMING_STATION_FRONT,
+    "programming_station_cards": PROGRAMMING_STATION_CARDS,
+    "programming_station_console": PROGRAMMING_STATION_CONSOLE,
+    "programming_station_back": PROGRAMMING_STATION_BACK,
+    "programming_station_top": PROGRAMMING_STATION_TOP,
 }
 # Animated faces: name -> (frames, game ticks per frame).
 ANIMATED_MACHINES = {
@@ -1022,6 +1167,7 @@ ANIMATED_MACHINES = {
     # The drum moves one ridge per loop, the fan a quarter turn (one blade).
     "drone_factory_drum_working": ([machine(drone_factory_drum(f)) for f in range(4)], 2),
     "drone_factory_fan_working": ([machine(drone_factory_fan(-math.pi / 2 * f / 6)) for f in range(6)], 1),
+    **{f"programming_station_{face}_working": (frames, 2) for face, frames in programming_station_working().items()},
 }
 
 
@@ -1035,8 +1181,6 @@ def outputs():
     }
     for name in UPGRADES:
         textures[f"item/{name}_upgrade.png"] = upgrade(name)
-    for name, symbol in MACHINE_SYMBOLS.items():
-        textures[f"block/{name}.png"] = machine_face(symbol)
     for name, rows in MACHINES.items():
         textures[f"block/{name}.png"] = machine(rows)
     for name, (frames, frametime) in ANIMATED_MACHINES.items():

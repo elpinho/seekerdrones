@@ -5,6 +5,7 @@ import com.elpinho.seekerdrones.deploying.DeployingShaft;
 import com.elpinho.seekerdrones.deploying.DeployingStationBlock;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlock;
 import com.elpinho.seekerdrones.machine.MachineWorkingState;
+import com.elpinho.seekerdrones.programming.ProgrammingStationBlock;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.station.ChargingStationBlock;
 
@@ -28,12 +29,31 @@ public class ModBlockStateProvider extends BlockStateProvider {
         chargingStation();
         droneFactory();
         deployingStation();
-        horizontalBlock(ModBlocks.PROGRAMMING_STATION.get(), models().orientableWithBottom("programming_station",
-                modLoc("block/programming_station_side"),
-                modLoc("block/programming_station_front"),
-                modLoc("block/machine_bottom"),
-                modLoc("block/programming_station_top")));
-        simpleBlockItem(ModBlocks.PROGRAMMING_STATION.get(), models().getExistingFile(modLoc("block/programming_station")));
+        programmingStation();
+    }
+
+    /**
+     * The terminal on the front, the card bay on the left side (seen from the front), the console on the right, the
+     * heatsink on the back and the uplink dish on top. While {@link MachineWorkingState#WORKING}, every face plays one
+     * shared animated loop.
+     */
+    private void programmingStation() {
+        ModelFile idle = programmingStationModel("programming_station", "");
+        ModelFile working = programmingStationModel("programming_station_working", "_working");
+        getVariantBuilder(ModBlocks.PROGRAMMING_STATION.get()).forAllStates(state -> ConfiguredModel.builder()
+                .modelFile(state.getValue(MachineWorkingState.WORKING) ? working : idle)
+                .rotationY(((int) state.getValue(ProgrammingStationBlock.FACING).toYRot() + 180) % 360)
+                .build());
+        simpleBlockItem(ModBlocks.PROGRAMMING_STATION.get(), idle);
+    }
+
+    /** The front faces north, so the viewer's left is east; the blockstate rotates it. */
+    private ModelFile programmingStationModel(String name, String suffix) {
+        String base = "block/programming_station";
+        return models().cube(name, modLoc("block/machine_bottom"), modLoc(base + "_top" + suffix),
+                        modLoc(base + "_front" + suffix), modLoc(base + "_back" + suffix),
+                        modLoc(base + "_cards" + suffix), modLoc(base + "_console" + suffix))
+                .texture("particle", modLoc(base + "_back"));
     }
 
     /**

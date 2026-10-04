@@ -5,21 +5,21 @@
       "y": 90
     },
     "facing=east,working=true": {
-      "model": "seekerdrones:block/programming_station",
+      "model": "seekerdrones:block/programming_station_working",
       "y": 90
     },
     "facing=north,working=false": {
       "model": "seekerdrones:block/programming_station"
     },
     "facing=north,working=true": {
-      "model": "seekerdrones:block/programming_station"
+      "model": "seekerdrones:block/programming_station_working"
     },
     "facing=south,working=false": {
       "model": "seekerdrones:block/programming_station",
       "y": 180
     },
     "facing=south,working=true": {
-      "model": "seekerdrones:block/programming_station",
+      "model": "seekerdrones:block/programming_station_working",
       "y": 180
     },
     "facing=west,working=false": {
@@ -27,7 +27,7 @@
       "y": 270
     },
     "facing=west,working=true": {
-      "model": "seekerdrones:block/programming_station",
+      "model": "seekerdrones:block/programming_station_working",
       "y": 270
     }
   }

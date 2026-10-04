@@ -1,9 +1,12 @@
 {
-  "parent": "minecraft:block/orientable_with_bottom",
+  "parent": "minecraft:block/cube",
   "textures": {
-    "bottom": "seekerdrones:block/machine_bottom",
-    "front": "seekerdrones:block/programming_station_front",
-    "side": "seekerdrones:block/programming_station_side",
-    "top": "seekerdrones:block/programming_station_top"
+    "down": "seekerdrones:block/machine_bottom",
+    "east": "seekerdrones:block/programming_station_cards",
+    "north": "seekerdrones:block/programming_station_front",
+    "particle": "seekerdrones:block/programming_station_back",
+    "south": "seekerdrones:block/programming_station_back",
+    "up": "seekerdrones:block/programming_station_top",
+    "west": "seekerdrones:block/programming_station_console"
   }
 }

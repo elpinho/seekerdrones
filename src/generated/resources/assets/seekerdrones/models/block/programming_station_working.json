@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "down": "seekerdrones:block/machine_bottom",
+    "east": "seekerdrones:block/programming_station_cards_working",
+    "north": "seekerdrones:block/programming_station_front_working",
+    "particle": "seekerdrones:block/programming_station_back",
+    "south": "seekerdrones:block/programming_station_back_working",
+    "up": "seekerdrones:block/programming_station_top_working",
+    "west": "seekerdrones:block/programming_station_console_working"
+  }
+}
