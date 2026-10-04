@@ -78,6 +78,7 @@ Each milestone ends in something playable or testable. The drone and its AI come
 - Remake the drone's 3D model and textures (same artist), including animations (e.g. rotors, idle and chase states).
 - Sounds, lang, and a basic balance pass on the config defaults.
 - Machine particles are done (DESIGN.md section 7.6). Tell the artist the machines have a `working` block state, so the textures can include lit "on" variants.
+- Give the artist the GUI kit and texture style rules (DESIGN.md section 7.7) and the machine faces (section 7.6). The layouts and faces are final, so only the art changes.
 - **Done when:** the commissioned art is in the game, and **v1.0** is tagged.
 
 ---

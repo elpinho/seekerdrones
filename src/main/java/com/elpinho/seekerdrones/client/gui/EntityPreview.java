@@ -36,7 +36,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.SpawnEggItem;
 
 /**
- * Client-side previews of target entries (IMPROVEMENTS.md, "Machine GUI style pass"). An entity type shows that entity
+ * Client-side previews of target entries (DESIGN.md section 7.7). An entity type shows that entity
  * turning slowly. A tag cycles through its members. A player name shows a player with their tab-list skin (or the
  * default skin for their name). Entities are created with {@link EntityType#create} on first use and cached for as
  * long as this object lives, which is while a screen is open. They are never added to the level. If an entity can't

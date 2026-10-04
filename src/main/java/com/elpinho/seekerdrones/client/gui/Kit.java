@@ -16,7 +16,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * The machine GUI kit (IMPROVEMENTS.md, "Machine GUI style pass"): the shared sprites, colors and drawing helpers.
+ * The machine GUI kit (DESIGN.md section 7.7): the shared sprites, colors and drawing helpers.
  * Every part is a GUI sprite in {@code textures/gui/sprites} whose {@code .mcmeta} sets its scaling, so the art can be
  * repainted without touching the layouts. The placeholder sprites come from {@code scripts/textures/generate_gui_sprites.py}.
  */
