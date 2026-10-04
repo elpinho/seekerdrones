@@ -262,7 +262,7 @@ public final class ConfigCommand {
     /** Lists the stored entries with their 1-based index, marking the ones the fail-safe ignores (section 2.7). */
     private static void listTargets(CommandSourceStack source, DroneData data) {
         List<TargetEntry> targets = data.config().targets();
-        int allowed = DroneStats.allowedTargetCount(data);
+        int allowed = DroneStats.targetSlots();
         boolean playerSeek = DroneStats.hasPlayerSeek(data);
         source.sendSuccess(() -> Component.translatable(KEY + "target.list.header",
                 DroneItem.identity(data), targets.size(), allowed, data.config().followDistance()), false);

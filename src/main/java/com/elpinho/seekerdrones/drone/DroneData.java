@@ -33,7 +33,7 @@ public record DroneData(String droneId, Optional<UUID> groupId, Optional<UUID> o
             Codec.STRING.optionalFieldOf("owner_name", "").forGetter(DroneData::ownerName),
             Codec.INT.fieldOf("energy").forGetter(DroneData::energy),
             Codec.FLOAT.fieldOf("health").forGetter(DroneData::health),
-            Codec.unboundedMap(UpgradeType.CODEC, Codec.INT).optionalFieldOf("upgrades", Map.of()).forGetter(DroneData::upgrades),
+            UpgradeType.COUNTS_CODEC.optionalFieldOf("upgrades", Map.of()).forGetter(DroneData::upgrades),
             DroneConfig.CODEC.fieldOf("config").forGetter(DroneData::config)
     ).apply(instance, DroneData::new));
 

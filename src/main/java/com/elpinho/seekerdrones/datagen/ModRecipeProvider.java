@@ -44,9 +44,7 @@ public class ModRecipeProvider extends RecipeProvider {
             UpgradeType.TRANSMITTER, Items.LIGHTNING_ROD,
             UpgradeType.ENERGY, Items.REDSTONE_BLOCK,
             UpgradeType.HEALTH, Items.GOLDEN_APPLE,
-            UpgradeType.PLAYER_SEEK, Items.ENDER_EYE,
-            UpgradeType.MULTI_TARGET, Items.TARGET,
-            UpgradeType.XRAY, Items.TINTED_GLASS);
+            UpgradeType.PLAYER_SEEK, Items.ENDER_EYE);
 
     static final TagKey<Item> INGOTS_STEEL = TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "ingots/steel"));
     static final TagKey<Item> ALLOYS_ULTIMATE = TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "alloys/ultimate"));

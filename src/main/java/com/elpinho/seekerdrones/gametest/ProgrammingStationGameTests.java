@@ -204,10 +204,10 @@ public class ProgrammingStationGameTests {
         helper.assertTrue(DroneStats.totalUpgrades(full.upgrades()) == ServerConfig.get(ServerConfig.UPGRADES_TOTAL_SLOTS),
                 "Fixture should fill the total slot limit, total=" + DroneStats.totalUpgrades(full.upgrades()));
         station.getItems().setStackInSlot(0, droneStack(full));
-        station.getItems().setStackInSlot(1, new ItemStack(ModItems.upgrade(UpgradeType.MULTI_TARGET).get(), 1));
+        station.getItems().setStackInSlot(1, new ItemStack(ModItems.upgrade(UpgradeType.PLAYER_SEEK).get(), 1));
         station.getEnergyStorage().receiveEnergy(200_000, false);
 
-        station.requestInstall(UpgradeType.MULTI_TARGET);
+        station.requestInstall(UpgradeType.PLAYER_SEEK);
         helper.assertTrue(station.getInstalling() == null, "Install beyond the total slot limit should be refused");
         helper.succeed();
     }
@@ -312,7 +312,7 @@ public class ProgrammingStationGameTests {
         ProgrammingStationBlockEntity station = place(helper);
         station.setMode(ProgrammingMode.TEMPLATE);
         station.setProgramCount(UpgradeType.PATROL, 1);
-        station.setProgramCount(UpgradeType.MULTI_TARGET, 1);
+        station.setProgramCount(UpgradeType.HEALTH, 1);
         DroneConfig config = new DroneConfig(
                 List.of(new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie"), new TargetEntry(TargetEntry.Kind.TAG, "minecraft:raiders")),
                 10, Optional.of(GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(6, 5, 6)))), Optional.of(3),
@@ -322,7 +322,7 @@ public class ProgrammingStationGameTests {
 
         station.getEnergyStorage().receiveEnergy(200_000, false);
         station.getItems().setStackInSlot(1, new ItemStack(ModItems.upgrade(UpgradeType.PATROL).get(), 1));
-        station.getItems().setStackInSlot(2, new ItemStack(ModItems.upgrade(UpgradeType.MULTI_TARGET).get(), 1));
+        station.getItems().setStackInSlot(2, new ItemStack(ModItems.upgrade(UpgradeType.HEALTH).get(), 1));
         IItemHandler automation = station.getAutomationItems();
         ItemStack left = automation.insertItem(0, droneStack(DroneData.createNew()), false);
         helper.assertTrue(left.isEmpty(), "Drone should be inserted");
@@ -332,7 +332,7 @@ public class ProgrammingStationGameTests {
             helper.assertTrue(station.isComplete(), "Station should be complete, drone=" + station.getDrone().orElseThrow());
             DroneData drone = station.getDrone().orElseThrow();
             helper.assertValueEqual(drone.config(), config, "Drone config should equal the template's");
-            helper.assertTrue(drone.upgradeCount(UpgradeType.PATROL) == 1 && drone.upgradeCount(UpgradeType.MULTI_TARGET) == 1,
+            helper.assertTrue(drone.upgradeCount(UpgradeType.PATROL) == 1 && drone.upgradeCount(UpgradeType.HEALTH) == 1,
                     "Drone should have the programmed upgrades, has " + drone.upgrades());
             helper.assertTrue(station.getItems().getStackInSlot(1).isEmpty() && station.getItems().getStackInSlot(2).isEmpty(),
                     "Input upgrades should be consumed");
@@ -462,20 +462,21 @@ public class ProgrammingStationGameTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void setConfigRejectsInvalidSettings(GameTestHelper helper) {
         ProgrammingStationBlockEntity station = place(helper);
-        // Multi-target 1 gives 2 slots; no Player Seek.
-        DroneData drone = DroneData.createNew().withUpgradeCount(UpgradeType.MULTI_TARGET, 1);
+        // drone.targetSlots (default 3) slots; no Player Seek.
+        DroneData drone = DroneData.createNew();
         station.getItems().setStackInSlot(0, droneStack(drone));
         DroneConfig base = drone.config();
         TargetEntry zombie = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie");
         TargetEntry skeleton = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton");
         TargetEntry creeper = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:creeper");
+        TargetEntry spider = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:spider");
 
         expectRejected(helper, station, base.withTargets(List.of(new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:not_a_thing"))),
                 "unknown entity type");
         expectRejected(helper, station, base.withTargets(List.of(zombie, zombie)), "duplicate target");
         expectRejected(helper, station, base.withTargets(List.of(new TargetEntry(TargetEntry.Kind.PLAYER_NAME, "Steve"))),
                 "player name without Player Seek");
-        expectRejected(helper, station, base.withTargets(List.of(zombie, skeleton, creeper)), "target beyond the slots");
+        expectRejected(helper, station, base.withTargets(List.of(zombie, skeleton, creeper, spider)), "target beyond the slots");
         expectRejected(helper, station, base.withFollowDistance(ServerConfig.get(ServerConfig.DRONE_MAX_FOLLOW_DISTANCE) + 1),
                 "follow distance above max");
         expectRejected(helper, station, base.withLabel("x".repeat(ProgramRules.MAX_LABEL_LENGTH + 1)), "label of 33 characters");
@@ -485,7 +486,7 @@ public class ProgrammingStationGameTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void setConfigAcceptsValidSettings(GameTestHelper helper) {
         ProgrammingStationBlockEntity station = place(helper);
-        DroneData drone = DroneData.createNew().withUpgradeCount(UpgradeType.MULTI_TARGET, 1).withUpgradeCount(UpgradeType.PLAYER_SEEK, 1);
+        DroneData drone = DroneData.createNew().withUpgradeCount(UpgradeType.PLAYER_SEEK, 1);
         station.getItems().setStackInSlot(0, droneStack(drone));
         DroneConfig valid = drone.config()
                 .withTargets(List.of(new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie"), new TargetEntry(TargetEntry.Kind.PLAYER_NAME, "Steve")))
@@ -507,7 +508,7 @@ public class ProgrammingStationGameTests {
         station.setConfig(DroneConfig.createDefault().withLabel("Tpl").withColor(DyeColor.PINK));
         DroneData droneData = DroneData.createNew().withUpgradeCount(UpgradeType.HEALTH, 1);
         station.getItems().setStackInSlot(0, droneStack(droneData));
-        station.getItems().setStackInSlot(1, new ItemStack(ModItems.upgrade(UpgradeType.XRAY).get(), 1));
+        station.getItems().setStackInSlot(1, new ItemStack(ModItems.upgrade(UpgradeType.SIREN).get(), 1));
         var template = station.getTemplate();
 
         BlockPos abs = helper.absolutePos(REL);
@@ -522,7 +523,7 @@ public class ProgrammingStationGameTests {
         helper.assertValueEqual(settings.template(), template, "Template should be kept");
         ItemStack droppedDrone = findDropped(helper, center, ModItems.DRONE.get());
         helper.assertTrue(droppedDrone != null && DroneItem.getData(droppedDrone).equals(droneData), "The drone should drop unchanged");
-        helper.assertTrue(findDropped(helper, center, ModItems.upgrade(UpgradeType.XRAY).get()) != null, "The input upgrade should drop");
+        helper.assertTrue(findDropped(helper, center, ModItems.upgrade(UpgradeType.SIREN).get()) != null, "The input upgrade should drop");
 
         // Placing the item again restores mode and template.
         BlockPos other = new BlockPos(8, 3, 8);

@@ -1,8 +1,11 @@
 package com.elpinho.seekerdrones.drone;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.IntFunction;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
+import com.mojang.serialization.Codec;
 
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
@@ -22,13 +25,32 @@ public enum UpgradeType implements StringRepresentable {
     TRANSMITTER("transmitter", ServerConfig.UPGRADES_TRANSMITTER_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_TRANSMITTER),
     ENERGY("energy", ServerConfig.UPGRADES_ENERGY_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_ENERGY),
     HEALTH("health", ServerConfig.UPGRADES_HEALTH_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_HEALTH),
-    PLAYER_SEEK("player_seek", ServerConfig.UPGRADES_PLAYER_SEEK_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK),
-    MULTI_TARGET("multi_target", ServerConfig.UPGRADES_MULTI_TARGET_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_MULTI_TARGET),
-    XRAY("xray", ServerConfig.UPGRADES_XRAY_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_XRAY);
+    PLAYER_SEEK("player_seek", ServerConfig.UPGRADES_PLAYER_SEEK_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK);
 
     public static final StringRepresentable.EnumCodec<UpgradeType> CODEC = StringRepresentable.fromEnum(UpgradeType::values);
     private static final IntFunction<UpgradeType> BY_ID = ByIdMap.continuous(Enum::ordinal, values(), ByIdMap.OutOfBoundsStrategy.ZERO);
     public static final StreamCodec<ByteBuf, UpgradeType> STREAM_CODEC = ByteBufCodecs.idMapper(BY_ID, Enum::ordinal);
+
+    /**
+     * Upgrade counts by type name. Names of removed upgrade types (e.g. {@code xray}, {@code multi_target}) are dropped
+     * on load instead of failing the whole map, so old drones and templates still load.
+     */
+    public static final Codec<Map<UpgradeType, Integer>> COUNTS_CODEC = Codec.unboundedMap(Codec.STRING, Codec.INT).xmap(
+            counts -> {
+                Map<UpgradeType, Integer> known = new HashMap<>();
+                counts.forEach((name, count) -> {
+                    UpgradeType type = CODEC.byName(name);
+                    if (type != null) {
+                        known.put(type, count);
+                    }
+                });
+                return known;
+            },
+            counts -> {
+                Map<String, Integer> named = new HashMap<>();
+                counts.forEach((type, count) -> named.put(type.getSerializedName(), count));
+                return named;
+            });
 
     private final String name;
     private final ModConfigSpec.IntValue maxCount;

@@ -297,6 +297,14 @@ public class DroneEntity extends PathfinderMob {
         return droneData;
     }
 
+    /** The cached target matcher, rebuilt first if the server config changed since (section 2.7 fail-safe). */
+    private TargetMatcher targetMatcher() {
+        if (targetMatcher.isStale()) {
+            targetMatcher = TargetMatcher.of(getDroneData());
+        }
+        return targetMatcher;
+    }
+
     /** Replaces the drone's data, including its current health. */
     public void setDroneData(DroneData data) {
         droneData = data;
@@ -594,25 +602,22 @@ public class DroneEntity extends PathfinderMob {
 
     /**
      * Cheap filtering first, raycasts last (section 3.3): AABB query, target match, sight sphere, then raycasts to
-     * the nearest candidates until one is visible. X-ray skips the raycasts.
+     * the nearest candidates until one is visible.
      */
     private void scanForTarget(DroneData data) {
-        if (targetMatcher.isEmpty()) {
+        TargetMatcher matcher = targetMatcher();
+        if (matcher.isEmpty()) {
             return;
         }
         double range = DroneStats.sightRange(data);
         double rangeSqr = range * range;
         List<Entity> candidates = level().getEntities(this, getBoundingBox().inflate(range),
-                entity -> targetMatcher.matches(this, entity) && distanceToSqr(entity) <= rangeSqr && !isHidden(entity)
+                entity -> matcher.matches(this, entity) && distanceToSqr(entity) <= rangeSqr && !isHidden(entity)
                         && TargetClaims.canClaim(this, entity));
         if (candidates.isEmpty()) {
             return;
         }
         candidates.sort(Comparator.comparingDouble(this::distanceToSqr));
-        if (DroneStats.hasXray(data)) {
-            acquireTarget(candidates.getFirst());
-            return;
-        }
         int raycasts = Math.min(candidates.size(), ServerConfig.get(ServerConfig.DRONE_MAX_RAYCASTS_PER_SCAN));
         for (int i = 0; i < raycasts; i++) {
             Entity candidate = candidates.get(i);
@@ -650,7 +655,7 @@ public class DroneEntity extends PathfinderMob {
     }
 
     /**
-     * Section 3.3: an invisible entity is hidden from every drone, X-ray included, unless it glows, wears armor or
+     * Section 3.3: an invisible entity is hidden from every drone unless it glows, wears armor or
      * holds an item.
      */
     private static boolean isHidden(Entity entity) {
@@ -671,11 +676,11 @@ public class DroneEntity extends PathfinderMob {
     }
 
     /**
-     * Section 3.5. The cheap checks run every tick. Line of sight is re-checked only on the staggered tick. X-ray
-     * drones skip the raycast, but a hidden target (invisibility) counts as out of sight for every drone.
+     * Section 3.5. The cheap checks run every tick. Line of sight is re-checked only on the staggered tick, and a
+     * hidden target (invisibility) counts as out of sight.
      */
     private boolean isTargetLost(DroneData data, boolean staggered) {
-        if (target.isRemoved() || target.level() != level() || !targetMatcher.matches(this, target)) {
+        if (target.isRemoved() || target.level() != level() || !targetMatcher().matches(this, target)) {
             return true;
         }
         double pursuitRange = DroneStats.pursuitRange(data);
@@ -683,7 +688,7 @@ public class DroneEntity extends PathfinderMob {
             return true;
         }
         if (staggered) {
-            if (!isHidden(target) && (DroneStats.hasXray(data) || canSee(target))) {
+            if (!isHidden(target) && canSee(target)) {
                 lostSightSince = -1;
             } else if (lostSightSince < 0) {
                 lostSightSince = tickCount;

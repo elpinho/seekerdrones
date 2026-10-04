@@ -206,8 +206,8 @@ public class TargetClaimGameTests {
     @GameTest(template = "empty", timeoutTicks = 60)
     public static void explosiveDronesAllGoAfterTheSameMobByDefault(GameTestHelper helper) {
         helper.assertTrue(ServerConfig.get(ServerConfig.DRONE_MAX_EXPLOSIVE_DRONES_PER_TARGET) == 0, "Default should be 0 (no limit)");
-        DroneEntity a = spawnDrone(helper, 3, 80, 3, explosiveData());
-        DroneEntity b = spawnDrone(helper, 5, 80, 3, explosiveData());
+        DroneEntity a = spawnDrone(helper, 3, 84, 3, explosiveData());
+        DroneEntity b = spawnDrone(helper, 5, 84, 3, explosiveData());
         Zombie zombie = stationaryZombie(helper, 4, 94, 3);
         AtomicBoolean aHad = new AtomicBoolean();
         AtomicBoolean bHad = new AtomicBoolean();
@@ -231,7 +231,7 @@ public class TargetClaimGameTests {
     @GameTest(template = "empty", timeoutTicks = 60)
     public static void explosiveDroneIgnoresNonExplosiveClaim(GameTestHelper helper) {
         DroneEntity follower = spawnDrone(helper, 4, 212, 3, zombieData());
-        DroneEntity bomb = spawnDrone(helper, 4, 200, 3, explosiveData());
+        DroneEntity bomb = spawnDrone(helper, 4, 204, 3, explosiveData());
         Zombie zombie = stationaryZombie(helper, 4, 214, 3);
         helper.succeedWhen(() -> {
             helper.assertTrue(!follower.isRemoved() && follower.getSeekTarget() == zombie, "Non-Explosive drone should follow the zombie");
@@ -241,7 +241,7 @@ public class TargetClaimGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 60)
     public static void nonExplosiveDroneIgnoresExplosiveClaim(GameTestHelper helper) {
-        DroneEntity bomb = spawnDrone(helper, 4, 240, 3, explosiveData());
+        DroneEntity bomb = spawnDrone(helper, 4, 244, 3, explosiveData());
         DroneEntity follower = spawnDrone(helper, 4, 252, 3, zombieData());
         Zombie zombie = stationaryZombie(helper, 4, 254, 3);
         helper.succeedWhen(() -> {
@@ -432,7 +432,7 @@ public class TargetClaimGameTests {
         int original = ServerConfig.get(ServerConfig.DRONE_MAX_EXPLOSIVE_DRONES_PER_TARGET);
         ServerConfig.DRONE_MAX_EXPLOSIVE_DRONES_PER_TARGET.set(limit);
         try {
-            Zombie zombie = stationaryZombie(helper, 4, band + 14, 3);
+            Zombie zombie = stationaryZombie(helper, 4, band + 10, 3);
             DroneEntity[] drones = new DroneEntity[count];
             for (int i = 0; i < count; i++) {
                 drones[i] = spawnDrone(helper, 2 + i, band, 3, explosiveData());

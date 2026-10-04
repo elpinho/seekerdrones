@@ -5,7 +5,6 @@ import java.util.Map;
 
 import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
-import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -22,7 +21,7 @@ import net.minecraft.network.codec.StreamCodec;
  */
 public record DroneProgram(Map<UpgradeType, Integer> upgrades, DroneConfig config) {
     public static final Codec<DroneProgram> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.unboundedMap(UpgradeType.CODEC, Codec.INT).optionalFieldOf("upgrades", Map.of()).forGetter(DroneProgram::upgrades),
+            UpgradeType.COUNTS_CODEC.optionalFieldOf("upgrades", Map.of()).forGetter(DroneProgram::upgrades),
             DroneConfig.CODEC.fieldOf("config").forGetter(DroneProgram::config)
     ).apply(instance, DroneProgram::new));
 
@@ -66,11 +65,6 @@ public record DroneProgram(Map<UpgradeType, Integer> upgrades, DroneConfig confi
 
     public DroneProgram withConfig(DroneConfig config) {
         return new DroneProgram(upgrades, config);
-    }
-
-    /** Target slots for the programmed Multi-target count (section 2.7). */
-    public int allowedTargetCount() {
-        return DroneStats.allowedTargetCount(upgradeCount(UpgradeType.MULTI_TARGET));
     }
 
     /** Whether the drone's upgrades and settings are exactly the program's. */

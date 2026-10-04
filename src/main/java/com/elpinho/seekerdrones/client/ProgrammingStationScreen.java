@@ -273,7 +273,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     }
 
     private static int targetRows(DroneProgram program) {
-        return Math.max(program.allowedTargetCount(), program.config().targets().size());
+        return Math.max(DroneStats.targetSlots(), program.config().targets().size());
     }
 
     private int maxTileScroll() {
@@ -842,7 +842,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         if (program == null || entry == null) {
             return null;
         }
-        if (index >= program.allowedTargetCount()) {
+        if (index >= DroneStats.targetSlots()) {
             return Component.translatable(KEY + "target.ignored.no_slot");
         }
         if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && program.upgradeCount(UpgradeType.PLAYER_SEEK) <= 0) {
@@ -1362,7 +1362,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
 
     private void renderTargets(GuiGraphics graphics, DroneProgram program, int x, int y) {
         header(graphics, Tab.TARGETS, x, y);
-        Component slots = Component.translatable(KEY + "target.slots", program.config().targets().size(), program.allowedTargetCount());
+        Component slots = Component.translatable(KEY + "target.slots", program.config().targets().size(), DroneStats.targetSlots());
         Kit.smallText(graphics, font, slots, x + EDITOR_WIDTH - 4 - Kit.smallWidth(font, slots), y + HEADER_Y + 1, Kit.DISPLAY_TEXT, false);
         int rows = targetRows(program);
         if (rows > VISIBLE_ROWS) {

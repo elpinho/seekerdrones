@@ -41,23 +41,13 @@ public final class DroneStats {
         return Math.max(sight, pursuit);
     }
 
-    /** How many target entries the drone actually uses (section 2.7 runtime fail-safe). */
-    public static int allowedTargetCount(DroneData data) {
-        return allowedTargetCount(data.upgradeCount(UpgradeType.MULTI_TARGET));
-    }
-
-    /** Target slots for a Multi-target count (section 2.7): {@code 1 + count × perUpgrade}. */
-    public static int allowedTargetCount(int multiTargetCount) {
-        long count = 1L + (long) multiTargetCount * ServerConfig.get(ServerConfig.UPGRADES_MULTI_TARGET_PER_UPGRADE);
-        return (int) Math.min(count, Integer.MAX_VALUE);
+    /** How many target entries a drone has and uses (section 2.7). */
+    public static int targetSlots() {
+        return ServerConfig.get(ServerConfig.DRONE_TARGET_SLOTS);
     }
 
     public static boolean hasPlayerSeek(DroneData data) {
         return data.upgradeCount(UpgradeType.PLAYER_SEEK) > 0;
-    }
-
-    public static boolean hasXray(DroneData data) {
-        return data.upgradeCount(UpgradeType.XRAY) > 0;
     }
 
     /** Upgrade slots used, across all types. */

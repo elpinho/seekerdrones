@@ -48,7 +48,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public class SeekingGameTests {
 
-    // --- 1. Detection: line of sight required, X-ray bypasses it (DESIGN.md 3.3) ---
+    // --- 1. Detection: line of sight required, always required (DESIGN.md 3.3) ---
 
     @GameTest(template = "empty", timeoutTicks = 40)
     public static void detectsZombieInSightWithLineOfSight(GameTestHelper helper) {
@@ -65,7 +65,7 @@ public class SeekingGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)
-    public static void ignoresZombieFullyEnclosedWithoutXray(GameTestHelper helper) {
+    public static void ignoresZombieFullyEnclosedByBlocks(GameTestHelper helper) {
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
         Zombie zombie = spawnStationaryZombie(helper, 4, 1, 7);
         sealBox(helper, 4, 1, 7);
@@ -73,21 +73,31 @@ public class SeekingGameTests {
 
         helper.runAfterDelay(30, () -> {
             helper.assertTrue(drone.getSeekTarget() == null,
-                    "Drone without X-ray should never spot a fully walled-off zombie, target=" + drone.getSeekTarget());
+                    "Drone should never spot a fully walled-off zombie, target=" + drone.getSeekTarget());
             helper.assertTrue(drone.getState() == DroneState.IDLE, "Drone should stay IDLE, state=" + drone.getState());
             helper.succeed();
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 40)
-    public static void xrayDetectsZombieThroughEnclosure(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 220)
+    public static void chasingDroneLosesTargetThatStaysOutOfLineOfSightPastLostSightTimeout(GameTestHelper helper) {
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
         Zombie zombie = spawnStationaryZombie(helper, 4, 1, 7);
-        sealBox(helper, 4, 1, 7);
-        drone.setDroneData(dataWithUpgrades(droneTargetingZombieEntity(), Map.of(UpgradeType.XRAY, 1)));
+        drone.setDroneData(droneTargetingZombieEntity());
 
-        helper.succeedWhen(() -> helper.assertTrue(drone.getSeekTarget() == zombie,
-                "X-ray drone should detect the zombie through the walls, target=" + drone.getSeekTarget()));
+        helper.runAfterDelay(30, () -> {
+            helper.assertTrue(drone.getSeekTarget() == zombie, "Sanity: drone should have acquired the visible zombie, target=" + drone.getSeekTarget());
+            sealBox(helper, 4, 1, 7);
+
+            int timeout = ServerConfig.get(ServerConfig.DRONE_LOST_SIGHT_TIMEOUT);
+            int scanInterval = ServerConfig.get(ServerConfig.DRONE_SCAN_INTERVAL);
+            helper.runAfterDelay(timeout + scanInterval * 4, () -> {
+                helper.assertTrue(drone.getSeekTarget() == null,
+                        "Drone should lose a target that stayed out of line of sight past the lost-sight timeout, target=" + drone.getSeekTarget());
+                helper.assertTrue(drone.getState() == DroneState.IDLE, "Drone should be IDLE, state=" + drone.getState());
+                helper.succeed();
+            });
+        });
     }
 
     // --- 2. Nearest-first and sticky targeting (DESIGN.md 3.3) ---
@@ -141,17 +151,16 @@ public class SeekingGameTests {
     // --- 4. Runtime fail-safe: target slots and Player Seek (DESIGN.md 2.7) ---
 
     @GameTest(template = "empty", timeoutTicks = 5)
-    public static void activeEntriesRespectsMultiTargetFailSafeCount(GameTestHelper helper) {
+    public static void activeEntriesUsesOnlyFirstThreeTargetSlotsByDefault(GameTestHelper helper) {
         TargetEntry skeleton = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton");
+        TargetEntry creeper = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:creeper");
+        TargetEntry spider = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:spider");
         TargetEntry zombie = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie");
         DroneData base = DroneData.createNew();
-        DroneData noUpgrade = base.withConfig(base.config().withTargets(List.of(skeleton, zombie)));
-        helper.assertValueEqual(TargetMatcher.activeEntries(noUpgrade), List.of(skeleton),
-                "active entries with no Multi-target upgrade (base drone only has 1 target slot)");
-
-        DroneData withUpgrade = dataWithUpgrades(noUpgrade, Map.of(UpgradeType.MULTI_TARGET, 1));
-        helper.assertValueEqual(TargetMatcher.activeEntries(withUpgrade), List.of(skeleton, zombie),
-                "active entries with 1 Multi-target upgrade (2 target slots)");
+        helper.assertValueEqual(ServerConfig.get(ServerConfig.DRONE_TARGET_SLOTS), 3, "default drone.targetSlots");
+        DroneData data = base.withConfig(base.config().withTargets(List.of(skeleton, creeper, spider, zombie)));
+        helper.assertValueEqual(TargetMatcher.activeEntries(data), List.of(skeleton, creeper, spider),
+                "active entries with 4 stored entries and 3 target slots");
         helper.succeed();
     }
 
@@ -170,26 +179,90 @@ public class SeekingGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 90)
-    public static void multiTargetUpgradeEnablesIgnoredSecondTargetSlot(GameTestHelper helper) {
+    public static void fourthTargetEntryIsIgnoredWithDefaultTargetSlots(GameTestHelper helper) {
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
+        spawnStationaryZombie(helper, 4, 1, 7);
+        List<TargetEntry> targets = List.of(
+                new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton"),
+                new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:creeper"),
+                new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:spider"),
+                new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie"));
+        DroneData base = DroneData.createNew();
+        drone.setDroneData(base.withConfig(base.config().withTargets(targets)));
+
+        helper.runAfterDelay(40, () -> {
+            helper.assertTrue(drone.getSeekTarget() == null,
+                    "The 4th target entry (zombie) is beyond the 3 target slots and should be ignored, target=" + drone.getSeekTarget());
+            helper.assertTrue(drone.getState() == DroneState.IDLE, "Drone should stay IDLE, state=" + drone.getState());
+            helper.succeed();
+        });
+    }
+
+    // Own batch: it changes a global config value.
+    @GameTest(template = "empty", timeoutTicks = 90, batch = "config_target_slots")
+    public static void loweringTargetSlotsToOneIgnoresSecondEntryAndRaisingItRestoresIt(GameTestHelper helper) {
+        int original = ServerConfig.get(ServerConfig.DRONE_TARGET_SLOTS);
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
         Zombie zombie = spawnStationaryZombie(helper, 4, 1, 7);
         List<TargetEntry> targets = List.of(
                 new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton"),
                 new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie"));
         DroneData base = DroneData.createNew();
-        DroneData noMultiTarget = base.withConfig(base.config().withTargets(targets));
-        drone.setDroneData(noMultiTarget);
+        DroneData data = base.withConfig(base.config().withTargets(targets));
+        ServerConfig.DRONE_TARGET_SLOTS.set(1);
+        drone.setDroneData(data);
 
         helper.runAfterDelay(30, () -> {
-            helper.assertTrue(drone.getSeekTarget() == null,
-                    "Without Multi-target, the drone should ignore the 2nd target entry (zombie) and stay idle, target=" + drone.getSeekTarget());
-            helper.assertTrue(drone.getState() == DroneState.IDLE, "Drone should stay IDLE, state=" + drone.getState());
-
-            drone.setDroneData(dataWithUpgrades(noMultiTarget, Map.of(UpgradeType.MULTI_TARGET, 1)));
-
+            try {
+                helper.assertValueEqual(TargetMatcher.activeEntries(data), List.of(targets.get(0)), "active entries with 1 target slot");
+                helper.assertTrue(drone.getSeekTarget() == null,
+                        "With targetSlots=1 the 2nd entry (zombie) should be ignored, target=" + drone.getSeekTarget());
+                // Setting the value doesn't fire ModConfigEvent, so simulate the reload; no data re-apply.
+                ServerConfig.DRONE_TARGET_SLOTS.set(2);
+                TargetMatcher.invalidateAll();
+            } catch (RuntimeException e) {
+                ServerConfig.DRONE_TARGET_SLOTS.set(original);
+                throw e;
+            }
             helper.runAfterDelay(30, () -> {
+                ServerConfig.DRONE_TARGET_SLOTS.set(original);
                 helper.assertTrue(drone.getSeekTarget() == zombie,
-                        "With 1 Multi-target upgrade, the drone should now use the 2nd target entry and detect the zombie, target=" + drone.getSeekTarget());
+                        "With targetSlots=2 the drone should use the 2nd entry and detect the zombie, target=" + drone.getSeekTarget());
+                helper.succeed();
+            });
+        });
+    }
+
+    // Own batch: it changes a global config value.
+    @GameTest(template = "empty", timeoutTicks = 120, batch = "config_target_slots_inflight")
+    public static void loweringTargetSlotsMakesChasingDroneDropSecondEntryTarget(GameTestHelper helper) {
+        int original = ServerConfig.get(ServerConfig.DRONE_TARGET_SLOTS);
+        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
+        Zombie zombie = spawnStationaryZombie(helper, 4, 1, 7);
+        List<TargetEntry> targets = List.of(
+                new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton"),
+                new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie"));
+        DroneData base = DroneData.createNew();
+        ServerConfig.DRONE_TARGET_SLOTS.set(2);
+        drone.setDroneData(base.withConfig(base.config().withTargets(targets)));
+
+        helper.runAfterDelay(25, () -> {
+            try {
+                helper.assertTrue(drone.getSeekTarget() == zombie,
+                        "Sanity: with targetSlots=2 the drone should be chasing the zombie, target=" + drone.getSeekTarget());
+                ServerConfig.DRONE_TARGET_SLOTS.set(1);
+                TargetMatcher.invalidateAll();
+            } catch (RuntimeException e) {
+                ServerConfig.DRONE_TARGET_SLOTS.set(original);
+                TargetMatcher.invalidateAll();
+                throw e;
+            }
+            helper.runAfterDelay(30, () -> {
+                ServerConfig.DRONE_TARGET_SLOTS.set(original);
+                TargetMatcher.invalidateAll();
+                helper.assertTrue(drone.getSeekTarget() == null,
+                        "After lowering targetSlots to 1 the drone should drop the 2nd-entry target, target=" + drone.getSeekTarget());
+                helper.assertTrue(drone.getState() == DroneState.IDLE, "Drone should be IDLE, state=" + drone.getState());
                 helper.succeed();
             });
         });

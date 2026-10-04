@@ -24,7 +24,7 @@ public class UpgradeItem extends Item {
         return type;
     }
 
-    /** The registry path of the item for this upgrade type, e.g. {@code multi_target_upgrade}. */
+    /** The registry path of the item for this upgrade type, e.g. {@code player_seek_upgrade}. */
     public static String itemName(UpgradeType type) {
         return type.getSerializedName() + "_upgrade";
     }

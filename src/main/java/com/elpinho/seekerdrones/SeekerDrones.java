@@ -7,6 +7,7 @@ import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
 import com.elpinho.seekerdrones.drone.TargetBlacklist;
 import com.elpinho.seekerdrones.drone.TargetClaims;
+import com.elpinho.seekerdrones.drone.TargetMatcher;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.gametest.GameTestSelection;
 import com.elpinho.seekerdrones.network.EnergyUnitPayload;
@@ -93,6 +94,7 @@ public class SeekerDrones {
     private static void onConfigChanged(ModConfigEvent event) {
         if (event.getConfig().getSpec() == ServerConfig.SPEC) {
             TargetBlacklist.invalidate();
+            TargetMatcher.invalidateAll();
         }
     }
 }

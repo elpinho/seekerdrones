@@ -138,8 +138,8 @@ public class UpgradeGameTests {
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
         DroneData before = drone.snapshotData();
 
-        // X-ray has a per-type cap of 1 by default.
-        runCommand(helper, "seekerdrones upgrade set xray 2 " + SELECTOR);
+        // Transmitter has a per-type cap of 1 by default.
+        runCommand(helper, "seekerdrones upgrade set transmitter 2 " + SELECTOR);
 
         helper.runAfterDelay(3, () -> {
             assertDroneDataUnchangedExceptHoverDrain(helper, before, drone.snapshotData(),

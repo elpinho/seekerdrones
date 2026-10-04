@@ -81,9 +81,8 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 ### 2.7 Target slots
 
-- A base drone can have **1** target entry. Each **Multi-target upgrade** adds more slots: `allowedTargets = 1 + multiTargetCount × perUpgrade`, where `perUpgrade` defaults to 1.
-- In the Programming Station, the target list the player can edit is sized by the **programmed** Multi-target count, not the count currently installed on the drone. This lets a player configure a drone before it is fully upgraded.
-- **Runtime fail-safe:** a flying drone only uses the first `allowedTargets` entries, based on the Multi-target upgrades it **actually** has. It also ignores player-name entries unless it has Player Seek. Entries beyond that are kept in the data but ignored.
+- Every drone has the same number of target slots: `drone.targetSlots` (default 3). No upgrade changes it.
+- **Runtime fail-safe:** a flying drone only uses the first `targetSlots` entries (this matters when the config is lowered). It also ignores player-name entries unless it has Player Seek. Entries beyond that are kept in the data but ignored. A config change applies to drones already in flight right away; they don't need to be reloaded.
 
 ### 2.8 Drone ID
 
@@ -147,11 +146,11 @@ The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius =
 
 - **Sight range** is how far away a drone can first spot a target. It is low by default and increased by **Sight upgrades**.
 - A valid target matches one of the drone's **allowed** target entries (section 2.7). Players can only be targeted with the **Player Seek upgrade** (section 4). **The drone's operators (its group, or its owner if it has no group, section 6.3) are never targeted.** Spectators and creative-mode players are ignored.
-- **Invisibility:** an entity that is invisible (e.g. the Invisibility effect) is **hidden** from every drone, including X-ray drones. It is still spotted if it is glowing (Glowing effect or glowing tag), wears any armor piece or holds an item in either hand. This can be turned off with `drone.invisibilityHides`. The check is part of the cheap filtering step, before any raycast.
+- **Invisibility:** an entity that is invisible (e.g. the Invisibility effect) is **hidden** from every drone. It is still spotted if it is glowing (Glowing effect or glowing tag), wears any armor piece or holds an item in either hand. This can be turned off with `drone.invisibilityHides`. The check is part of the cheap filtering step, before any raycast.
 - **Target blacklist:** `drone.targetBlacklist` lists entity type IDs and entity tags (`#namespace:path`) that drones **never** target, even if they match an entry, so servers and modpacks can protect entities such as villagers or bosses. It only takes entity types and tags, not player names (blacklisting `minecraft:player` protects every player). The list is resolved into one set of entity types when first needed and again after the config or the tags reload, so the check is a single lookup in the cheap filtering step.
   - New blacklisted entries are refused by the Programming Station (section 7.2) and the debug command: a blacklisted entity type, a blacklisted tag, or a tag whose entity types are all blacklisted.
   - Entries a drone already has are **kept but ignored**, like the runtime fail-safe (section 2.7), and are shown as ignored. Removing them from the blacklist makes them work again.
-- **Line of sight is required** unless the drone has the **X-ray upgrade**. Without X-ray, the drone must have a clear ray to the target's eyes (block collision raycast). A drone with X-ray skips the raycast entirely and detects targets through walls within its sight range.
+- **Line of sight is always required:** the drone must have a clear ray to the target's eyes (block collision raycast). Drones never detect targets through walls.
 - If several valid targets are visible, the drone picks the **nearest**.
 - Targets are **sticky**: while chasing or following, the drone doesn't scan for other targets and never switches to a nearer one. It keeps its target until it loses it (section 3.5).
 - **Shared target claims:** drones on the same team don't pile onto the same entity. A drone's team is its Operator Group, or its owner if it has no group (section 6.3). All unowned drones form one team. Claims from other teams are ignored, so another team's drones can never block yours.
@@ -171,7 +170,7 @@ The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius =
   2. Filter by target match, then by squared distance to the drone's sight *sphere*.
   3. Sort by distance and raycast **nearest-first**, stopping at the first visible candidate.
   4. Cap the raycasts per scan (default 4).
-- While chasing or following, the drone re-checks line of sight at the same staggered interval, not every tick. X-ray drones skip this check.
+- While chasing or following, the drone re-checks line of sight at the same staggered interval, not every tick.
 
 ### 3.4 Chase speed and flight
 
@@ -195,7 +194,7 @@ The number of Patrol upgrades sets the **max patrol radius**: `maxPatrolRadius =
 The drone loses its target when any of these happen:
 - The target dies, despawns or changes dimension.
 - The target moves beyond the **pursuit range** (`sightRange × pursuitMultiplier`, default 1.5×), capped at `maxPursuitRange` (default 128 blocks). The cap never lowers the pursuit range below the sight range.
-- Line of sight is lost continuously for longer than the **lost-sight timeout** (default 5 s). X-ray drones never lose line of sight through walls. A target that becomes hidden by invisibility (section 3.3) counts as out of sight for every drone, X-ray included, so the same timeout applies. If it becomes visible again in time, the chase goes on.
+- Line of sight is lost continuously for longer than the **lost-sight timeout** (default 5 s). A target that becomes hidden by invisibility (section 3.3) counts as out of sight too, so the same timeout applies. If it becomes visible again in time, the chase goes on.
 
 After losing the target, a drone with a Patrol upgrade goes back to patrolling. A drone without one stops and hovers where it is.
 
@@ -215,23 +214,22 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 | Upgrade | Stacks | Default cap | Effect | Per-upgrade config (set in Programming Station) |
 |---|---|---|---|---|
 | **Patrol** | Yes | 4 | Enables patrolling. Each extra upgrade increases the max patrol radius. | Patrol center (x, y, z; its y is the patrol height) and patrol radius (capped by the upgrade count) (section 3.2) |
-| **Sight** | Yes | 8 | Increases sight (detection) range. | — |
+| **Sight** | Yes | 6 | Increases sight (detection) range. | — |
 | **Explosive** | Yes | 4 | The drone explodes on reaching its target and is consumed. Explosion power scales with the count. | — |
 | **Siren** | Yes | 3 | Plays a siren sound when a target is spotted. More upgrades increase the audible radius (sound volume > 1.0). | — |
 | **Transmitter** | No | 1 | Sends a chat message to **all online operators** of the drone (its group, or its owner if it has no group) when a target is spotted, including the drone ID, label, target type and coordinates. The message is rate-limited per drone. | — |
 | **Energy** | Yes | 4 | Increases max energy (FE). | — |
 | **Health** | Yes | 4 | Increases max HP. | — |
 | **Player Seek** | No | 1 | Allows player names as target entries. Player-name entries use target slots like any other entry. The drone's operators (section 6.3) are still exempt. | — (names go in the Targets list) |
-| **Multi-target** | Yes | 3 | Each upgrade adds target slots (section 2.7). | — |
-| **X-ray** | No | 1 | Detection and tracking ignore line of sight, so targets are found through walls (section 3.3). It does not reveal invisible entities. | — |
 
-- The default **total slot limit** is 24.
+- The default **total slot limit** is 20.
 - The caps are enforced when upgrades are installed (Programming Station, debug command). A flying drone uses its installed counts as they are, even if the config was lowered afterwards.
 - **Energy and Health upgrades arrive full:** installing one also adds the extra capacity to the drone's current energy / HP. Removing one lowers the max, and anything above the new max is lost.
 - The Siren fires once per target acquisition and repeats every N seconds (configurable) while the target is being chased or followed. Its volume is `baseVolume + perUpgrade × (count − 1)`, and vanilla hears a sound of volume `v > 1` from `16 × v` blocks. Placeholder sound: the vanilla raid horn, until a custom sound exists.
 - The Transmitter fires on target acquisition only (not while following). The message gives the drone's label and ID, the target's name (the player name for players, otherwise the entity type's name) and the target's block coordinates. After a message, that drone sends no other message for `upgrades.transmitter.cooldown` ticks. The cooldown isn't saved. It goes to the drone's online operators (section 6.3): the group's, or the owner if the drone has no group. An unowned drone or one with an unknown group notifies nobody.
 - Transmitter messages sent while operators are offline are **not** queued in v1.
-- **Upgrade items:** one item per type, `seekerdrones:<type>_upgrade` (e.g. `seekerdrones:multi_target_upgrade`), with placeholder recipes until the final ones (section 11).
+- **Upgrade items:** one item per type, `seekerdrones:<type>_upgrade` (e.g. `seekerdrones:player_seek_upgrade`), with placeholder recipes until the final ones (section 11).
+- **Removed upgrades:** the X-ray and Multi-target upgrades were removed (line of sight is always required, and target slots are a config value). Saved drones and templates that still list them load with those entries dropped, without a refund.
 
 ---
 
@@ -357,7 +355,7 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
   - Switching modes cancels a running install step and **never changes the drone in the slot**. The template only applies to drones inserted while Template mode is active: a drone that was already in the slot is left alone (the GUI says so) until it is taken out and inserted again. The template is kept while in Direct mode.
 - **Program** (the template in Template mode, the drone's own values in Direct mode):
   - the count for each upgrade type,
-  - **Targets:** the target list (section 2.6). The editor shows one row per slot, sized by the programmed Multi-target count (section 2.7). Each row has a kind button (entity type / tag / player name) and a text field. Unknown entity types and tags, blacklisted entries (section 3.3) and duplicates are rejected. Player-name entries need Player Seek in the program. Clearing a row's text removes the entry. Stored entries beyond the slots, player names without Player Seek (e.g. after removing an upgrade) or blacklisted entries are shown as ignored and can only be removed.
+  - **Targets:** the target list (section 2.6). The editor shows one row per target slot (section 2.7). Each row has a kind button (entity type / tag / player name) and a text field. Unknown entity types and tags, blacklisted entries (section 3.3) and duplicates are rejected. Player-name entries need Player Seek in the program. Clearing a row's text removes the entry. Stored entries beyond the slots, player names without Player Seek (e.g. after removing an upgrade) or blacklisted entries are shown as ignored and can only be removed.
     - **Auto-complete:** while typing in a row, a dropdown under the text box suggests matching entries of the row's kind, 6 at a time (scrollable). The sources are all client-side: the entity type registry (including modded types, shown with their display name, e.g. `minecraft:zombie (Zombie)`), the entity type tags synced by the server, and the online players from the tab list (offline names can still be typed). Matching is case-insensitive and word-based, like vanilla command suggestions: text without a namespace matches the start of any word of the ID's path in any namespace (`zomb` → `minecraft:zombie`, `minecraft:zombie_villager`, `mymod:zombie_knight`), or the namespace. Entries whose start matches come first, then alphabetical. Blacklisted entries (section 3.3) and entries already in another row aren't suggested. Up/Down move the selection, Tab or a click accepts it (and commits the row), Enter accepts it only after moving with the arrows (otherwise it commits the typed text), and Escape hides the dropdown until the text changes.
   - **Follow distance:** 1 to `drone.maxFollowDistance` blocks.
   - **Patrol center** (x, y, z, in the station's dimension; optional, with a **Here** button for the block above the station and a **Clear** button) and **patrol radius** (optional; the max for the programmed Patrol count is shown). Only shown with Patrol in the program.
@@ -562,12 +560,13 @@ All values below are placeholders.
 | `drone.chargingAlternateRadius` | 10 blocks | Alternate free station search |
 | `drone.unreachableStationCooldown` | 1200 ticks | How long an unreachable station is skipped (section 5.2) |
 | `drone.baseMaxHealth` | 20 | |
-| `drone.baseSightRange` | 16 blocks | |
+| `drone.baseSightRange` | 12 blocks | With 6 Sight upgrades: 60 blocks |
 | `drone.pursuitMultiplier` | 1.5 | |
 | `drone.maxPursuitRange` | 128 blocks | Cap on the pursuit range, never below the sight range (section 3.5) |
 | `drone.lostSightTimeout` | 100 ticks | |
 | `drone.scanInterval` | 10 ticks | |
 | `drone.maxRaycastsPerScan` | 4 | |
+| `drone.targetSlots` | 3 | Target entries per drone (section 2.7) |
 | `drone.invisibilityHides` | true | Invisible entities are hidden from drones unless they glow, wear armor or hold an item (section 3.3) |
 | `drone.targetBlacklist` | empty | Entity type IDs and `#tags` drones never target (section 3.3) |
 | `drone.maxExplosiveDronesPerTarget` | 0 | Max Explosive drones of one team going after the same entity; 0 = no limit (shared target claims, section 3.3) |
@@ -593,7 +592,7 @@ All values below are placeholders.
 | `drone.deployRestSpeed` | 0.01 blocks/tick | Below this speed the drone comes to rest |
 | `drone.waterDamage` | 1 HP | |
 | `drone.waterDamageInterval` | 20 ticks | |
-| `upgrades.totalSlots` | 24 | |
+| `upgrades.totalSlots` | 20 | |
 | `upgrades.<type>.maxCount` | see section 4 | |
 | `upgrades.patrol.baseRadius` / `perUpgrade` | 16 / 16 blocks | |
 | `upgrades.patrol.speed` | 0.25 blocks/tick | Patrol flight speed |
@@ -606,7 +605,6 @@ All values below are placeholders.
 | `upgrades.transmitter.cooldown` | 200 ticks | |
 | `upgrades.energy.perUpgrade` | 100 000 FE | |
 | `upgrades.health.perUpgrade` | 10 | |
-| `upgrades.multiTarget.perUpgrade` | 1 | Extra target slots per upgrade |
 | `programmingStation.baseCost.<type>` | 10 000 FE | Multiplied by index `n` |
 | `programmingStation.energyCapacity` | 200 000 FE | FE the station can store |
 | `programmingStation.installTime` | 20 ticks | Duration of one install step |

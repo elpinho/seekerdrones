@@ -104,7 +104,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.programming_station.target.unknown.entity_type", "Unknown entity type: %s");
         add("screen.seekerdrones.programming_station.target.unknown.tag", "Unknown entity tag: %s");
         add("screen.seekerdrones.programming_station.target.unknown.player_name", "Invalid player name: %s");
-        add("screen.seekerdrones.programming_station.target.no_slot", "No free target slot (needs more Multi-target)");
+        add("screen.seekerdrones.programming_station.target.no_slot", "No free target slot");
         add("screen.seekerdrones.programming_station.target.needs_player_seek", "Player targets need Player Seek");
         add("screen.seekerdrones.programming_station.target.ignored.no_slot", "Ignored: no free target slot");
         add("screen.seekerdrones.programming_station.target.ignored.player_seek", "Ignored: needs Player Seek");
@@ -160,8 +160,6 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.ENERGY.getTranslationKey(), "Energy");
         add(UpgradeType.HEALTH.getTranslationKey(), "Health");
         add(UpgradeType.PLAYER_SEEK.getTranslationKey(), "Player Seek");
-        add(UpgradeType.MULTI_TARGET.getTranslationKey(), "Multi-target");
-        add(UpgradeType.XRAY.getTranslationKey(), "X-ray");
 
         addItem(ModItems.upgrade(UpgradeType.PATROL), "Patrol Upgrade");
         addItem(ModItems.upgrade(UpgradeType.SIGHT), "Sight Upgrade");
@@ -171,8 +169,6 @@ public class ModLanguageProvider extends LanguageProvider {
         addItem(ModItems.upgrade(UpgradeType.ENERGY), "Energy Upgrade");
         addItem(ModItems.upgrade(UpgradeType.HEALTH), "Health Upgrade");
         addItem(ModItems.upgrade(UpgradeType.PLAYER_SEEK), "Player Seek Upgrade");
-        addItem(ModItems.upgrade(UpgradeType.MULTI_TARGET), "Multi-target Upgrade");
-        addItem(ModItems.upgrade(UpgradeType.XRAY), "X-ray Upgrade");
 
         add(UpgradeType.PATROL.getTranslationKey() + ".description", "Patrols in a circle around its patrol center.");
         add(UpgradeType.SIGHT.getTranslationKey() + ".description", "Increases the range at which targets are spotted.");
@@ -182,8 +178,6 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.ENERGY.getTranslationKey() + ".description", "Increases max energy.");
         add(UpgradeType.HEALTH.getTranslationKey() + ".description", "Increases max health.");
         add(UpgradeType.PLAYER_SEEK.getTranslationKey() + ".description", "Allows setting players as targets.");
-        add(UpgradeType.MULTI_TARGET.getTranslationKey() + ".description", "Allows setting more targets.");
-        add(UpgradeType.XRAY.getTranslationKey() + ".description", "Spots and tracks targets through walls.");
         add("tooltip.seekerdrones.upgrade.max_count", "Max per drone: %s");
 
         add("subtitles.seekerdrones.drone_siren", "Drone siren blares");

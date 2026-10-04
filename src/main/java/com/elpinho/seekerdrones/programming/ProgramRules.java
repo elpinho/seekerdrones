@@ -75,7 +75,7 @@ public final class ProgramRules {
         if (TargetBlacklist.blocks(entry)) {
             return KEY + "blacklisted";
         }
-        if (index >= DroneStats.allowedTargetCount(upgrades.getOrDefault(UpgradeType.MULTI_TARGET, 0))) {
+        if (index >= DroneStats.targetSlots()) {
             return KEY + "no_slot";
         }
         if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && upgrades.getOrDefault(UpgradeType.PLAYER_SEEK, 0) <= 0) {

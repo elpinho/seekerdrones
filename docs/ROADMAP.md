@@ -31,14 +31,14 @@ Each milestone ends in something playable or testable. The drone and its AI come
 ### M3 — Seeking AI
 - Targets (entity types, tags and player names) and the allowed-target fail-safe.
 - Staggered detection with line of sight.
-- The detection effects of the Sight, X-ray, Player Seek and Multi-target upgrades, read from the drone's upgrade counts. The fail-safe needs these counts, so they come in with the AI. Their items come in M4.
+- The detection effects of the Sight and Player Seek upgrades, read from the drone's upgrade counts. The fail-safe needs these counts, so they come in with the AI. Their items come in M4.
 - Chase speed curve, following at a set distance, losing the target, idle hover.
 - A debug command (`/seekerdrones config`, permission level 2) to set targets and follow distance on a held drone or on drone entities. It stays after the Programming Station exists (M7) as an admin/testing tool.
 - **Done when:** a hand-deployed drone finds a zombie and follows it, and dozens of drones don't noticeably hurt TPS (profiled).
 
 ### M4 — Upgrades
-- All upgrade items (placeholder recipes): Patrol, Sight, Explosive, Siren, Transmitter, Energy, Health, Player Seek, Multi-target, X-ray.
-- The remaining upgrade effects: Patrol, Explosive, Siren and Transmitter. Sight, X-ray, Player Seek and Multi-target already work from M3.
+- All upgrade items (placeholder recipes): Patrol, Sight, Explosive, Siren, Transmitter, Energy, Health, Player Seek. (Multi-target and X-ray existed until they were removed, DESIGN.md section 4.)
+- The remaining upgrade effects: Patrol, Explosive, Siren and Transmitter. Sight and Player Seek already work from M3.
 - Total slot limit and per-type caps.
 - A debug command (`/seekerdrones upgrade`, permission level 2) to install and remove upgrades on a held drone or on drone entities, respecting the caps. It stays after the Programming Station exists (M7) as an admin/testing tool.
 - **Done when:** every upgrade's effect can be tested in game.
@@ -60,7 +60,7 @@ Each milestone ends in something playable or testable. The drone and its AI come
 - **Done when:** a Factory builds drones in survival and operator list changes apply to existing drones.
 
 ### M7 — Drone Programming Station
-- Program editing: upgrade counts, targets (sized by Multi-target), patrol center, follow distance, label and color.
+- Program editing: upgrade counts, targets (one row per target slot), patrol center, follow distance, label and color.
 - Upgrades installed one step at a time with FE costs, including the Energy upgrade's extra fill.
 - Direct mode (edit the drone in the slot by hand) and Template mode (bring every inserted drone to a stored program).
 - Manual upgrade removal, refunded into the player's inventory.

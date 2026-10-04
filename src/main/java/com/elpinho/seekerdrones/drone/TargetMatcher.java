@@ -25,12 +25,16 @@ import net.minecraft.world.entity.player.Player;
 
 /**
  * A drone's target entries resolved for fast matching (DESIGN.md sections 2.6, 2.7 and 3.3). Built once from the
- * drone's data and cached on the entity; rebuild it whenever the data changes.
+ * drone's data and cached on the entity; rebuild it whenever the data changes or {@link #isStale} says the server
+ * config changed since it was built.
  */
 public final class TargetMatcher {
     private static final Logger LOGGER = LogUtils.getLogger();
     /** Entries already warned about, so a bad entry shared by many drones is only logged once. */
     private static final Set<String> LOGGED_INVALID = ConcurrentHashMap.newKeySet();
+
+    /** Bumped when the server config changes, so cached matchers pick up a new {@code drone.targetSlots}. */
+    private static volatile int configGeneration;
 
     public static final TargetMatcher EMPTY = new TargetMatcher(null, false, Set.of(), Set.of(), Set.of());
 
@@ -42,6 +46,7 @@ public final class TargetMatcher {
     private final Set<TagKey<EntityType<?>>> tags;
     /** Lowercased player names. */
     private final Set<String> playerNames;
+    private final int generation = configGeneration;
 
     private TargetMatcher(@Nullable DroneData data, boolean playerSeek, Set<EntityType<?>> types, Set<TagKey<EntityType<?>>> tags, Set<String> playerNames) {
         this.data = data;
@@ -49,6 +54,16 @@ public final class TargetMatcher {
         this.types = types;
         this.tags = tags;
         this.playerNames = playerNames;
+    }
+
+    /** Marks every cached matcher stale. Called when the server config changes. */
+    public static void invalidateAll() {
+        configGeneration++;
+    }
+
+    /** Whether the server config changed since this matcher was built. */
+    public boolean isStale() {
+        return generation != configGeneration;
     }
 
     public static TargetMatcher of(DroneData data) {
@@ -74,18 +89,19 @@ public final class TargetMatcher {
             }
         }
         if (types.isEmpty() && tags.isEmpty() && playerNames.isEmpty()) {
-            return EMPTY;
+            // A fresh instance rather than EMPTY, so it carries the current config generation.
+            return new TargetMatcher(null, false, Set.of(), Set.of(), Set.of());
         }
         return new TargetMatcher(data, DroneStats.hasPlayerSeek(data), Set.copyOf(types), Set.copyOf(tags), Set.copyOf(playerNames));
     }
 
     /**
-     * The entries a flying drone actually uses (section 2.7 fail-safe): the first {@code allowedTargets} entries,
+     * The entries a flying drone actually uses (section 2.7 fail-safe): the first {@code targetSlots} entries,
      * minus player names without Player Seek.
      */
     public static List<TargetEntry> activeEntries(DroneData data) {
         List<TargetEntry> targets = data.config().targets();
-        List<TargetEntry> active = new ArrayList<>(targets.subList(0, Math.min(targets.size(), DroneStats.allowedTargetCount(data))));
+        List<TargetEntry> active = new ArrayList<>(targets.subList(0, Math.min(targets.size(), DroneStats.targetSlots())));
         if (!DroneStats.hasPlayerSeek(data)) {
             active.removeIf(entry -> entry.kind() == TargetEntry.Kind.PLAYER_NAME);
         }
@@ -110,7 +126,7 @@ public final class TargetMatcher {
 
     /** True if there is nothing to match, so scans can be skipped entirely. */
     public boolean isEmpty() {
-        return this == EMPTY;
+        return types.isEmpty() && tags.isEmpty() && playerNames.isEmpty();
     }
 
     /** Whether {@code entity} is a valid target for {@code drone} (section 3.3). Server side only. */

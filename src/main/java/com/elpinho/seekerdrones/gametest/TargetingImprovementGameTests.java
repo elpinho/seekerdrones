@@ -62,7 +62,7 @@ public class TargetingImprovementGameTests {
         double expected = Math.max(base, Math.min(base * mult, cap));
         helper.assertTrue(Math.abs(DroneStats.pursuitRange(data) - expected) < 1.0E-6,
                 "Pursuit range should be " + expected + ", was " + DroneStats.pursuitRange(data));
-        helper.assertTrue(base == 16 && mult == 1.5 && cap == 128, "Defaults should be 16 / 1.5 / 128, were " + base + " / " + mult + " / " + cap);
+        helper.assertTrue(base == 12 && mult == 1.5 && cap == 128, "Defaults should be 12 / 1.5 / 128, were " + base + " / " + mult + " / " + cap);
         helper.succeed();
     }
 
@@ -337,13 +337,15 @@ public class TargetingImprovementGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 5)
-    public static void targetableEntriesRespectsMultiTargetCount(GameTestHelper helper) {
+    public static void targetableEntriesRespectsTargetSlots(GameTestHelper helper) {
         TargetEntry skeleton = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton");
         TargetEntry zombie = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie");
-        helper.assertValueEqual(TargetMatcher.targetableEntries(targetsData(Map.of(), skeleton, zombie)), List.of(skeleton),
-                "targetable entries without Multi-target");
-        helper.assertValueEqual(TargetMatcher.targetableEntries(targetsData(Map.of(UpgradeType.MULTI_TARGET, 1), skeleton, zombie)),
-                List.of(skeleton, zombie), "targetable entries with 1 Multi-target upgrade");
+        TargetEntry creeper = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:creeper");
+        TargetEntry spider = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:spider");
+        helper.assertValueEqual(TargetMatcher.targetableEntries(targetsData(Map.of(), skeleton, zombie)), List.of(skeleton, zombie),
+                "targetable entries within the default 3 slots");
+        helper.assertValueEqual(TargetMatcher.targetableEntries(targetsData(Map.of(), skeleton, zombie, creeper, spider)),
+                List.of(skeleton, zombie, creeper), "the 4th entry exceeds the default 3 slots");
         helper.succeed();
     }
 
@@ -361,9 +363,11 @@ public class TargetingImprovementGameTests {
     public static void droneItemTooltipCountsTargetableEntries(GameTestHelper helper) {
         TargetEntry skeleton = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton");
         TargetEntry zombie = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie");
-        helper.assertValueEqual(tooltipTargetCount(targetsData(Map.of(), skeleton, zombie)), 1, "tooltip count without Multi-target");
-        helper.assertValueEqual(tooltipTargetCount(targetsData(Map.of(UpgradeType.MULTI_TARGET, 1), skeleton, zombie)), 2,
-                "tooltip count with Multi-target");
+        TargetEntry creeper = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:creeper");
+        TargetEntry spider = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:spider");
+        helper.assertValueEqual(tooltipTargetCount(targetsData(Map.of(), skeleton, zombie)), 2, "tooltip count with 2 entries");
+        helper.assertValueEqual(tooltipTargetCount(targetsData(Map.of(), skeleton, zombie, creeper, spider)), 3,
+                "tooltip count capped at the 3 target slots");
         helper.succeed();
     }
 
@@ -371,7 +375,7 @@ public class TargetingImprovementGameTests {
     public static void targetableEntriesExcludesBlacklistedEntries(GameTestHelper helper) {
         TargetEntry skeleton = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton");
         TargetEntry zombie = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie");
-        DroneData data = targetsData(Map.of(UpgradeType.MULTI_TARGET, 1), zombie, skeleton);
+        DroneData data = targetsData(Map.of(), zombie, skeleton);
         try {
             withBlacklist(List.of("minecraft:zombie"));
             helper.assertValueEqual(TargetMatcher.targetableEntries(data), List.of(skeleton), "blacklisted zombie should be excluded");

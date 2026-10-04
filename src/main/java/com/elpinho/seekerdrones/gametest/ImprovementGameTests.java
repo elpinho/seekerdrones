@@ -96,19 +96,6 @@ public class ImprovementGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 40)
-    public static void xrayDroneDoesNotAcquireInvisibleUnequippedZombie(GameTestHelper helper) {
-        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
-        spawnInvisibleZombie(helper, 4, 1, 7);
-        drone.setDroneData(dataWithUpgrades(droneTargetingZombieEntity(), Map.of(UpgradeType.XRAY, 1)));
-
-        helper.runAfterDelay(30, () -> {
-            helper.assertTrue(drone.getSeekTarget() == null,
-                    "X-ray drone should not reveal an invisible, unequipped zombie, target=" + drone.getSeekTarget());
-            helper.succeed();
-        });
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 40)
     public static void invisibleZombieWearingArmorIsStillAcquired(GameTestHelper helper) {
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
         Zombie zombie = spawnInvisibleZombie(helper, 4, 1, 7);
@@ -158,7 +145,7 @@ public class ImprovementGameTests {
         });
     }
 
-    // These three tests wait out the default drone.lostSightTimeout instead of lowering it: config values are global,
+    // These tests wait out the default drone.lostSightTimeout instead of lowering it: config values are global,
     // so changing them affects every test running concurrently in the same batch.
 
     @GameTest(template = "empty", timeoutTicks = 220)
@@ -185,29 +172,6 @@ public class ImprovementGameTests {
                     helper.assertTrue(drone.getSeekTarget() == null, "Drone should have no target after the invisibility timeout");
                     helper.succeed();
                 });
-            });
-        });
-    }
-
-    @GameTest(template = "empty", timeoutTicks = 220)
-    public static void xrayChasingDroneLosesTargetAfterItTurnsInvisibleOncePastLostSightTimeout(GameTestHelper helper) {
-        DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
-        Zombie zombie = spawnStationaryZombie(helper, 4, 1, 7);
-        drone.setDroneData(dataWithUpgrades(droneTargetingZombieEntity(), Map.of(UpgradeType.XRAY, 1)));
-
-        helper.runAfterDelay(30, () -> {
-            helper.assertTrue(drone.getSeekTarget() == zombie,
-                    "Sanity: X-ray drone should have acquired the visible zombie, target=" + drone.getSeekTarget());
-
-            int timeout = ServerConfig.get(ServerConfig.DRONE_LOST_SIGHT_TIMEOUT);
-            int scanInterval = ServerConfig.get(ServerConfig.DRONE_SCAN_INTERVAL);
-            makeInvisible(zombie, timeout + scanInterval * 4);
-
-            helper.runAfterDelay(timeout + scanInterval * 3, () -> {
-                helper.assertTrue(drone.getState() == DroneState.IDLE,
-                        "An X-ray drone should still lose a target that stayed invisible past the lost-sight timeout, state=" + drone.getState());
-                helper.assertTrue(drone.getSeekTarget() == null, "X-ray drone should have no target after the invisibility timeout");
-                helper.succeed();
             });
         });
     }

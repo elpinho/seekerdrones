@@ -29,6 +29,7 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue DRONE_LOST_SIGHT_TIMEOUT;
     public static final ModConfigSpec.IntValue DRONE_SCAN_INTERVAL;
     public static final ModConfigSpec.IntValue DRONE_MAX_RAYCASTS_PER_SCAN;
+    public static final ModConfigSpec.IntValue DRONE_TARGET_SLOTS;
     public static final ModConfigSpec.BooleanValue DRONE_INVISIBILITY_HIDES;
     public static final ModConfigSpec.ConfigValue<List<? extends String>> DRONE_TARGET_BLACKLIST;
     public static final ModConfigSpec.IntValue DRONE_MAX_EXPLOSIVE_DRONES_PER_TARGET;
@@ -89,10 +90,6 @@ public class ServerConfig {
 
     public static final ModConfigSpec.IntValue UPGRADES_PLAYER_SEEK_MAX_COUNT;
 
-    public static final ModConfigSpec.IntValue UPGRADES_MULTI_TARGET_MAX_COUNT;
-    public static final ModConfigSpec.IntValue UPGRADES_MULTI_TARGET_PER_UPGRADE;
-
-    public static final ModConfigSpec.IntValue UPGRADES_XRAY_MAX_COUNT;
 
     // === programmingStation ===
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_PATROL;
@@ -103,8 +100,6 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_ENERGY;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_HEALTH;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK;
-    public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_MULTI_TARGET;
-    public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_XRAY;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_ENERGY_CAPACITY;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_INSTALL_TIME;
 
@@ -160,7 +155,7 @@ public class ServerConfig {
                 .defineInRange("baseMaxHealth", 20.0, 1.0, 1024.0);
         DRONE_BASE_SIGHT_RANGE = BUILDER
                 .comment("Base detection (sight) range in blocks, with no Sight upgrades.")
-                .defineInRange("baseSightRange", 16, 1, 256);
+                .defineInRange("baseSightRange", 12, 1, 256);
         DRONE_PURSUIT_MULTIPLIER = BUILDER
                 .comment("Multiplier applied to sight range to get the pursuit range at which a chased target is lost.")
                 .defineInRange("pursuitMultiplier", 1.5, 1.0, 100.0);
@@ -168,7 +163,7 @@ public class ServerConfig {
                 .comment("Hard cap (blocks) on the pursuit range. It never drops below the drone's sight range.")
                 .defineInRange("maxPursuitRange", 128, 1, 1024);
         DRONE_LOST_SIGHT_TIMEOUT = BUILDER
-                .comment("Ticks of continuous lost line of sight before a non-X-ray drone gives up its target.")
+                .comment("Ticks of continuous lost line of sight before a drone gives up its target.")
                 .defineInRange("lostSightTimeout", 100, 0, Integer.MAX_VALUE);
         DRONE_SCAN_INTERVAL = BUILDER
                 .comment("Ticks between staggered target scans per drone.")
@@ -176,8 +171,11 @@ public class ServerConfig {
         DRONE_MAX_RAYCASTS_PER_SCAN = BUILDER
                 .comment("Maximum line-of-sight raycasts performed per drone per scan.")
                 .defineInRange("maxRaycastsPerScan", 4, 1, 64);
+        DRONE_TARGET_SLOTS = BUILDER
+                .comment("How many target entries a drone can have.")
+                .defineInRange("targetSlots", 3, 1, 64);
         DRONE_INVISIBILITY_HIDES = BUILDER
-                .comment("Whether invisible entities are hidden from drones (even with X-ray), unless they glow, wear armor or hold an item.")
+                .comment("Whether invisible entities are hidden from drones, unless they glow, wear armor or hold an item.")
                 .define("invisibilityHides", true);
         DRONE_TARGET_BLACKLIST = BUILDER
                 .comment("Entity type IDs (e.g. \"minecraft:villager\") and entity tags (e.g. \"#minecraft:raiders\") that drones never target.",
@@ -258,7 +256,7 @@ public class ServerConfig {
         BUILDER.push("upgrades");
         UPGRADES_TOTAL_SLOTS = BUILDER
                 .comment("Total upgrade slot limit per drone, across all upgrade types.")
-                .defineInRange("totalSlots", 24, 1, 64);
+                .defineInRange("totalSlots", 20, 1, 64);
 
         BUILDER.push("patrol");
         UPGRADES_PATROL_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 4, 0, 64);
@@ -271,7 +269,7 @@ public class ServerConfig {
         BUILDER.pop();
 
         BUILDER.push("sight");
-        UPGRADES_SIGHT_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 8, 0, 64);
+        UPGRADES_SIGHT_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 6, 0, 64);
         UPGRADES_SIGHT_PER_UPGRADE = BUILDER.comment("Extra sight range (blocks) per Sight upgrade.").defineInRange("perUpgrade", 8, 0, Integer.MAX_VALUE);
         BUILDER.pop();
 
@@ -307,14 +305,6 @@ public class ServerConfig {
         UPGRADES_PLAYER_SEEK_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 1, 0, 64);
         BUILDER.pop();
 
-        BUILDER.push("multiTarget");
-        UPGRADES_MULTI_TARGET_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 3, 0, 64);
-        UPGRADES_MULTI_TARGET_PER_UPGRADE = BUILDER.comment("Extra target slots per Multi-target upgrade.").defineInRange("perUpgrade", 1, 0, 64);
-        BUILDER.pop();
-
-        BUILDER.push("xray");
-        UPGRADES_XRAY_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 1, 0, 64);
-        BUILDER.pop();
 
         BUILDER.pop(); // upgrades
 
@@ -328,8 +318,6 @@ public class ServerConfig {
         PROGRAMMING_STATION_BASE_COST_ENERGY = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("energy", 10_000, 0, Integer.MAX_VALUE);
         PROGRAMMING_STATION_BASE_COST_HEALTH = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("health", 10_000, 0, Integer.MAX_VALUE);
         PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("playerSeek", 10_000, 0, Integer.MAX_VALUE);
-        PROGRAMMING_STATION_BASE_COST_MULTI_TARGET = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("multiTarget", 10_000, 0, Integer.MAX_VALUE);
-        PROGRAMMING_STATION_BASE_COST_XRAY = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("xray", 10_000, 0, Integer.MAX_VALUE);
         BUILDER.pop();
         PROGRAMMING_STATION_ENERGY_CAPACITY = BUILDER
                 .comment("FE a Programming Station can store.")
