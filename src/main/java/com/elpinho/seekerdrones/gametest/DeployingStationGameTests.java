@@ -459,7 +459,7 @@ public class DeployingStationGameTests {
         helper.assertTrue(helper.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK, factoryAbs, null)
                 .receiveEnergy(Integer.MAX_VALUE, false) > 0, "Factory FE");
         IItemHandler progItems = helper.getLevel().getCapability(Capabilities.ItemHandler.BLOCK, helper.absolutePos(progRel), null);
-        helper.assertTrue(progItems.insertItem(1, new ItemStack(ModItems.upgrade(UpgradeType.SIGHT).get(), 1), false).isEmpty(), "Upgrade inserted");
+        helper.assertTrue(progItems.insertItem(ProgrammingStationBlockEntity.inputSlot(UpgradeType.SIGHT),new ItemStack(ModItems.upgrade(UpgradeType.SIGHT).get(), 1), false).isEmpty(), "Upgrade inserted");
         helper.assertTrue(helper.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK, helper.absolutePos(progRel), null)
                 .receiveEnergy(200_000, false) > 0, "Programming Station FE");
         helper.assertTrue(helper.getLevel().getCapability(Capabilities.EnergyStorage.BLOCK, helper.absolutePos(deployRel), null)

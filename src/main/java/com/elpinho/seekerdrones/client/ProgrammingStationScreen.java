@@ -40,7 +40,6 @@ import com.elpinho.seekerdrones.programming.ProgrammingStationMenu;
 import com.elpinho.seekerdrones.registry.ModItems;
 
 import net.minecraft.ChatFormatting;
-import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -97,8 +96,6 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private static final int SEGMENT_ON_TEXT = 0xFF0B1013;
     private static final int NAMEPLATE_BACKGROUND = 0x73000000;
     private static final int INVALID_TEXT = 0xFF6060;
-    /** How long each upgrade shows as the input slots' ghost. */
-    private static final long GHOST_CYCLE_MILLIS = 7000;
     /** Laid over an upgrade icon that nothing uses yet. */
     private static final int LOW_KEY_FADE = 0x8C101B1F;
 
@@ -1222,9 +1219,15 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         boolean overSuggestions = suggestions != null && suggestions.isMouseOver(mouseX, mouseY);
         super.render(graphics, overSuggestions ? -1 : mouseX, overSuggestions ? -1 : mouseY, partialTick);
         if (hoveredSlot != null && !hoveredSlot.hasItem() && hoveredSlot.index < ProgrammingStationBlockEntity.SLOT_COUNT && menu.getCarried().isEmpty()) {
-            String slot = hoveredSlot.index == ProgrammingStationBlockEntity.DRONE_SLOT ? "slot.drone" : "slot.input";
-            KitWidget.showTooltip(List.of(Component.translatable(KEY + slot),
-                    Component.translatable(KEY + slot + ".tooltip").withStyle(ChatFormatting.GRAY)));
+            UpgradeType type = ProgrammingStationBlockEntity.inputType(hoveredSlot.index);
+            if (type == null) {
+                KitWidget.showTooltip(List.of(Component.translatable(KEY + "slot.drone"),
+                        Component.translatable(KEY + "slot.drone.tooltip").withStyle(ChatFormatting.GRAY)));
+            } else {
+                Component name = Component.translatable(type.getTranslationKey());
+                KitWidget.showTooltip(List.of(Component.translatable(KEY + "slot.input", name),
+                        Component.translatable(KEY + "slot.input.tooltip", name).withStyle(ChatFormatting.GRAY)));
+            }
         }
         if (suggestions != null && suggestions.isVisible()) {
             suggestions.render(graphics);
@@ -1251,8 +1254,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         if (slot.index == ProgrammingStationBlockEntity.DRONE_SLOT) {
             Kit.ghost(graphics, new ItemStack(ModItems.DRONE.get()), x + 1, y + 1);
         } else {
-            UpgradeType[] types = UpgradeType.values();
-            Kit.ghost(graphics, new ItemStack(ModItems.upgrade(types[(int) (Util.getMillis() / GHOST_CYCLE_MILLIS % types.length)]).get()), x + 1, y + 1);
+            Kit.ghost(graphics, new ItemStack(ModItems.upgrade(ProgrammingStationBlockEntity.inputType(slot.index)).get()), x + 1, y + 1);
         }
     }
 

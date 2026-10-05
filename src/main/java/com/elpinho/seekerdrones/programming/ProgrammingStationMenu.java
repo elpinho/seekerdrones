@@ -4,7 +4,6 @@ import javax.annotation.Nullable;
 
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneItem;
-import com.elpinho.seekerdrones.drone.UpgradeItem;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.network.ProgramTemplatePayload;
 import com.elpinho.seekerdrones.registry.ModBlocks;
@@ -88,12 +87,10 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
         this.station = station;
         this.data = data;
 
-        addSlot(new SlotItemHandler(items, ProgrammingStationBlockEntity.DRONE_SLOT, DRONE_X, DRONE_Y));
-        for (int row = 0; row < 3; row++) {
-            for (int column = 0; column < 3; column++) {
-                addSlot(new SlotItemHandler(items, ProgrammingStationBlockEntity.INPUT_START + row * 3 + column,
-                        INPUT_X + column * 18, INPUT_Y + row * 18));
-            }
+        addSlot(new StationSlot(items, ProgrammingStationBlockEntity.DRONE_SLOT, DRONE_X, DRONE_Y));
+        // One slot per upgrade type, filling the 3x3 grid in type order.
+        for (int i = 0; i < ProgrammingStationBlockEntity.INPUT_SLOTS; i++) {
+            addSlot(new StationSlot(items, ProgrammingStationBlockEntity.INPUT_START + i, INPUT_X + i % 3 * 18, INPUT_Y + i / 3 * 18));
         }
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
@@ -125,14 +122,7 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
 
     /** Client: how many upgrades of the type are in the input. */
     public int inputCount(UpgradeType type) {
-        int count = 0;
-        for (int i = ProgrammingStationBlockEntity.INPUT_START; i < ProgrammingStationBlockEntity.SLOT_COUNT; i++) {
-            ItemStack stack = slots.get(i).getItem();
-            if (stack.getItem() instanceof UpgradeItem upgrade && upgrade.getType() == type) {
-                count += stack.getCount();
-            }
-        }
-        return count;
+        return slots.get(ProgrammingStationBlockEntity.inputSlot(type)).getItem().getCount();
     }
 
     @Nullable
@@ -229,5 +219,17 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
     @Override
     public boolean stillValid(Player player) {
         return stillValid(access, player, ModBlocks.PROGRAMMING_STATION.get());
+    }
+
+    /** Checks the slot's item rule on the client too, where the handler is a plain copy, so clicks predict right. */
+    private static class StationSlot extends SlotItemHandler {
+        StationSlot(IItemHandler items, int index, int x, int y) {
+            super(items, index, x, y);
+        }
+
+        @Override
+        public boolean mayPlace(ItemStack stack) {
+            return ProgrammingStationBlockEntity.isItemValid(getSlotIndex(), stack) && super.mayPlace(stack);
+        }
     }
 }

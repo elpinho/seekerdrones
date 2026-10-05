@@ -78,8 +78,8 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.programming_station.bay.preview", "A preview, not the drone's real position");
         add("screen.seekerdrones.programming_station.slot.drone", "Drone slot");
         add("screen.seekerdrones.programming_station.slot.drone.tooltip", "Insert a drone to edit or program it");
-        add("screen.seekerdrones.programming_station.slot.input", "Upgrade input");
-        add("screen.seekerdrones.programming_station.slot.input.tooltip", "Only takes upgrade items");
+        add("screen.seekerdrones.programming_station.slot.input", "%s upgrade input");
+        add("screen.seekerdrones.programming_station.slot.input.tooltip", "Only takes %s upgrades");
         add("screen.seekerdrones.programming_station.slots", "Upgrade slots");
         add("screen.seekerdrones.programming_station.slots.used", "%s / %s used");
         add("screen.seekerdrones.programming_station.upgrade.installed", "Installed: %s / %s");

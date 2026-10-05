@@ -38,7 +38,6 @@ Status: `idea` | `decided`
   - It's **mutually exclusive with the Siren upgrade**: a drone is either a loud deterrent or a silent watcher. The Programming Station and the debug command must refuse to install one while the other is installed.
   - **Still open:** how much each upgrade lowers the volume, the cap, whether it offsets the extra loudness from having many upgrades, and whether it also quiets the Explosive approach sound (a stealth kamikaze drone is fun but maybe harsh in PvP). All values would be config entries.
 - **Transparent drone upgrade** (`idea`): an upgrade that makes the drone (semi-)transparent or invisible. Could be part of the Quiet upgrade above as one "Stealth" upgrade, or separate.
-- **One input slot per upgrade type in the Programming Station** (`idea`): today the upgrade input is a shared 3×3 grid (DESIGN.md §7.2), so piping upgrades in with automation (hoppers, pipes) can fill every slot with one upgrade type and block the others from being inserted. Give the station **one input slot per upgrade type** instead, each accepting only its own upgrade, so automation can always feed every type. Open: how this fits the 3×3 input in the GUI redesign (a slot per type means a taller or scrolling input, or a layout that only applies to automation, e.g. hidden per-type slots exposed on the sides while players keep a simple grid), the stack size per slot, and whether slots for upgrades the drone can't take anymore (cap reached or an incompatible upgrade installed) still accept items.
 
 ## Drone GUI and visuals
 

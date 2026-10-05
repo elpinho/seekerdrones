@@ -108,7 +108,7 @@ public class MachineVisualsGameTests {
         ProgrammingStationBlockEntity station = (ProgrammingStationBlockEntity) helper.getLevel().getBlockEntity(helper.absolutePos(REL));
         helper.assertTrue(!working(helper, REL), "Idle Programming Station should not be working");
         station.getItems().setStackInSlot(0, DroneItem.createStack(DroneData.createNew()));
-        station.getItems().setStackInSlot(1, new ItemStack(ModItems.upgrade(UpgradeType.PATROL).get(), 1));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.PATROL), new ItemStack(ModItems.upgrade(UpgradeType.PATROL).get(), 1));
         station.getEnergyStorage().receiveEnergy(100_000, false);
         station.requestInstall(UpgradeType.PATROL);
 

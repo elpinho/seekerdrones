@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.programming;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,6 +26,7 @@ import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -47,7 +49,8 @@ import net.neoforged.neoforge.items.ItemStackHandler;
 public class ProgrammingStationBlockEntity extends BlockEntity implements MenuProvider {
     public static final int DRONE_SLOT = 0;
     public static final int INPUT_START = 1;
-    public static final int INPUT_SLOTS = 9;
+    /** One input slot per upgrade type, in {@link UpgradeType} order, so automation can always feed every type. */
+    public static final int INPUT_SLOTS = UpgradeType.values().length;
     public static final int SLOT_COUNT = INPUT_START + INPUT_SLOTS;
 
     private static final String TAG_ITEMS = "Items";
@@ -73,7 +76,7 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return slot == DRONE_SLOT ? stack.is(ModItems.DRONE.get()) : stack.getItem() instanceof UpgradeItem;
+            return ProgrammingStationBlockEntity.isItemValid(slot, stack);
         }
 
         @Override
@@ -81,6 +84,8 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
             return slot == DRONE_SLOT ? 1 : super.getSlotLimit(slot);
         }
     };
+    /** Input items that didn't fit when an older save was sorted into the per-type slots, dropped on the next tick. */
+    private final List<ItemStack> overflow = new ArrayList<>();
     private final Energy energy = new Energy();
     private final IItemHandler automationItems = new AutomationItemHandler();
     private final ContainerData data = new StationData();
@@ -105,6 +110,25 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
 
     public ProgrammingStationBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PROGRAMMING_STATION.get(), pos, state);
+    }
+
+    /** The input slot that holds upgrades of the type. */
+    public static int inputSlot(UpgradeType type) {
+        return INPUT_START + type.ordinal();
+    }
+
+    /** The upgrade type an input slot holds, or null for the drone slot. */
+    @Nullable
+    public static UpgradeType inputType(int slot) {
+        return slot >= INPUT_START && slot < SLOT_COUNT ? UpgradeType.values()[slot - INPUT_START] : null;
+    }
+
+    /** The drone slot takes drones, and each input slot only its own upgrade type. */
+    public static boolean isItemValid(int slot, ItemStack stack) {
+        if (slot == DRONE_SLOT) {
+            return stack.is(ModItems.DRONE.get());
+        }
+        return stack.getItem() instanceof UpgradeItem upgrade && upgrade.getType() == inputType(slot);
     }
 
     public ItemStackHandler getItems() {
@@ -160,21 +184,17 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
     }
 
     private boolean inputHas(UpgradeType type) {
-        return findInput(type) >= 0;
-    }
-
-    private int findInput(UpgradeType type) {
-        for (int i = INPUT_START; i < SLOT_COUNT; i++) {
-            if (items.getStackInSlot(i).getItem() instanceof UpgradeItem upgrade && upgrade.getType() == type) {
-                return i;
-            }
-        }
-        return -1;
+        return !items.getStackInSlot(inputSlot(type)).isEmpty();
     }
 
     // --- Processing ---
 
     public static void serverTick(Level level, BlockPos pos, BlockState state, ProgrammingStationBlockEntity station) {
+        if (!station.overflow.isEmpty()) {
+            station.overflow.forEach(stack -> Containers.dropItemStack(level, pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5, stack));
+            station.overflow.clear();
+            station.setChanged();
+        }
         station.working.update(level, pos, station.tick());
     }
 
@@ -247,12 +267,11 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
 
     private void finishStep(DroneData drone) {
         UpgradeType type = installing;
-        int slot = findInput(type);
         cancelStep();
-        if (slot < 0 || !ProgramRules.canAdd(drone.upgrades(), type)) {
+        if (!inputHas(type) || !ProgramRules.canAdd(drone.upgrades(), type)) {
             return;
         }
-        items.extractItem(slot, 1, false);
+        items.extractItem(inputSlot(type), 1, false);
         writeDrone(drone.withUpgradeCount(type, drone.upgradeCount(type) + 1));
     }
 
@@ -380,11 +399,33 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         super.loadAdditional(tag, registries);
         CompoundTag itemsTag = tag.getCompound(TAG_ITEMS);
         if (!itemsTag.isEmpty()) {
-            // Keep the slot count even if a saved handler had a different size.
+            // Sort each upgrade into its type's slot, since older saves had a shared input (and the slot count follows
+            // the number of upgrade types). What doesn't fit is dropped on the next tick.
             ItemStackHandler loaded = new ItemStackHandler();
             loaded.deserializeNBT(registries, itemsTag);
-            for (int i = 0; i < Math.min(SLOT_COUNT, loaded.getSlots()); i++) {
-                items.setStackInSlot(i, loaded.getStackInSlot(i));
+            ItemStack[] sorted = new ItemStack[SLOT_COUNT];
+            Arrays.fill(sorted, ItemStack.EMPTY);
+            overflow.clear();
+            for (int i = 0; i < loaded.getSlots(); i++) {
+                ItemStack stack = loaded.getStackInSlot(i);
+                if (stack.isEmpty()) {
+                    continue;
+                }
+                int slot = i == DRONE_SLOT ? DRONE_SLOT : stack.getItem() instanceof UpgradeItem upgrade ? inputSlot(upgrade.getType()) : -1;
+                if (slot < 0) {
+                    overflow.add(stack);
+                } else if (sorted[slot].isEmpty()) {
+                    sorted[slot] = stack;
+                } else {
+                    int moved = Math.min(stack.getCount(), sorted[slot].getMaxStackSize() - sorted[slot].getCount());
+                    sorted[slot].grow(moved);
+                    if (moved < stack.getCount()) {
+                        overflow.add(stack.copyWithCount(stack.getCount() - moved));
+                    }
+                }
+            }
+            for (int i = 0; i < SLOT_COUNT; i++) {
+                items.setStackInSlot(i, sorted[i]);
             }
         }
         energy.stored = Math.max(0, tag.getInt(TAG_ENERGY));
@@ -439,6 +480,8 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
                 drops.add(items.getStackInSlot(i));
             }
         }
+        drops.addAll(overflow);
+        overflow.clear();
         return drops;
     }
 
