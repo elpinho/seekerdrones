@@ -18,14 +18,22 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  * Drone upgrade types (DESIGN.md section 4).
  */
 public enum UpgradeType implements StringRepresentable {
-    PATROL("patrol", ServerConfig.UPGRADES_PATROL_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_PATROL),
-    SIGHT("sight", ServerConfig.UPGRADES_SIGHT_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_SIGHT),
-    EXPLOSIVE("explosive", ServerConfig.UPGRADES_EXPLOSIVE_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_EXPLOSIVE),
-    SIREN("siren", ServerConfig.UPGRADES_SIREN_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_SIREN),
-    TRANSMITTER("transmitter", ServerConfig.UPGRADES_TRANSMITTER_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_TRANSMITTER),
-    ENERGY("energy", ServerConfig.UPGRADES_ENERGY_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_ENERGY),
-    HEALTH("health", ServerConfig.UPGRADES_HEALTH_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_HEALTH),
-    PLAYER_SEEK("player_seek", ServerConfig.UPGRADES_PLAYER_SEEK_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK);
+    PATROL("patrol", ServerConfig.UPGRADES_PATROL_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_PATROL,
+            ServerConfig.UPGRADES_PATROL_ENERGY_FACTOR),
+    SIGHT("sight", ServerConfig.UPGRADES_SIGHT_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_SIGHT,
+            ServerConfig.UPGRADES_SIGHT_ENERGY_FACTOR),
+    EXPLOSIVE("explosive", ServerConfig.UPGRADES_EXPLOSIVE_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_EXPLOSIVE,
+            ServerConfig.UPGRADES_EXPLOSIVE_ENERGY_FACTOR),
+    SIREN("siren", ServerConfig.UPGRADES_SIREN_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_SIREN,
+            ServerConfig.UPGRADES_SIREN_ENERGY_FACTOR),
+    TRANSMITTER("transmitter", ServerConfig.UPGRADES_TRANSMITTER_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_TRANSMITTER,
+            ServerConfig.UPGRADES_TRANSMITTER_ENERGY_FACTOR),
+    ENERGY("energy", ServerConfig.UPGRADES_ENERGY_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_ENERGY,
+            ServerConfig.UPGRADES_ENERGY_ENERGY_FACTOR),
+    HEALTH("health", ServerConfig.UPGRADES_HEALTH_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_HEALTH,
+            ServerConfig.UPGRADES_HEALTH_ENERGY_FACTOR),
+    PLAYER_SEEK("player_seek", ServerConfig.UPGRADES_PLAYER_SEEK_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK,
+            ServerConfig.UPGRADES_PLAYER_SEEK_ENERGY_FACTOR);
 
     public static final StringRepresentable.EnumCodec<UpgradeType> CODEC = StringRepresentable.fromEnum(UpgradeType::values);
     private static final IntFunction<UpgradeType> BY_ID = ByIdMap.continuous(Enum::ordinal, values(), ByIdMap.OutOfBoundsStrategy.ZERO);
@@ -55,11 +63,13 @@ public enum UpgradeType implements StringRepresentable {
     private final String name;
     private final ModConfigSpec.IntValue maxCount;
     private final ModConfigSpec.IntValue baseCost;
+    private final ModConfigSpec.DoubleValue energyFactor;
 
-    UpgradeType(String name, ModConfigSpec.IntValue maxCount, ModConfigSpec.IntValue baseCost) {
+    UpgradeType(String name, ModConfigSpec.IntValue maxCount, ModConfigSpec.IntValue baseCost, ModConfigSpec.DoubleValue energyFactor) {
         this.name = name;
         this.maxCount = maxCount;
         this.baseCost = baseCost;
+        this.energyFactor = energyFactor;
     }
 
     @Override
@@ -79,5 +89,10 @@ public enum UpgradeType implements StringRepresentable {
     /** The Programming Station's base FE cost to install one, multiplied by the install index (section 7.2). */
     public int baseCost() {
         return ServerConfig.get(baseCost);
+    }
+
+    /** The drone's energy usage multiplier per upgrade of this type (section 5.1). */
+    public double energyFactor() {
+        return ServerConfig.get(energyFactor);
     }
 }

@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.network;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.station.ChargingStationAccess;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
 
 import io.netty.buffer.ByteBuf;
@@ -34,10 +35,10 @@ public record RequestStationStatusPayload(BlockPos pos) implements CustomPacketP
             return;
         }
         BlockPos pos = payload.pos();
-        // Stations have no access control in v1 (section 6.2), so anyone in reach may look.
+        // Anyone in reach may look (section 6.2). The reply also says whether the player may still manage the upgrades.
         if (player.canInteractWithBlock(pos, RANGE_BUFFER) && player.serverLevel().hasChunkAt(pos)
                 && player.serverLevel().getBlockEntity(pos) instanceof ChargingStationBlockEntity station) {
-            PacketDistributor.sendToPlayer(player, StationStatusPayload.of(player.serverLevel(), station, false));
+            PacketDistributor.sendToPlayer(player, StationStatusPayload.of(player.serverLevel(), station, ChargingStationAccess.canManage(player, station)));
         }
     }
 }

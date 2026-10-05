@@ -12,12 +12,14 @@ import com.mojang.serialization.MapCodec;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.ItemInteractionResult;
+import net.minecraft.world.SimpleMenuProvider;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -36,7 +38,6 @@ import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.BlockHitResult;
 import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * Drone Charging Station (DESIGN.md section 7.4). Registers itself in the dimension's station registry when placed,
@@ -147,12 +148,19 @@ public class ChargingStationBlock extends BaseEntityBlock {
         return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
     }
 
-    /** Opens the read-only status screen. Anyone may look: stations have no access control in v1 (section 6.2). */
+    /**
+     * Opens the station screen. Anyone may look (section 6.2). Only players who may manage the upgrades get the
+     * Upgrades tab and their inventory, decided here when the screen opens.
+     */
     @Override
     protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hitResult) {
         if (player instanceof ServerPlayer serverPlayer && level instanceof ServerLevel serverLevel
                 && level.getBlockEntity(pos) instanceof ChargingStationBlockEntity station) {
-            PacketDistributor.sendToPlayer(serverPlayer, StationStatusPayload.of(serverLevel, station, true));
+            boolean canManage = ChargingStationAccess.canManage(serverPlayer, station);
+            StationStatusPayload status = StationStatusPayload.of(serverLevel, station, canManage);
+            serverPlayer.openMenu(new SimpleMenuProvider((containerId, inventory, menuPlayer) -> new ChargingStationMenu(containerId, inventory,
+                    station, canManage), Component.translatable("screen.seekerdrones.charging_station")),
+                    buf -> StationStatusPayload.STREAM_CODEC.encode(buf, status));
         }
         return InteractionResult.sidedSuccess(level.isClientSide());
     }

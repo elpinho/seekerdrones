@@ -1,23 +1,31 @@
 package com.elpinho.seekerdrones.client;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import com.elpinho.seekerdrones.client.gui.DronePreview;
 import com.elpinho.seekerdrones.client.gui.EntityPreview;
 import com.elpinho.seekerdrones.client.gui.Gauges;
 import com.elpinho.seekerdrones.client.gui.Kit;
-import com.elpinho.seekerdrones.client.gui.PanelScreen;
+import com.elpinho.seekerdrones.client.gui.KitWidget;
+import com.elpinho.seekerdrones.client.gui.MachineScreen;
 import com.elpinho.seekerdrones.client.gui.SideTab;
+import com.elpinho.seekerdrones.client.gui.UpgradesTab;
+import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.energy.EnergyFormat;
+import com.elpinho.seekerdrones.machine.UpgradeSlots;
 import com.elpinho.seekerdrones.network.RequestStationStatusPayload;
 import com.elpinho.seekerdrones.network.StationStatusPayload;
 import com.elpinho.seekerdrones.network.StationStatusPayload.DockedDrone;
 import com.elpinho.seekerdrones.network.StationStatusPayload.Status;
 import com.elpinho.seekerdrones.registry.ModBlocks;
+import com.elpinho.seekerdrones.station.ChargingStationMenu;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.Util;
@@ -27,19 +35,22 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.Slot;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
- * Read-only Charging Station screen (DESIGN.md section 7.4): station energy on the left, repair fluid on the right and
- * the drone holding the station in the middle, in its color, with its energy and health bars. The status is a pill in
- * the title row and the owner is a side tab. Asks the server for fresh values about once a second.
+ * Charging Station screen (DESIGN.md section 7.4): station energy on the left, repair fluid on the right and the drone
+ * holding the station in the middle, in its color, with its energy and health bars. The status is a pill in the title
+ * row and the owner is a side tab. Players who may manage the upgrades also get the Upgrades tab (the top tab) and their
+ * inventory in a separate frame under the panel. Asks the server for fresh values about once a second.
  */
-public class ChargingStationScreen extends PanelScreen {
+public class ChargingStationScreen extends MachineScreen<ChargingStationMenu> {
     private static final int REFRESH_INTERVAL_TICKS = 20;
     /** Same reach buffer the server uses when answering refresh requests. */
     private static final double RANGE_BUFFER = 4.0;
-    private static final int WIDTH = 176;
-    private static final int HEIGHT = 108;
+    private static final int WIDTH = ChargingStationMenu.WIDTH;
+    private static final DecimalFormat MULTIPLIER_FORMAT = new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.ROOT));
 
     private static final int DISPLAY_X = 24;
     private static final int DISPLAY_Y = 16;
@@ -63,12 +74,17 @@ public class ChargingStationScreen extends PanelScreen {
     private StationStatusPayload status;
     private int ticksOpen;
     private final DronePreview dronePreview = new DronePreview();
+    private final UpgradesTab upgradesTab;
 
-    public ChargingStationScreen(StationStatusPayload status) {
-        super(Component.translatable("screen.seekerdrones.charging_station"), WIDTH, HEIGHT);
-        this.pos = status.pos();
-        this.status = status;
-        sideTabs.add(SideTab.energyUnit());
+    public ChargingStationScreen(ChargingStationMenu menu, Inventory inventory, Component title) {
+        super(menu, inventory, title, WIDTH, menu.hasInventory()
+                ? ChargingStationMenu.INVENTORY_FRAME_Y + ChargingStationMenu.INVENTORY_FRAME_HEIGHT
+                : ChargingStationMenu.PANEL_HEIGHT, ChargingStationMenu.INVENTORY_Y);
+        this.pos = menu.getPos();
+        this.status = menu.getOpeningStatus();
+        // The Upgrades tab must be the top tab: its slots can't move (section 7.7).
+        upgradesTab = new UpgradesTab(menu.getUpgradeSlots(), menu::canManage, ChargingStationScreen::upgradeEffect);
+        sideTabs.add(upgradesTab.tab());
         sideTabs.add(new SideTab(22, (graphics, x, y, mouseX, mouseY) -> EntityPreview.drawFace(graphics, ownerName(), x + 8, y + 6, 9))
                 .tooltip(this::ownerTooltip)
                 .panel(OWNER_PANEL_WIDTH, OWNER_PANEL_HEIGHT, (graphics, x, y, mouseX, mouseY) -> {
@@ -76,6 +92,7 @@ public class ChargingStationScreen extends PanelScreen {
                     graphics.drawString(font, Component.translatable("screen.seekerdrones.charging_station.owner"), x + 21, y + 6, Kit.LABEL, false);
                     Kit.scrollingText(graphics, font, ownerLabel(), x + 8, y + 18, OWNER_PANEL_WIDTH - 14, 7, Kit.LABEL, false, true);
                 }));
+        sideTabs.add(SideTab.energyUnit());
     }
 
     public BlockPos getPos() {
@@ -84,6 +101,16 @@ public class ChargingStationScreen extends PanelScreen {
 
     public void update(StationStatusPayload status) {
         this.status = status;
+        menu.setCanManage(status.canManage());
+        if (!menu.canManage()) {
+            upgradesTab.fold();
+        }
+    }
+
+    /** The charge rate and capacity multiplier from {@code count} Energy Upgrades (section 7.4). */
+    private static Component upgradeEffect(UpgradeSlots.Accepted accepted, int count) {
+        double multiplier = Math.pow(ServerConfig.get(ServerConfig.CHARGING_STATION_UPGRADE_MULTIPLIER), count);
+        return Component.translatable("screen.seekerdrones.charging_station.upgrades.effect", MULTIPLIER_FORMAT.format(multiplier));
     }
 
     private String ownerName() {
@@ -152,8 +179,8 @@ public class ChargingStationScreen extends PanelScreen {
     }
 
     @Override
-    public void tick() {
-        super.tick();
+    protected void containerTick() {
+        super.containerTick();
         if (minecraft.level == null || minecraft.player == null || !minecraft.level.getBlockState(pos).is(ModBlocks.CHARGING_STATION.get())
                 || !minecraft.player.canInteractWithBlock(pos, RANGE_BUFFER)) {
             onClose();
@@ -175,8 +202,44 @@ public class ChargingStationScreen extends PanelScreen {
     }
 
     @Override
-    protected void renderContents(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.drawString(font, title, leftPos + 8, topPos + 6, Kit.LABEL, false);
+    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        // Before the slots are drawn and hovered: the upgrade slots only exist while the tab is unfolded.
+        menu.setUpgradesShown(upgradesTab.isShown());
+        super.render(graphics, mouseX, mouseY, partialTick);
+    }
+
+    @Override
+    protected void renderFrame(GuiGraphics graphics) {
+        Kit.frame(graphics, leftPos, topPos, imageWidth, ChargingStationMenu.PANEL_HEIGHT);
+        if (menu.hasInventory()) {
+            Kit.frame(graphics, leftPos, topPos + ChargingStationMenu.INVENTORY_FRAME_Y, imageWidth, ChargingStationMenu.INVENTORY_FRAME_HEIGHT);
+        }
+    }
+
+    @Override
+    protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
+        graphics.drawString(font, title, titleLabelX, titleLabelY, Kit.LABEL, false);
+        if (menu.hasInventory()) {
+            graphics.drawString(font, playerInventoryTitle, inventoryLabelX, inventoryLabelY, Kit.LABEL, false);
+        }
+    }
+
+    @Override
+    protected void renderSlotBackground(GuiGraphics graphics, Slot slot, int x, int y) {
+        super.renderSlotBackground(graphics, slot, x, y);
+        upgradesTab.renderGhost(graphics, slot, x + 1, y + 1);
+    }
+
+    @Override
+    protected void renderTooltip(GuiGraphics graphics, int x, int y) {
+        super.renderTooltip(graphics, x, y);
+        if (hoveredSlot != null && menu.getCarried().isEmpty()) {
+            KitWidget.showTooltip(upgradesTab.emptySlotTooltip(hoveredSlot));
+        }
+    }
+
+    @Override
+    protected void renderContents(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         Component statusText = Component.translatable(status.status().getTranslationKey());
         Kit.pill(graphics, font, leftPos + imageWidth - 8 - Kit.pillWidth(font, statusText), topPos + 4, statusLight(), statusText);
 

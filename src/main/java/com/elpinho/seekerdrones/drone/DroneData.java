@@ -116,8 +116,8 @@ public record DroneData(String droneId, Optional<UUID> groupId, Optional<UUID> o
     }
 
     /**
-     * Sets how many upgrades of a type are installed, without checking the caps (section 4). Extra max energy and HP
-     * arrive full, and anything above a lowered max is lost.
+     * Sets how many upgrades of a type are installed, without checking the caps (section 4). Extra max HP arrives full,
+     * extra max energy arrives empty, and anything above a lowered max is lost.
      */
     public DroneData withUpgradeCount(UpgradeType type, int count) {
         Map<UpgradeType, Integer> updated = new HashMap<>(upgrades);
@@ -127,9 +127,8 @@ public record DroneData(String droneId, Optional<UUID> groupId, Optional<UUID> o
             updated.remove(type);
         }
         DroneData result = new DroneData(droneId, groupId, ownerId, ownerName, energy, health, updated, config);
-        long newEnergy = (long) energy + Math.max(0, DroneStats.maxEnergy(result) - DroneStats.maxEnergy(this));
         float newHealth = health + Math.max(0, DroneStats.maxHealth(result) - DroneStats.maxHealth(this));
-        return result.withEnergy((int) Math.min(newEnergy, DroneStats.maxEnergy(result)))
+        return result.withEnergy(Math.min(energy, DroneStats.maxEnergy(result)))
                 .withHealth(Math.min(newHealth, DroneStats.maxHealth(result)));
     }
 }

@@ -13,10 +13,39 @@ public final class DroneStats {
 
     private DroneStats() {}
 
+    /** Section 5.1: {@code baseMaxEnergy × multiplier^count}, where {@code count} is the number of Energy upgrades. */
     public static int maxEnergy(DroneData data) {
-        long max = (long) ServerConfig.get(ServerConfig.DRONE_BASE_MAX_ENERGY)
-                + (long) data.upgradeCount(UpgradeType.ENERGY) * ServerConfig.get(ServerConfig.UPGRADES_ENERGY_PER_UPGRADE);
+        double max = ServerConfig.get(ServerConfig.DRONE_BASE_MAX_ENERGY)
+                * Math.pow(ServerConfig.get(ServerConfig.UPGRADES_ENERGY_MULTIPLIER), data.upgradeCount(UpgradeType.ENERGY));
         return (int) Math.min(max, Integer.MAX_VALUE);
+    }
+
+    /**
+     * The upgrade multiplier {@code M} on the drone's distance and hover costs (section 5.1): the product of each
+     * installed upgrade's per-type factor. The first Patrol upgrade doesn't count, since {@code energyPerBlock} is
+     * priced for it.
+     */
+    public static double energyUsageMultiplier(DroneData data) {
+        double multiplier = 1;
+        for (Map.Entry<UpgradeType, Integer> entry : data.upgrades().entrySet()) {
+            int count = entry.getKey() == UpgradeType.PATROL ? entry.getValue() - 1 : entry.getValue();
+            if (count > 0) {
+                multiplier *= Math.pow(entry.getKey().energyFactor(), count);
+            }
+        }
+        return multiplier;
+    }
+
+    /**
+     * The energy at which a drone {@code distance} blocks from its nearest usable station starts returning (section
+     * 5.2): {@code M × distance × (energyPerBlock + hoverEnergyPerTick / cruiseSpeed) × safetyMargin} for the flight
+     * home, plus {@code returnWaitBuffer × hoverEnergyPerTick} for waiting at a busy station, which has no multiplier.
+     */
+    public static double returnThreshold(DroneData data, double distance) {
+        int hover = ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK);
+        double perBlock = ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK) + hover / ServerConfig.get(ServerConfig.DRONE_CRUISE_SPEED);
+        return energyUsageMultiplier(data) * distance * perBlock * ServerConfig.get(ServerConfig.DRONE_RETURN_SAFETY_MARGIN)
+                + (double) ServerConfig.get(ServerConfig.DRONE_RETURN_WAIT_BUFFER) * hover;
     }
 
     public static float maxHealth(DroneData data) {

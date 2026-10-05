@@ -46,7 +46,10 @@ public abstract class MachineScreen<M extends AbstractContainerMenu> extends Abs
         renderFrame(graphics);
         renderContents(graphics, partialTick, mouseX, mouseY);
         for (Slot slot : menu.slots) {
-            renderSlotBackground(graphics, slot, leftPos + slot.x - 1, topPos + slot.y - 1);
+            // Inactive slots (e.g. in a folded Upgrades tab) aren't drawn.
+            if (slot.isActive()) {
+                renderSlotBackground(graphics, slot, leftPos + slot.x - 1, topPos + slot.y - 1);
+            }
         }
     }
 

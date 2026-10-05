@@ -37,15 +37,9 @@ public final class ProgramRules {
                 && DroneStats.totalUpgrades(upgrades) < ServerConfig.get(ServerConfig.UPGRADES_TOTAL_SLOTS);
     }
 
-    /**
-     * FE to install the {@code index}-th upgrade of a type (1-based): {@code baseCost × index}, plus the capacity an
-     * Energy upgrade adds, which goes into the drone.
-     */
+    /** FE to install the {@code index}-th upgrade of a type (1-based): {@code baseCost × index} (section 7.2). */
     public static int installCost(UpgradeType type, int index) {
         long cost = (long) type.baseCost() * index;
-        if (type == UpgradeType.ENERGY) {
-            cost += ServerConfig.get(ServerConfig.UPGRADES_ENERGY_PER_UPGRADE);
-        }
         return (int) Math.min(cost, Integer.MAX_VALUE);
     }
 

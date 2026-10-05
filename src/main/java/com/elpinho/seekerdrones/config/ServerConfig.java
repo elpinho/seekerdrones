@@ -83,12 +83,21 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue UPGRADES_TRANSMITTER_COOLDOWN;
 
     public static final ModConfigSpec.IntValue UPGRADES_ENERGY_MAX_COUNT;
-    public static final ModConfigSpec.IntValue UPGRADES_ENERGY_PER_UPGRADE;
+    public static final ModConfigSpec.DoubleValue UPGRADES_ENERGY_MULTIPLIER;
 
     public static final ModConfigSpec.IntValue UPGRADES_HEALTH_MAX_COUNT;
     public static final ModConfigSpec.DoubleValue UPGRADES_HEALTH_PER_UPGRADE;
 
     public static final ModConfigSpec.IntValue UPGRADES_PLAYER_SEEK_MAX_COUNT;
+
+    public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_ENERGY_FACTOR;
+    public static final ModConfigSpec.DoubleValue UPGRADES_SIGHT_ENERGY_FACTOR;
+    public static final ModConfigSpec.DoubleValue UPGRADES_EXPLOSIVE_ENERGY_FACTOR;
+    public static final ModConfigSpec.DoubleValue UPGRADES_SIREN_ENERGY_FACTOR;
+    public static final ModConfigSpec.DoubleValue UPGRADES_TRANSMITTER_ENERGY_FACTOR;
+    public static final ModConfigSpec.DoubleValue UPGRADES_ENERGY_ENERGY_FACTOR;
+    public static final ModConfigSpec.DoubleValue UPGRADES_HEALTH_ENERGY_FACTOR;
+    public static final ModConfigSpec.DoubleValue UPGRADES_PLAYER_SEEK_ENERGY_FACTOR;
 
 
     // === programmingStation ===
@@ -106,7 +115,9 @@ public class ServerConfig {
     // === chargingStation ===
     public static final ModConfigSpec.IntValue CHARGING_STATION_CAPACITY;
     public static final ModConfigSpec.IntValue CHARGING_STATION_CHARGE_RATE;
-    public static final ModConfigSpec.DoubleValue CHARGING_STATION_HEAL_PER_TICK;
+    public static final ModConfigSpec.IntValue CHARGING_STATION_MAX_ENERGY_UPGRADES;
+    public static final ModConfigSpec.DoubleValue CHARGING_STATION_UPGRADE_MULTIPLIER;
+    public static final ModConfigSpec.DoubleValue CHARGING_STATION_HEAL_PERCENT_PER_SECOND;
     public static final ModConfigSpec.IntValue CHARGING_STATION_TANK_CAPACITY;
     public static final ModConfigSpec.IntValue CHARGING_STATION_REPAIR_FLUID_PER_HP;
 
@@ -125,13 +136,13 @@ public class ServerConfig {
         BUILDER.push("drone");
         DRONE_BASE_MAX_ENERGY = BUILDER
                 .comment("Base max energy (FE) of a drone with no Energy upgrades.")
-                .defineInRange("baseMaxEnergy", 100_000, 1, Integer.MAX_VALUE);
+                .defineInRange("baseMaxEnergy", 800_000, 1, Integer.MAX_VALUE);
         DRONE_ENERGY_PER_BLOCK = BUILDER
-                .comment("FE consumed per block flown (distance cost).")
-                .defineInRange("energyPerBlock", 20, 0, Integer.MAX_VALUE);
+                .comment("FE consumed per block flown (distance cost), before the upgrade multiplier.")
+                .defineInRange("energyPerBlock", 146, 0, Integer.MAX_VALUE);
         DRONE_HOVER_ENERGY_PER_TICK = BUILDER
-                .comment("FE consumed per tick while airborne (hover cost).")
-                .defineInRange("hoverEnergyPerTick", 1, 0, Integer.MAX_VALUE);
+                .comment("FE consumed per tick while airborne (hover cost), before the upgrade multiplier.")
+                .defineInRange("hoverEnergyPerTick", 8, 0, Integer.MAX_VALUE);
         DRONE_ENERGY_DRAIN_INTERVAL = BUILDER
                 .comment("Ticks between batched energy drain applications.")
                 .defineInRange("energyDrainInterval", 20, 1, Integer.MAX_VALUE);
@@ -140,7 +151,7 @@ public class ServerConfig {
                 .defineInRange("returnSafetyMargin", 1.25, 1.0, 100.0);
         DRONE_RETURN_WAIT_BUFFER = BUILDER
                 .comment("Ticks of hover energy added to the return-to-charge threshold, so a drone can wait for a busy station.")
-                .defineInRange("returnWaitBuffer", 600, 0, Integer.MAX_VALUE);
+                .defineInRange("returnWaitBuffer", 3600, 0, Integer.MAX_VALUE);
         DRONE_CHARGING_SEARCH_RADIUS = BUILDER
                 .comment("Radius (blocks) to search the station registry for a usable Charging Station.")
                 .defineInRange("chargingSearchRadius", 500, 1, Integer.MAX_VALUE);
@@ -260,6 +271,7 @@ public class ServerConfig {
 
         BUILDER.push("patrol");
         UPGRADES_PATROL_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 4, 0, 64);
+        UPGRADES_PATROL_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds). The first Patrol upgrade doesn't count.").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         UPGRADES_PATROL_BASE_RADIUS = BUILDER.comment("Patrol radius (blocks) with one Patrol upgrade.").defineInRange("baseRadius", 16, 1, Integer.MAX_VALUE);
         UPGRADES_PATROL_PER_UPGRADE_RADIUS = BUILDER.comment("Extra patrol radius (blocks) per additional Patrol upgrade.").defineInRange("perUpgrade", 16, 0, Integer.MAX_VALUE);
         UPGRADES_PATROL_SPEED = BUILDER.comment("Patrol flight speed (blocks/tick).").defineInRange("speed", 0.25, 0.01, 1.5);
@@ -270,17 +282,20 @@ public class ServerConfig {
 
         BUILDER.push("sight");
         UPGRADES_SIGHT_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 6, 0, 64);
+        UPGRADES_SIGHT_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         UPGRADES_SIGHT_PER_UPGRADE = BUILDER.comment("Extra sight range (blocks) per Sight upgrade.").defineInRange("perUpgrade", 8, 0, Integer.MAX_VALUE);
         BUILDER.pop();
 
         BUILDER.push("explosive");
         UPGRADES_EXPLOSIVE_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 4, 0, 64);
+        UPGRADES_EXPLOSIVE_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         UPGRADES_EXPLOSIVE_BASE_POWER = BUILDER.comment("Explosion power with one Explosive upgrade. TNT is 4.0.").defineInRange("basePower", 2.0, 0.0, 128.0);
         UPGRADES_EXPLOSIVE_PER_UPGRADE = BUILDER.comment("Extra explosion power per additional Explosive upgrade.").defineInRange("perUpgrade", 1.0, 0.0, 128.0);
         BUILDER.pop();
 
         BUILDER.push("siren");
         UPGRADES_SIREN_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 3, 0, 64);
+        UPGRADES_SIREN_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         UPGRADES_SIREN_BASE_VOLUME = BUILDER.comment("Sound volume with one Siren upgrade.").defineInRange("baseVolume", 2.0, 0.0, 128.0);
         UPGRADES_SIREN_PER_UPGRADE = BUILDER.comment("Extra sound volume per additional Siren upgrade.").defineInRange("perUpgrade", 2.0, 0.0, 128.0);
         UPGRADES_SIREN_REPEAT_INTERVAL = BUILDER.comment("Ticks between siren repeats while chasing or following.").defineInRange("repeatInterval", 100, 1, Integer.MAX_VALUE);
@@ -288,21 +303,25 @@ public class ServerConfig {
 
         BUILDER.push("transmitter");
         UPGRADES_TRANSMITTER_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 1, 0, 64);
+        UPGRADES_TRANSMITTER_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         UPGRADES_TRANSMITTER_COOLDOWN = BUILDER.comment("Ticks between Transmitter chat notifications per drone.").defineInRange("cooldown", 200, 0, Integer.MAX_VALUE);
         BUILDER.pop();
 
         BUILDER.push("energy");
-        UPGRADES_ENERGY_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 4, 0, 64);
-        UPGRADES_ENERGY_PER_UPGRADE = BUILDER.comment("Extra max energy (FE) per Energy upgrade.").defineInRange("perUpgrade", 100_000, 0, Integer.MAX_VALUE);
+        UPGRADES_ENERGY_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 6, 0, 64);
+        UPGRADES_ENERGY_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.0, 0.0, 100.0);
+        UPGRADES_ENERGY_MULTIPLIER = BUILDER.comment("Max energy multiplier per Energy upgrade (compounds).").defineInRange("multiplier", 2.0, 1.0, 16.0);
         BUILDER.pop();
 
         BUILDER.push("health");
         UPGRADES_HEALTH_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 4, 0, 64);
+        UPGRADES_HEALTH_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         UPGRADES_HEALTH_PER_UPGRADE = BUILDER.comment("Extra max HP per Health upgrade.").defineInRange("perUpgrade", 10.0, 0.0, 1024.0);
         BUILDER.pop();
 
         BUILDER.push("playerSeek");
         UPGRADES_PLAYER_SEEK_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 1, 0, 64);
+        UPGRADES_PLAYER_SEEK_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         BUILDER.pop();
 
 
@@ -329,14 +348,20 @@ public class ServerConfig {
 
         BUILDER.push("chargingStation");
         CHARGING_STATION_CAPACITY = BUILDER
-                .comment("FE a Charging Station can store.")
-                .defineInRange("capacity", 100_000, 1, Integer.MAX_VALUE);
+                .comment("FE a Charging Station can store with no Energy Upgrades.")
+                .defineInRange("capacity", 400_000, 1, Integer.MAX_VALUE);
         CHARGING_STATION_CHARGE_RATE = BUILDER
-                .comment("FE/tick a Charging Station feeds into its docked drone.")
-                .defineInRange("chargeRate", 1_000, 1, Integer.MAX_VALUE);
-        CHARGING_STATION_HEAL_PER_TICK = BUILDER
-                .comment("HP/tick a Charging Station restores to its docked drone.")
-                .defineInRange("healPerTick", 0.1, 0.0, 1024.0);
+                .comment("FE/tick a Charging Station with no Energy Upgrades feeds into its docked drone.")
+                .defineInRange("chargeRate", 2_000, 1, Integer.MAX_VALUE);
+        CHARGING_STATION_MAX_ENERGY_UPGRADES = BUILDER
+                .comment("Energy Upgrades a Charging Station accepts in its Upgrades tab.")
+                .defineInRange("maxEnergyUpgrades", 4, 0, 64);
+        CHARGING_STATION_UPGRADE_MULTIPLIER = BUILDER
+                .comment("Charge rate and capacity multiplier per Energy Upgrade in a Charging Station (compounds).")
+                .defineInRange("upgradeMultiplier", 2.0, 1.0, 16.0);
+        CHARGING_STATION_HEAL_PERCENT_PER_SECOND = BUILDER
+                .comment("Percent of the docked drone's max HP a Charging Station restores per second.")
+                .defineInRange("healPercentPerSecond", 10.0, 0.0, 100.0);
         CHARGING_STATION_TANK_CAPACITY = BUILDER
                 .comment("mB of repair fluid a Charging Station can store.")
                 .defineInRange("tankCapacity", 4_000, 1, Integer.MAX_VALUE);

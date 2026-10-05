@@ -40,6 +40,7 @@ public class SeekerDronesClient {
         event.register(ModMenuTypes.DRONE_FACTORY.get(), DroneFactoryScreen::new);
         event.register(ModMenuTypes.PROGRAMMING_STATION.get(), ProgrammingStationScreen::new);
         event.register(ModMenuTypes.DEPLOYING_STATION.get(), DeployingStationScreen::new);
+        event.register(ModMenuTypes.CHARGING_STATION.get(), ChargingStationScreen::new);
     }
 
     private static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {

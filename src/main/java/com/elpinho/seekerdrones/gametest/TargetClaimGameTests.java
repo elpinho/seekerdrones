@@ -11,10 +11,12 @@ import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.drone.DroneState;
+import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
+import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTest;
@@ -136,9 +138,8 @@ public class TargetClaimGameTests {
                 helper.assertTrue(l.getSeekTarget() == null, "The other drone should be blocked, target=" + l.getSeekTarget());
                 winner[0] = w;
                 // Nearly empty: below the return threshold the drone heads for the station (5.2) and must free the target.
-                double distance = w.position().distanceTo(Vec3.atCenterOf(helper.absolutePos(stationRel)));
-                double threshold = distance * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK) * ServerConfig.get(ServerConfig.DRONE_RETURN_SAFETY_MARGIN)
-                        + (double) ServerConfig.get(ServerConfig.DRONE_RETURN_WAIT_BUFFER) * ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK);
+                double distance = w.position().distanceTo(ChargingStationBlockEntity.dockPosition(helper.absolutePos(stationRel)));
+                double threshold = DroneStats.returnThreshold(w.snapshotData(), distance);
                 w.setDroneData(w.snapshotData().withEnergy(Math.max(1, (int) threshold - 2)));
                 drained.set(true);
                 return;

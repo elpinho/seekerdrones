@@ -22,7 +22,13 @@ public class ModBlockLootProvider extends BlockLootSubProvider {
 
     @Override
     protected void generate() {
-        dropSelf(ModBlocks.CHARGING_STATION.get());
+        // The Charging Station item keeps its upgrades (DESIGN.md section 7.4).
+        Block chargingStation = ModBlocks.CHARGING_STATION.get();
+        add(chargingStation, LootTable.lootTable().withPool(applyExplosionCondition(chargingStation, LootPool.lootPool()
+                .setRolls(ConstantValue.exactly(1))
+                .add(LootItem.lootTableItem(chargingStation)
+                        .apply(CopyComponentsFunction.copyComponents(CopyComponentsFunction.Source.BLOCK_ENTITY)
+                                .include(ModDataComponents.MACHINE_UPGRADES.get()))))));
         // The Factory item keeps its Operator Group ID (DESIGN.md section 6.1).
         Block factory = ModBlocks.DRONE_FACTORY.get();
         add(factory, LootTable.lootTable().withPool(applyExplosionCondition(factory, LootPool.lootPool()

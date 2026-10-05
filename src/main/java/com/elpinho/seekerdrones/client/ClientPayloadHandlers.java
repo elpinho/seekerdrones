@@ -23,9 +23,7 @@ public final class ClientPayloadHandlers {
 
     public static void handleStationStatus(StationStatusPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
-        if (payload.open()) {
-            minecraft.setScreen(new ChargingStationScreen(payload));
-        } else if (minecraft.screen instanceof ChargingStationScreen screen && screen.getPos().equals(payload.pos())) {
+        if (minecraft.screen instanceof ChargingStationScreen screen && screen.getPos().equals(payload.pos())) {
             screen.update(payload);
         }
     }

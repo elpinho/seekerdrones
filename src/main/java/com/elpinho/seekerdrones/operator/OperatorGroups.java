@@ -113,6 +113,14 @@ public class OperatorGroups extends SavedData {
         return group != null && group.isOperator(player);
     }
 
+    /**
+     * Whether the player is the owner or an operator of any group owned by {@code owner}, e.g. to manage that owner's
+     * Charging Stations (DESIGN.md section 7.4). Walks every group, so it's only for player actions, never per tick.
+     */
+    public boolean isOperatorOfAnyGroupOwnedBy(UUID owner, UUID player) {
+        return groups.values().stream().anyMatch(group -> group.owner().equals(owner) && group.isOperator(player));
+    }
+
     /** All online players who are operators of the group, e.g. for Transmitter notifications (section 4). */
     public List<ServerPlayer> onlineOperators(MinecraftServer server, UUID groupId) {
         OperatorGroup group = groups.get(groupId);

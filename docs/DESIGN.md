@@ -209,7 +209,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 - Upgrades are craftable items with expensive recipes. The materials are still to be decided (TBD), and the recipes are plain data-driven crafting recipes.
 - Each drone has a **total upgrade slot limit** and a **per-type cap**. Both are configurable.
-- Upgrades are installed and removed only in the **Drone Programming Station**. Removal gives a **full refund** of the upgrade item.
+- Upgrades are installed in drones and removed from them only in the **Drone Programming Station**. Removal gives a **full refund** of the upgrade item. (The Energy Upgrade item also goes into a Charging Station's Upgrades tab, section 7.4.)
 
 | Upgrade | Stacks | Default cap | Effect | Per-upgrade config (set in Programming Station) |
 |---|---|---|---|---|
@@ -218,13 +218,13 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 | **Explosive** | Yes | 4 | The drone explodes on reaching its target and is consumed. Explosion power scales with the count. | — |
 | **Siren** | Yes | 3 | Plays a siren sound when a target is spotted. More upgrades increase the audible radius (sound volume > 1.0). | — |
 | **Transmitter** | No | 1 | Sends a chat message to **all online operators** of the drone (its group, or its owner if it has no group) when a target is spotted, including the drone ID, label, target type and coordinates. The message is rate-limited per drone. | — |
-| **Energy** | Yes | 4 | Increases max energy (FE). | — |
+| **Energy** | Yes | 6 | Doubles max energy (FE) per upgrade. | — |
 | **Health** | Yes | 4 | Increases max HP. | — |
 | **Player Seek** | No | 1 | Allows player names as target entries. Player-name entries use target slots like any other entry. The drone's operators (section 6.3) are still exempt. | — (names go in the Targets list) |
 
 - The default **total slot limit** is 20.
 - The caps are enforced when upgrades are installed (Programming Station, debug command). A flying drone uses its installed counts as they are, even if the config was lowered afterwards.
-- **Energy and Health upgrades arrive full:** installing one also adds the extra capacity to the drone's current energy / HP. Removing one lowers the max, and anything above the new max is lost.
+- **Health upgrades arrive full:** installing one also adds the extra HP to the drone's current HP. **Energy upgrades arrive empty:** the new capacity has to be charged. Removing an Energy or Health upgrade lowers the max, and anything above the new max is lost.
 - The Siren fires once per target acquisition and repeats every N seconds (configurable) while the target is being chased or followed. Its volume is `baseVolume + perUpgrade × (count − 1)`, and vanilla hears a sound of volume `v > 1` from `16 × v` blocks. Placeholder sound: the vanilla raid horn, until a custom sound exists.
 - The Transmitter fires on target acquisition only (not while following). The message gives the drone's label and ID, the target's name (the player name for players, otherwise the entity type's name) and the target's block coordinates. After a message, that drone sends no other message for `upgrades.transmitter.cooldown` ticks. The cooldown isn't saved. It goes to the drone's online operators (section 6.3): the group's, or the owner if the drone has no group. An unowned drone or one with an unknown group notifies nobody.
 - Transmitter messages sent while operators are offline are **not** queued in v1.
@@ -239,12 +239,15 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 - Drones store **FE**. The drain is applied every N ticks (default 20) to keep it cheap:
   - **Distance cost:** FE per block flown, which gives the drone its "range".
-  - **Hover cost:** a small FE per tick while airborne.
-- Energy upgrades increase max FE.
+  - **Hover cost:** FE per tick while airborne.
+- **Max energy** is `baseMaxEnergy × energyMultiplier^count`, where `count` is the number of Energy upgrades (defaults 800 000 FE = 2 MJ and ×2, so 6 upgrades give 51.2M FE).
+- **Upgrade multiplier `M`:** both costs are multiplied by the product of each installed upgrade's per-type factor, `M = Π factor[type]^count[type]` (default ×1.3 for every type). Energy upgrades have factor ×1 (they add no usage). The **first Patrol upgrade doesn't count**: it is what `energyPerBlock` is priced for, so only Patrol upgrades beyond the first apply the factor.
+- **Exception:** a drone waiting near a busy station (section 5.3) only pays the base hover cost, with no multiplier.
+- Reference points for the defaults (Mekanism's 2.5 J per FE, 1 MJ = 400 000 FE): a drone with no upgrades hovers for about 1 h 23 min (8 FE/tick), and with 1 Patrol upgrade it patrols for about 15 min (8 FE/tick + 146 FE/block at 0.25 blocks/tick). Chasing uses the same distance cost, so flying faster drains faster.
 
 ### 5.2 Returning to charge
 
-- The **return threshold** is dynamic: the energy needed to reach the nearest usable Charging Station and wait there for a while, which is `distance × FE-per-block × safetyMargin + returnWaitBuffer × hoverFE-per-tick` (defaults 1.25 and 600 ticks). The wait buffer lets a drone queue at a busy station (section 5.3) without running dry.
+- The **return threshold** is dynamic: the energy needed to reach the nearest usable Charging Station and wait there for a while, which is `M × distance × (energyPerBlock + hoverEnergyPerTick / cruiseSpeed) × safetyMargin + returnWaitBuffer × hoverEnergyPerTick` (defaults 1.25 and 3600 ticks). The first part covers the flight home at cruise speed, distance and hover cost, with the drone's upgrade multiplier `M` (section 5.1). The wait buffer lets a drone queue at a busy station (section 5.3) without running dry; it has no multiplier, since a waiting drone only pays the base hover cost.
 - The drone looks for stations within a fixed radius (default 500 blocks) using the station registry (section 8.3), not a block scan.
 - A **usable** station is in the same dimension, and its placer is an operator of the drone (section 6.3): an operator of the drone's group, or the drone's owner if it has no group. An **unowned** drone may use **any** station. A station with no recorded placer (placed by a non-player) is usable only by unowned drones.
 - Once the threshold is reached, returning overrides every other state, including chasing, **except** for a drone with an **Explosive** upgrade that is currently chasing. That drone keeps chasing, since it will be consumed anyway. If an Explosive drone loses its target while below the threshold, it returns to charge as normal.
@@ -255,8 +258,8 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 ### 5.3 Charging queue
 
 - Each Charging Station charges **one drone at a time**. A drone claims the station once it is within a few blocks of it and renews the claim every tick until it is done. A claim that isn't renewed (the drone was picked up, destroyed or unloaded) lapses after a second.
-- If the chosen station is busy, the drone checks for another free usable station within 10 blocks of it and goes there. If there is none, it waits by hovering very close to the busy station.
-- While docked, the drone also regains `chargingStation.healPerTick` HP per tick, up to its max HP. Healing costs no FE, but only happens while the station has FE stored **and** repair fluid in its tank (section 7.4). It drains `chargingStation.repairFluidPerHp` mB per HP restored. Fractional mB carry over between ticks, so the tank is always drained in whole mB. Charging finishes when the drone is at full energy **and** either full health or the station's repair fluid tank is empty. A drone is never held just to wait for repair fluid: it leaves damaged.
+- If the chosen station is busy, the drone checks for another free usable station within 10 blocks of it and goes there. If there is none, it waits by hovering very close to the busy station, paying only the base hover cost (section 5.1).
+- While docked, the drone also regains `chargingStation.healPercentPerSecond` of its **max** HP per second (applied per tick), up to its max HP. Station upgrades don't change it. Healing costs no FE, but only happens while the station has FE stored **and** repair fluid in its tank (section 7.4). It drains `chargingStation.repairFluidPerHp` mB per HP restored. Fractional mB carry over between ticks, so the tank is always drained in whole mB. Charging finishes when the drone is at full energy **and** either full health or the station's repair fluid tank is empty. A drone is never held just to wait for repair fluid: it leaves damaged.
 - A docked drone has no hover drain. If the station runs out of FE, the drone stays docked and waits, charging again as soon as FE arrives.
 - When charging finishes, the drone returns to its patrol center and resumes patrolling, or hovers if it has no Patrol upgrade. A drone without a Patrol upgrade returns to where it was when it left.
 
@@ -296,6 +299,7 @@ Drone Operators control who can interact with drones. A drone's operators come f
 | Exempt from being targeted by Player Seek | Yes |
 | Insert/extract drones in machines (manually or by automation) | **No**. Machines never check permissions, so automation keeps working. |
 | Drone may charge at a Charging Station | The station's placer must be an operator of the drone (section 6.3). An unowned drone may charge at any station (section 5.2). |
+| Open a Charging Station's Upgrades tab or change its upgrades | A **station** operator (section 7.4), not a drone operator. The rest of the station screen is open to anyone. |
 
 Edge cases for the direct-interaction checks (pick up, hand-deploy, status GUI):
 - An **unowned** drone (no group and no owner, e.g. fresh from the creative tab or `/give`) may be used by **anyone**. The first player to hand-deploy it becomes its owner.
@@ -304,7 +308,7 @@ Edge cases for the direct-interaction checks (pick up, hand-deploy, status GUI):
 - Transmitter messages and the Player Seek exemption go to the operators from section 6.3. An unowned drone notifies nobody and exempts nobody.
 - A blocked player gets an action-bar message saying they are not an operator of this drone.
 
-The Programming, Deploying and Charging Stations have no access control in v1. Charging Stations only record their placer's UUID, which is used for the usability rule above.
+The Programming and Deploying Stations have no access control in v1. Charging Stations record their placer's UUID, which is used for the usability rule above and decides who may manage the station's upgrades (section 7.4). Everything else on a Charging Station is open to anyone.
 
 ### 6.3 Drone owner
 
@@ -369,7 +373,7 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
 - **Install step:** takes `programmingStation.installTime` ticks. Its FE cost is spent evenly over that time, and the step pauses while FE runs short. The upgrade item is taken from the input when the step finishes. The step is cancelled, and the FE already spent is lost, if the drone leaves the slot, the mode changes, the program no longer wants the upgrade, or no matching upgrade is left in the input when it finishes.
 - **FE cost per upgrade installed:**
   - The base cost is `baseCost[type] × n`, where `n` is the index of the upgrade being installed within its type (1st, 2nd…).
-  - Installing an **Energy** upgrade also costs the FE capacity that the upgrade adds (`upgrades.energy.perUpgrade`). That FE goes into the drone, so the new capacity arrives full.
+  - Energy upgrades cost the same as any other type. The capacity they add arrives empty (section 4).
 - **Manual removal:** a player removes installed upgrades one at a time from the GUI: with a right-click on its tile in Direct mode, or with **Shift+right-click** in Template mode on a tile where the drone has more than the program asks for. The removed upgrade goes into **that player's inventory** (a full refund), or drops at their feet if it is full. Removal is instant and costs no FE. Removing an Energy or Health upgrade lowers the max, and anything above the new max is lost. The station **never** removes upgrades on its own. In Template mode, a drone with more upgrades than the program asks for doesn't match, so it is never complete, and the GUI shows a warning.
 - **Complete:** in Template mode, a drone inserted in Template mode is complete once its upgrades and settings match the program exactly.
 - **Automation** (item capability, every side):
@@ -411,12 +415,22 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
 - It has a fluid tank (`chargingStation.tankCapacity`), fillable with a bucket or by pipes, that only accepts the repair fluid: **Ethene** (fluid tag `c:ethene`) when Mekanism is loaded, otherwise **Lava**. The choice is made in code at startup, never both (section 7.5).
 - It records its placer's UUID and registers itself in the station registry on placement. It unregisters when broken.
 - Drone docking and queuing follow section 5.3.
-- **GUI:** right-clicking the station opens a read-only status screen (176 wide, no inventory). Anyone can open it, since stations have no access control in v1 (section 6.2). It refreshes about once a second and shows:
-  - **Status**, as a pill in the title row: Idle (gray), Drone docking (amber; a drone has claimed the station but hasn't docked yet), Charging or Repairing (green; Repairing means full energy, still healing), or Out of power (red; a drone is docked but the station has 0 FE).
-  - The station's **stored FE / capacity** as a gauge on the left, and, while a drone holds the station, the FE per tick it is actually giving the drone (at most `chargingStation.chargeRate`, less when the drone is nearly full or the station is running out; 0 while docking or only repairing) in the display's corner and the gauge's tooltip.
-  - The **repair fluid** as a gauge on the right, drawn with the fluid's texture, with its name and amount in the tooltip.
-  - The **owner** (the placer's name and head), or "None" if a non-player placed it, in a side tab that unfolds to show the name. This decides which drones may use the station (section 5.2).
-  - The **drone** holding the station, in the middle display: a 3D preview in its color over the dock pad (higher while still docking), its label in its color and its ID, and its energy and health as bars. Arrows show charge flowing in while charging and repair fluid while it heals. "No drone" if no drone holds it.
+- **Energy upgrades:** the station takes up to `chargingStation.maxEnergyUpgrades` (4) of the drone **Energy Upgrade** item. Each one multiplies its charge rate and FE capacity by `chargingStation.upgradeMultiplier` (×2): 2 000 FE/tick and 400 000 FE with none, 32 000 FE/tick and 6.4M FE with 4. The heal rate doesn't change.
+  - The upgrades sit in the station's **Upgrades** side tab (the generic kit component, section 7.7): one Energy Upgrade slot that stacks up to `chargingStation.maxEnergyUpgrades`. Only the station's **operators** can open the tab or change its contents. The rest of the screen stays open to anyone.
+  - **Station operators:** the placer (owner), plus every operator of every Operator Group the placer owns (section 6.1; groups outlive their Factory, so this includes groups whose Factory was broken). Anyone may manage a station with no recorded placer. Server operators (permission level ≥ 2) bypass the check, as for drones (section 6.2). The server checks it when the screen opens and on every change to the upgrade slot. Machines never check it, and automation can't reach the slot anyway.
+  - Hoppers and pipes can't reach the upgrade slot: the station's item handler doesn't expose it.
+  - Removing an upgrade lowers the capacity, and stored FE above the new capacity is lost.
+  - Breaking the station keeps the upgrades in the dropped item, in a data component (`seekerdrones:machine_upgrades`, upgrade counts by type) like the Deploying Station keeps its setting, so placing it again restores them. The item's tooltip lists them.
+- **GUI:** right-clicking the station opens its screen, which anyone can open. The station panel (176 × 108) is the same for everyone and works as described below.
+  - Players who can manage the upgrades also get the **player inventory**, in a separate standard kit frame (176 × 100: the "Inventory" label, the three rows and the hotbar) 2 px under the panel. The two frames are centered together. Everyone else sees only the panel, centered as before, with no inventory and no Upgrades tab.
+  - The screen is a container menu, so upgrades can be dragged between the inventory and the tab. Only a manager's menu has the upgrade slot and the inventory slots. Whether the player can manage is decided when the screen opens. The once-a-second refresh carries it too: if the player loses access while the screen is open, the Upgrades tab folds and hides (the inventory stays until the screen is reopened), and the server rejects any change.
+  - **Side tabs**, top to bottom: **Upgrades** (managers only, section 7.7), **Owner**, then the energy unit (section 5.4). The folded Upgrades tab shows the generic upgrades icon. Its tooltip gives the count and cap and, in gray, the current charge rate and capacity multiplier (×4 with 2 upgrades at the default ×2).
+  - It refreshes about once a second and shows:
+    - **Status**, as a pill in the title row: Idle (gray), Drone docking (amber; a drone has claimed the station but hasn't docked yet), Charging or Repairing (green; Repairing means full energy, still healing), or Out of power (red; a drone is docked but the station has 0 FE).
+    - The station's **stored FE / capacity** as a gauge on the left, and, while a drone holds the station, the FE per tick it is actually giving the drone (at most the station's charge rate, less when the drone is nearly full or the station is running out; 0 while docking or only repairing) in the display's corner and the gauge's tooltip.
+    - The **repair fluid** as a gauge on the right, drawn with the fluid's texture, with its name and amount in the tooltip.
+    - The **owner** (the placer's name and head), or "None" if a non-player placed it, in a side tab that unfolds to show the name. This decides which drones may use the station (section 5.2).
+    - The **drone** holding the station, in the middle display: a 3D preview in its color over the dock pad (higher while still docking), its label in its color and its ID, and its energy and health as bars. Arrows show charge flowing in while charging and repair fluid while it heals. "No drone" if no drone holds it.
 
 ### 7.5 Materials and recipes
 
@@ -482,11 +496,16 @@ Upgrade and Charging Station recipes stay placeholders until the balance pass (s
 
 ### 7.7 GUI and texture style
 
-Every screen (the four machines, the Factory's Operators panel and the drone status screen) and every machine block follows one style, so the M9 artist (ROADMAP.md) repaints parts instead of redesigning layouts.
+Every screen (the four machines, the drone status screen and the side tab panels: the Factory's Operators and the Charging Station's Owner and Upgrades) and every machine block follows one style, so the M9 artist (ROADMAP.md) repaints parts instead of redesigning layouts.
 
 - **GUI kit:** the vanilla gray beveled frame, plus a dark recessed "display" (teal text) for status, previews and editors. Every part is a nine-slice GUI sprite in `textures/gui/sprites` (scaling set in its `.mcmeta`), drawn by `client/gui/Kit`. The placeholder sprites come from `scripts/textures/generate_gui_sprites.py`. Small text is the normal font at 0.75 scale.
   - **Gauges:** energy is green, health red, and fluids use the fluid's texture. All share one scale: short notches on one edge, long ones at quarters. Gauges next to a display match its height, and side-by-side gauges have the same width. Exact values are in tooltips.
-  - **Side tabs** on the right edge, Mekanism-style: the energy unit tab on top (section 5.4), then the screen's own tab (Operators, Redstone, Owner or Help).
+  - **Side tabs** on the right edge, Mekanism-style. Top to bottom: the machine's management tab (Operators on the Factory; Upgrades then Owner on the Charging Station), the energy unit tab (section 5.4), then the screen's other tab (Redstone or Help). A tab that unfolds into a panel pushes the tabs below it down. Tabs are 24 wide and tuck 4 px under the frame. Clicking a folded tab unfolds it into a kit-framed panel, and clicking the panel's 16 px header folds it again. A panel header has a 9 px icon at (8, 5) and its title in the label color at (21, 6).
+  - **Upgrades tab** (a generic kit component for any machine that takes upgrades): the machine passes the upgrade types it accepts, each with its cap from the server config, and gets one slot per type that stacks up to that cap. The machine decides who may manage its upgrades (the Charging Station's rule is in section 7.4). The tab is hidden from everyone else.
+    - It is always the **top** tab. Vanilla slot positions are fixed when the menu is built, so no tab above it may unfold and push its slots away.
+    - **Folded:** 22 tall like the Owner tab. It shows a generic upgrades icon, never an upgrade item: two thin green upward chevrons (`icon/upgrades`, 9 × 8, at (8, 7) like the other tab icons). It shows no count. The tooltip: "Upgrades", one line per type with its count and cap, then each type's current effect in gray (text from the machine). While folded, the slots are hidden and take no clicks. Shift-clicking an accepted upgrade from the inventory still installs it, and shift-clicking it in the slot moves it back to the inventory.
+    - **Unfolded:** a panel 86 wide (like the Owner panel). The header has the same icon at (8, 5), unscaled, and "Upgrades". Below the header, each type gets a 20 px row: its slot (the kit slot box, with a faint ghost of the upgrade item while empty, like the Factory's ghosts), then the type's name and "count / cap" in small text. The panel's height is 16 + 20 per row + 4, so 40 for the Charging Station. Clicks on the rows go to the slots. An empty slot's tooltip gives the type's name, count/cap and effect, and a filled slot shows the item's own tooltip.
+    - The upgrade slots are never part of the machine's item handler (capability), so hoppers and pipes can't reach them.
   - **Status strip:** one per machine screen, with a light: green working or ready, amber waiting, red needs the player, gray idle. Long text scrolls instead of being cut off.
   - **Previews** (drones, targets, the launch shaft) are client-side only. They never show real positions and need no server data beyond what the screens already get.
 - **Block textures:** placeholder art drawn by `scripts/textures/generate_textures.py` (faces and animations in section 7.6).
@@ -550,12 +569,12 @@ All values below are placeholders.
 
 | Key | Default | Notes |
 |---|---|---|
-| `drone.baseMaxEnergy` | 100 000 FE | |
-| `drone.energyPerBlock` | 20 FE | Distance cost |
-| `drone.hoverEnergyPerTick` | 1 FE | |
+| `drone.baseMaxEnergy` | 800 000 FE | 2 MJ (section 5.1) |
+| `drone.energyPerBlock` | 146 FE | Distance cost; 1 Patrol upgrade patrols for ~15 min |
+| `drone.hoverEnergyPerTick` | 8 FE | No upgrades: hovers for ~1 h 23 min |
 | `drone.energyDrainInterval` | 20 ticks | |
 | `drone.returnSafetyMargin` | 1.25 | |
-| `drone.returnWaitBuffer` | 600 ticks | Hover time added to the return threshold, for waiting at a busy station (section 5.2) |
+| `drone.returnWaitBuffer` | 3600 ticks | Hover time added to the return threshold, for waiting at a busy station (section 5.2) |
 | `drone.chargingSearchRadius` | 500 blocks | |
 | `drone.chargingAlternateRadius` | 10 blocks | Alternate free station search |
 | `drone.unreachableStationCooldown` | 1200 ticks | How long an unreachable station is skipped (section 5.2) |
@@ -603,14 +622,17 @@ All values below are placeholders.
 | `upgrades.explosive.basePower` / `perUpgrade` | 2.0 / 1.0 | TNT = 4.0 |
 | `upgrades.siren.baseVolume` / `perUpgrade` / `repeatInterval` | 2.0 / 2.0 / 100 ticks | |
 | `upgrades.transmitter.cooldown` | 200 ticks | |
-| `upgrades.energy.perUpgrade` | 100 000 FE | |
+| `upgrades.energy.multiplier` | 2.0 | Max energy multiplier per Energy upgrade (compounds) |
+| `upgrades.<type>.energyFactor` | 1.3 (Energy: 1.0) | Energy usage multiplier per upgrade of that type (compounds; the first Patrol upgrade doesn't count, section 5.1) |
 | `upgrades.health.perUpgrade` | 10 | |
 | `programmingStation.baseCost.<type>` | 10 000 FE | Multiplied by index `n` |
 | `programmingStation.energyCapacity` | 200 000 FE | FE the station can store |
 | `programmingStation.installTime` | 20 ticks | Duration of one install step |
-| `chargingStation.capacity` | 100 000 FE | FE the station can store |
-| `chargingStation.chargeRate` | 1 000 FE/tick | |
-| `chargingStation.healPerTick` | 0.1 HP/tick | |
+| `chargingStation.capacity` | 400 000 FE | FE the station can store with no upgrades |
+| `chargingStation.chargeRate` | 2 000 FE/tick | Charge rate with no upgrades |
+| `chargingStation.maxEnergyUpgrades` | 4 | |
+| `chargingStation.upgradeMultiplier` | 2.0 | Charge rate and capacity multiplier per Energy upgrade (compounds) |
+| `chargingStation.healPercentPerSecond` | 10% | Of the drone's max HP |
 | `chargingStation.tankCapacity` | 4 000 mB | Repair fluid tank |
 | `chargingStation.repairFluidPerHp` | 10 mB | Repair fluid used per HP restored |
 | `factory.energyCapacity` | 200 000 FE | |

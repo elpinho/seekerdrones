@@ -31,6 +31,7 @@ public class ModLanguageProvider extends LanguageProvider {
         addBlock(ModBlocks.PROGRAMMING_STATION, "Drone Programming Station");
         addBlock(ModBlocks.DEPLOYING_STATION, "Drone Deploying Station");
         add("tooltip.seekerdrones.deploying_station.auto_deploy_off", "Auto-deploy: Off");
+        add("tooltip.seekerdrones.machine_upgrades", "%s Upgrades: %s");
         add("screen.seekerdrones.energy", "Energy");
         add("screen.seekerdrones.deploying_station", "Deploying Station");
         add("screen.seekerdrones.deploying_station.auto_deploy", "Auto-deploy");
@@ -175,7 +176,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.EXPLOSIVE.getTranslationKey() + ".description", "Explodes on reaching its target.");
         add(UpgradeType.SIREN.getTranslationKey() + ".description", "Sounds a siren when a target is spotted.");
         add(UpgradeType.TRANSMITTER.getTranslationKey() + ".description", "Tells the drone's online operators when a target is spotted.");
-        add(UpgradeType.ENERGY.getTranslationKey() + ".description", "Increases max energy.");
+        add(UpgradeType.ENERGY.getTranslationKey() + ".description", "Doubles max energy.");
         add(UpgradeType.HEALTH.getTranslationKey() + ".description", "Increases max health.");
         add(UpgradeType.PLAYER_SEEK.getTranslationKey() + ".description", "Allows setting players as targets.");
         add("tooltip.seekerdrones.upgrade.max_count", "Max per drone: %s");
@@ -275,6 +276,13 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.charging_station.no_drone", "No drone");
         add("screen.seekerdrones.charging_station.drone_energy", "Drone energy");
         add("screen.seekerdrones.charging_station.drone_health", "Drone health");
+        add("screen.seekerdrones.charging_station.upgrades.effect", "Charge rate and capacity ×%s");
+        add("screen.seekerdrones.upgrades", "Upgrades");
+        add("screen.seekerdrones.upgrades.open", "Click to open");
+        add("screen.seekerdrones.upgrades.close", "Click to close");
+        add("screen.seekerdrones.upgrades.count", "%s: %s / %s");
+        add("screen.seekerdrones.upgrades.value", "%s / %s");
+        add("screen.seekerdrones.upgrades.slot", "%s Upgrade");
         add(StationStatusPayload.Status.IDLE.getTranslationKey(), "Idle");
         add(StationStatusPayload.Status.DOCKING.getTranslationKey(), "Drone docking");
         add(StationStatusPayload.Status.CHARGING.getTranslationKey(), "Charging");

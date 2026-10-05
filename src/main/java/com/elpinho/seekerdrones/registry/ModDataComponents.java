@@ -2,8 +2,11 @@ package com.elpinho.seekerdrones.registry;
 
 import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.drone.DroneData;
+import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.programming.ProgrammingStationSettings;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import com.mojang.serialization.Codec;
@@ -48,5 +51,13 @@ public class ModDataComponents {
                     () -> DataComponentType.<Boolean>builder()
                             .persistent(Codec.BOOL)
                             .networkSynchronized(ByteBufCodecs.BOOL)
+                            .build());
+
+    /** The upgrades a broken machine keeps on its item, by type, e.g. a Charging Station's Energy Upgrades (DESIGN.md section 7.4). */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Map<UpgradeType, Integer>>> MACHINE_UPGRADES =
+            DATA_COMPONENT_TYPES.register("machine_upgrades",
+                    () -> DataComponentType.<Map<UpgradeType, Integer>>builder()
+                            .persistent(UpgradeType.COUNTS_CODEC)
+                            .networkSynchronized(ByteBufCodecs.map(HashMap::new, UpgradeType.STREAM_CODEC, ByteBufCodecs.VAR_INT))
                             .build());
 }

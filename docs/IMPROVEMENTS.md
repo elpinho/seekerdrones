@@ -24,26 +24,20 @@ Status: `idea` | `decided`
 
 ## Upgrades and energy
 
-- **Tune energy usage** (`idea`): rebalance the drone's energy config (`drone.energyPerBlock`, `drone.hoverEnergyPerTick`, `drone.baseMaxEnergy`, `upgrades.energy.perUpgrade`, DESIGN.md §5.1 and §9) so a drone's range and hover time feel right. Overlaps with the M9 balance pass (ROADMAP.md).
 - **Tune upgrade recipes** (`idea`): replace the placeholder upgrade recipes with final ones (materials and costs). This is listed as future work in DESIGN.md §11 (final recipes, balancing pass), so it needs the user's go-ahead before it becomes v1 work. It should follow §7.5: `c:` tags, and base and Mekanism variants where it makes sense.
 - **Antiprotonic Nucleosynthesizer for late-game recipes** (`idea`): the Mekanism variants of really late-game items (e.g. the most expensive upgrades) should require the Antiprotonic Nucleosynthesizer.
 - **Solar upgrade** (`idea`, direction agreed): a drone upgrade that generates real energy (FE) from sunlight. The drone's net energy change is the solar output minus its energy usage.
-  - **Stacking:** stackable, cap 4. **One upgrade is not enough to make a drone self-sufficient.** Once energy usage depends on the drone's upgrades (see **Upgrade-dependent energy usage** below), whether a drone is self-sufficient will also depend on its other upgrades.
+  - **Stacking:** stackable, cap 4. **One upgrade is not enough to make a drone self-sufficient.** Energy usage depends on the drone's upgrades (the upgrade multiplier, DESIGN.md §5.1), so whether a drone is self-sufficient also depends on its other upgrades.
   - **Cost:** it should be **very expensive to craft**.
   - **Conditions:** it only generates with sky access (a `canSeeSky` heightmap lookup, which is cheap) during the day, and generates less in rain and thunder.
   - **Performance:** the generation is applied in the existing batched energy drain (every `drone.energyDrainInterval` ticks, DESIGN.md §8.4), so it adds no extra ticking.
   - Output per upgrade and the weather multipliers would be config entries.
-- **Upgrade-dependent energy usage** (`idea`): a drone's energy usage should depend on its upgrades, e.g. a hover cost of `hoverEnergyPerTick + perUpgradeHover × totalUpgrades`, so a heavily upgraded drone is "heavier" and drains faster. It makes Energy upgrades necessary for big builds and decides whether a Solar drone is self-sufficient. It could share a "drone weight" idea with **Drones with many upgrades are louder** (see **Drone and machine sounds**). Still open: whether every upgrade weighs the same, and whether the distance cost scales too. It's part of the energy tuning above and needs in-game testing.
 - **Quiet upgrade** (`idea`, direction agreed; name TBD, e.g. "Stealth" or "Silencer"): a drone upgrade for silent watchers.
   - It lowers the volume of the drone's own sounds (flying, charging, low power and so on; see **Drone and machine sounds** below).
   - It **hides the drone's nameplate** (label), since a floating name tag defeats the point.
   - It's **mutually exclusive with the Siren upgrade**: a drone is either a loud deterrent or a silent watcher. The Programming Station and the debug command must refuse to install one while the other is installed.
   - **Still open:** how much each upgrade lowers the volume, the cap, whether it offsets the extra loudness from having many upgrades, and whether it also quiets the Explosive approach sound (a stealth kamikaze drone is fun but maybe harsh in PvP). All values would be config entries.
 - **Transparent drone upgrade** (`idea`): an upgrade that makes the drone (semi-)transparent or invisible. Could be part of the Quiet upgrade above as one "Stealth" upgrade, or separate.
-- **Charging Station speed upgrades** (`idea`, to reconsider later): let Charging Stations charge (and heal) drones faster. Alternatives to compare:
-  - **Upgrade slots:** a "Station Speed Upgrade" item that multiplies the charge rate and heal rate, with 2–4 slots in the station GUI. The GUI is read-only today, so this needs a real menu with slots. It also needs a decision on whether the station's FE buffer grows with the upgrades, and a cap.
-  - **Tiered stations:** Basic / Advanced / Elite Charging Stations, each crafted from the previous tier. Simpler, and the GUI doesn't change.
-  - **Merge with multi-drone charging:** "charging stations for multiple drones" is already in the v1.x outlook (ROADMAP.md). Both are really about station throughput, so they could be designed together.
 - **One input slot per upgrade type in the Programming Station** (`idea`): today the upgrade input is a shared 3×3 grid (DESIGN.md §7.2), so piping upgrades in with automation (hoppers, pipes) can fill every slot with one upgrade type and block the others from being inserted. Give the station **one input slot per upgrade type** instead, each accepting only its own upgrade, so automation can always feed every type. Open: how this fits the 3×3 input in the GUI redesign (a slot per type means a taller or scrolling input, or a layout that only applies to automation, e.g. hidden per-type slots exposed on the sides while players keep a simple grid), the stack size per slot, and whether slots for upgrades the drone can't take anymore (cap reached or an incompatible upgrade installed) still accept items.
 
 ## Drone GUI and visuals
@@ -53,7 +47,7 @@ Status: `idea` | `decided`
   - The growth is **slight**: a fully upgraded drone must never reach 2.5× the base size.
   - The base model can be slightly smaller than it is now, to make room for the growth.
   - Growth rate and max scale would be config entries (client-side rendering, driven by the synced upgrade count).
-  - It fits with **Upgrade-dependent energy usage** and louder drones with many upgrades (**Drone and machine sounds**): a heavily upgraded drone is bigger, hungrier and louder.
+  - It fits with the upgrade-dependent energy usage (DESIGN.md §5.1) and louder drones with many upgrades (**Drone and machine sounds**): a heavily upgraded drone is bigger, hungrier and louder.
   - It depends on the new drone model (ROADMAP.md M9). Tell the artist so the model and animations work at any scale.
 
 ## Sounds

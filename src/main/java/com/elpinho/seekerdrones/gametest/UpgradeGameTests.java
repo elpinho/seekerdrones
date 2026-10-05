@@ -94,19 +94,18 @@ public class UpgradeGameTests {
     @GameTest(template = "empty", timeoutTicks = 5)
     public static void withUpgradeCountRaisesAndClampsEnergyAndHealth(GameTestHelper helper) {
         DroneData fresh = DroneData.createNew();
-        int perEnergy = ServerConfig.get(ServerConfig.UPGRADES_ENERGY_PER_UPGRADE);
         double perHealth = ServerConfig.get(ServerConfig.UPGRADES_HEALTH_PER_UPGRADE);
         int baseMaxEnergy = DroneStats.maxEnergy(fresh);
         float baseMaxHealth = DroneStats.maxHealth(fresh);
 
-        // A drone at partial energy/health stays that far below max once the extra capacity arrives full.
+        // Extra max HP arrives full; extra max energy arrives empty (energy is unchanged).
         DroneData partial = fresh.withEnergy(baseMaxEnergy / 2).withHealth(baseMaxHealth / 2);
 
         DroneData withEnergyUpgrade = partial.withUpgradeCount(UpgradeType.ENERGY, 1);
-        helper.assertTrue(DroneStats.maxEnergy(withEnergyUpgrade) == baseMaxEnergy + perEnergy,
-                "Adding 1 Energy upgrade should raise max energy by the per-upgrade amount, max=" + DroneStats.maxEnergy(withEnergyUpgrade));
-        helper.assertTrue(withEnergyUpgrade.energy() == partial.energy() + perEnergy,
-                "Adding 1 Energy upgrade should raise current energy by the same added capacity, was " + withEnergyUpgrade.energy());
+        helper.assertTrue(DroneStats.maxEnergy(withEnergyUpgrade) == 2 * baseMaxEnergy,
+                "Adding 1 Energy upgrade should double max energy, max=" + DroneStats.maxEnergy(withEnergyUpgrade));
+        helper.assertTrue(withEnergyUpgrade.energy() == partial.energy(),
+                "Adding 1 Energy upgrade should leave current energy unchanged (extra capacity arrives empty), was " + withEnergyUpgrade.energy());
 
         DroneData withHealthUpgrade = partial.withUpgradeCount(UpgradeType.HEALTH, 1);
         helper.assertTrue(DroneStats.maxHealth(withHealthUpgrade) == baseMaxHealth + perHealth,

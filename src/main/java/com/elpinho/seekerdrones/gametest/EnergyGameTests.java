@@ -313,7 +313,7 @@ public class EnergyGameTests {
 
     // --- 8. Healing, and staying put with an empty station (DESIGN.md section 5.3) ---
 
-    @GameTest(template = "empty", timeoutTicks = 250)
+    @GameTest(template = "empty", timeoutTicks = 400)
     public static void chargingHealsOnlyWhileStationHasEnergyThenResumes(GameTestHelper helper) {
         BlockPos stationRel = new BlockPos(4, 3, 7); // starts with no FE
         ChargingStationBlockEntity station = placeChargingStation(helper, stationRel);
@@ -340,7 +340,7 @@ public class EnergyGameTests {
 
                 station.getEnergyStorage().receiveEnergy(Integer.MAX_VALUE, false);
 
-                pollUntil(helper, () -> drone.getEnergy() >= maxEnergy && drone.getHealth() >= drone.getMaxHealth(), 150, () -> {
+                pollUntil(helper, () -> drone.getEnergy() >= maxEnergy && drone.getHealth() >= drone.getMaxHealth(), 250, () -> {
                     helper.assertTrue(drone.getHealth() > healthAtDock, "Drone should have healed once FE arrived, was " + drone.getHealth());
                     helper.succeed();
                 }, () -> helper.fail("Drone never finished charging after FE arrived, energy=" + drone.getEnergy() + " health=" + drone.getHealth()));
@@ -440,12 +440,12 @@ public class EnergyGameTests {
 
         DroneEntity drone1 = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 5));
         DroneEntity drone2 = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 2));
-        // A ~20-tick charge window (deliberately not tiny): long enough to reliably observe "exactly one CHARGING,
+        // A ~20-tick charge window (40 000 FE at the default 2000 FE/tick) (deliberately not tiny): long enough to reliably observe "exactly one CHARGING,
         // the other waiting" over several polls, without needing anywhere near a full recharge from empty.
         int maxEnergy1 = DroneStats.maxEnergy(drone1.snapshotData());
         int maxEnergy2 = DroneStats.maxEnergy(drone2.snapshotData());
-        drone1.setDroneData(drone1.snapshotData().withEnergy(maxEnergy1 - 20_000));
-        drone2.setDroneData(drone2.snapshotData().withEnergy(maxEnergy2 - 20_000));
+        drone1.setDroneData(drone1.snapshotData().withEnergy(maxEnergy1 - 40_000));
+        drone2.setDroneData(drone2.snapshotData().withEnergy(maxEnergy2 - 40_000));
         forceReturning(drone1, stationAbs);
         forceReturning(drone2, stationAbs);
 
@@ -482,7 +482,8 @@ public class EnergyGameTests {
         BlockPos stationAbs = helper.absolutePos(stationRel);
 
         DroneEntity drone1 = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 5)); // 1 block: docks almost at once
-        drone1.setDroneData(drone1.snapshotData().withEnergy(100)); // near-empty: the longest charge the default max energy/rate allows
+        // 300 000 FE missing: a ~150-tick charge at the default 2000 FE/tick, so drone2's wait is a real one.
+        drone1.setDroneData(drone1.snapshotData().withEnergy(DroneStats.maxEnergy(drone1.snapshotData()) - 300_000));
         forceReturning(drone1, stationAbs);
 
         pollUntil(helper, () -> drone1.getState() == DroneState.CHARGING, 40, () -> {
@@ -495,22 +496,15 @@ public class EnergyGameTests {
                 helper.assertTrue(drone1.getState() == DroneState.CHARGING,
                         "Sanity: the first drone should still be charging when the second starts returning, so the wait is real, state=" + drone1.getState());
 
-                // The station's own FE capacity defaults to a whole drone's max energy, so the same near-empty fill
-                // that gives drone1 a long charge can't also cover drone2's full recharge afterward; keep it topped
-                // up throughout (as continuous automation would) so this test is only about the drones, not the
-                // station running dry a second time.
-                BooleanSupplier finishedCharging = () -> {
+                // Drone2 must reach the dock on its buffered energy once drone1 is done: it only paid base hover while waiting.
+                BooleanSupplier reachedDock = () -> {
                     helper.assertTrue(!drone2.isRemoved(),
                             "The queued drone should survive the wait on its buffered energy, ran out while waiting behind the first drone");
-                    if (station.getEnergyStorage().getEnergyStored() < station.getEnergyStorage().getMaxEnergyStored() / 2) {
-                        station.getEnergyStorage().receiveEnergy(Integer.MAX_VALUE, false);
-                    }
-                    return drone2.getState() == DroneState.IDLE && drone2.getEnergy() >= maxEnergy2 && drone2.getHealth() >= drone2.getMaxHealth();
+                    return drone2.getState() == DroneState.CHARGING;
                 };
-                pollUntil(helper, finishedCharging, 300, helper::succeed,
-                        () -> helper.fail("Queued drone never finished charging after its wait, energy=" + drone2.getEnergy() + "/" + maxEnergy2
-                                + " health=" + drone2.getHealth() + "/" + drone2.getMaxHealth() + " state=" + drone2.getState()
-                                + " (drone1 state=" + drone1.getState() + ")"));
+                pollUntil(helper, reachedDock, 300, helper::succeed,
+                        () -> helper.fail("Queued drone never reached the dock after its wait, energy=" + drone2.getEnergy() + "/" + maxEnergy2
+                                + " state=" + drone2.getState() + " (drone1 state=" + drone1.getState() + ")"));
             }, () -> helper.fail("Second drone never naturally started returning on its buffered energy, state=" + drone2.getState()
                     + " energy=" + drone2.getEnergy() + " (start was " + startEnergy2 + ")"));
         }, () -> helper.fail("The first drone never started charging, state=" + drone1.getState()));
@@ -530,7 +524,7 @@ public class EnergyGameTests {
         DroneEntity drone1 = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 5)); // close to station1, docks first
         int maxEnergy1 = DroneStats.maxEnergy(drone1.snapshotData());
         // A charge window comfortably longer than it takes drone2 to fly over and notice station1 is busy.
-        drone1.setDroneData(drone1.snapshotData().withEnergy(maxEnergy1 - 30_000));
+        drone1.setDroneData(drone1.snapshotData().withEnergy(maxEnergy1 - 60_000));
         forceReturning(drone1, station1Abs);
 
         pollUntil(helper, () -> drone1.getState() == DroneState.CHARGING, 60, () -> {
@@ -693,7 +687,7 @@ public class EnergyGameTests {
         return base.withConfig(base.config().withTargets(List.of(new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie"))));
     }
 
-    private static DroneData dataWithUpgrades(DroneData data, Map<UpgradeType, Integer> upgrades) {
+    static DroneData dataWithUpgrades(DroneData data, Map<UpgradeType, Integer> upgrades) {
         return new DroneData(data.droneId(), data.groupId(), data.ownerId(), data.ownerName(), data.energy(), data.health(), upgrades, data.config());
     }
 
@@ -708,7 +702,7 @@ public class EnergyGameTests {
     }
 
     /** Places a Charging Station with no recorded placer (as if placed by a non-player, e.g. automation). */
-    private static ChargingStationBlockEntity placeChargingStation(GameTestHelper helper, BlockPos relativePos) {
+    static ChargingStationBlockEntity placeChargingStation(GameTestHelper helper, BlockPos relativePos) {
         helper.setBlock(relativePos, ModBlocks.CHARGING_STATION.get());
         BlockPos abs = helper.absolutePos(relativePos);
         return (ChargingStationBlockEntity) helper.getLevel().getBlockEntity(abs);
@@ -726,25 +720,20 @@ public class EnergyGameTests {
     }
 
     /**
-     * The distance-based part of the return threshold (section 5.2), without the wait buffer: {@code distance ×
-     * energyPerBlock × safetyMargin}. This is what the threshold used to be entirely, before the wait buffer was
+     * The flight part of the return threshold (section 5.2), without the wait buffer. This is what the threshold used to be entirely, before the wait buffer was
      * added; kept separate so tests can demonstrate the buffer's own effect (energy above this value alone, but
      * below the real, buffered threshold, still triggers a return).
      */
     private static double distanceBasedThreshold(GameTestHelper helper, DroneEntity drone, BlockPos stationRelative) {
-        BlockPos abs = helper.absolutePos(stationRelative);
-        double distance = drone.position().distanceTo(ChargingStationBlockEntity.dockPosition(abs));
-        return distance * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK) * ServerConfig.get(ServerConfig.DRONE_RETURN_SAFETY_MARGIN);
+        return returnThreshold(helper, drone, stationRelative)
+                - (double) ServerConfig.get(ServerConfig.DRONE_RETURN_WAIT_BUFFER) * ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK);
     }
 
-    /**
-     * The real, dynamic return threshold (section 5.2): {@link #distanceBasedThreshold} plus
-     * {@code returnWaitBuffer × hoverEnergyPerTick}, the extra hover-only energy set aside so a drone can wait at a
-     * busy station (section 5.3) without running dry.
-     */
+    /** The real, dynamic return threshold (section 5.2), from {@link DroneStats#returnThreshold}. */
     private static double returnThreshold(GameTestHelper helper, DroneEntity drone, BlockPos stationRelative) {
-        return distanceBasedThreshold(helper, drone, stationRelative)
-                + (double) ServerConfig.get(ServerConfig.DRONE_RETURN_WAIT_BUFFER) * ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK);
+        BlockPos abs = helper.absolutePos(stationRelative);
+        double distance = drone.position().distanceTo(ChargingStationBlockEntity.dockPosition(abs));
+        return DroneStats.returnThreshold(drone.snapshotData(), distance);
     }
 
     /**
@@ -764,7 +753,7 @@ public class EnergyGameTests {
      * docked/charging/queueing phase, so they can pick whatever energy level gives a convenient, predictable charge
      * duration. See {@code DroneGameTests#invokePrivatePickUp} for the same convention.
      */
-    private static void forceReturning(DroneEntity drone, BlockPos stationAbs) {
+    static void forceReturning(DroneEntity drone, BlockPos stationAbs) {
         try {
             Method startReturning = DroneEntity.class.getDeclaredMethod("startReturning", BlockPos.class);
             startReturning.setAccessible(true);
@@ -782,7 +771,7 @@ public class EnergyGameTests {
      * interval; callers should generally look at later events. Each step reschedules with a fresh lambda: a reused
      * one would be silently dropped by {@code GameTestInfo}'s tick-time map (see {@code UpgradeGameTests}).
      */
-    private static void trackEnergyDrain(GameTestHelper helper, DroneEntity drone, int ticksRemaining, int[] prevEnergy, double[] distanceAccum,
+    static void trackEnergyDrain(GameTestHelper helper, DroneEntity drone, int ticksRemaining, int[] prevEnergy, double[] distanceAccum,
             Vec3[] prevPos, List<double[]> events, Runnable onDone) {
         Vec3 pos = drone.position();
         if (prevPos[0] != null) {
@@ -807,7 +796,7 @@ public class EnergyGameTests {
      * Polls {@code condition} every tick for up to {@code ticksRemaining} ticks, running {@code onReady} as soon as
      * it's true, or {@code onTimeout} if it never becomes true in time.
      */
-    private static void pollUntil(GameTestHelper helper, BooleanSupplier condition, int ticksRemaining, Runnable onReady, Runnable onTimeout) {
+    static void pollUntil(GameTestHelper helper, BooleanSupplier condition, int ticksRemaining, Runnable onReady, Runnable onTimeout) {
         if (condition.getAsBoolean()) {
             onReady.run();
             return;

@@ -75,13 +75,15 @@ public class ProgrammingStationGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 60)
-    public static void energyUpgradeCostsExtraCapacityAndArrivesFull(GameTestHelper helper) {
+    public static void energyUpgradeCostsBaseCostTimesIndexAndEnergyArrivesEmpty(GameTestHelper helper) {
         ProgrammingStationBlockEntity station = place(helper);
         DroneData before = DroneData.createNew();
+        int baseMax = DroneStats.maxEnergy(before);
         station.getItems().setStackInSlot(0, droneStack(before));
         station.getItems().setStackInSlot(1, new ItemStack(ModItems.upgrade(UpgradeType.ENERGY).get(), 1));
-        int perUpgrade = ServerConfig.get(ServerConfig.UPGRADES_ENERGY_PER_UPGRADE);
-        int cost = UpgradeType.ENERGY.baseCost() + perUpgrade;
+        int cost = UpgradeType.ENERGY.baseCost();
+        helper.assertTrue(ProgramRules.installCost(UpgradeType.ENERGY, 1) == cost, "installCost(ENERGY, 1) should be baseCost x 1");
+        helper.assertTrue(ProgramRules.installCost(UpgradeType.ENERGY, 3) == 3 * cost, "installCost(ENERGY, 3) should be baseCost x 3, with no capacity added");
         station.getEnergyStorage().receiveEnergy(cost + 5_000, false);
 
         station.requestInstall(UpgradeType.ENERGY);
@@ -89,10 +91,43 @@ public class ProgrammingStationGameTests {
             DroneData after = station.getDrone().orElseThrow();
             helper.assertTrue(after.upgradeCount(UpgradeType.ENERGY) == 1, "Energy upgrade not installed yet");
             helper.assertTrue(station.getEnergyStorage().getEnergyStored() == 5_000,
-                    "Energy install should cost baseCost + perUpgrade = " + cost + ", stored=" + station.getEnergyStorage().getEnergyStored());
-            helper.assertTrue(after.energy() == before.energy() + perUpgrade && after.energy() == DroneStats.maxEnergy(after),
-                    "Drone energy should rise by " + perUpgrade + " and be full, was " + after.energy() + "/" + DroneStats.maxEnergy(after));
+                    "Energy install should cost baseCost x index = " + cost + ", stored=" + station.getEnergyStorage().getEnergyStored());
+            helper.assertTrue(DroneStats.maxEnergy(after) == 2 * baseMax, "Max energy should double, was " + DroneStats.maxEnergy(after));
+            helper.assertTrue(after.energy() == before.energy(),
+                    "Drone energy should be unchanged (the extra capacity arrives empty), was " + after.energy() + " expected " + before.energy());
         });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void secondEnergyUpgradeCostsTwiceBaseCost(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = place(helper);
+        station.getItems().setStackInSlot(0, droneStack(DroneData.createNew().withUpgradeCount(UpgradeType.ENERGY, 1)));
+        station.getItems().setStackInSlot(1, new ItemStack(ModItems.upgrade(UpgradeType.ENERGY).get(), 1));
+        int cost = 2 * UpgradeType.ENERGY.baseCost();
+        station.getEnergyStorage().receiveEnergy(cost + 3_000, false);
+
+        station.requestInstall(UpgradeType.ENERGY);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.ENERGY) == 2, "Second Energy upgrade not installed yet");
+            helper.assertTrue(station.getEnergyStorage().getEnergyStored() == 3_000,
+                    "Second Energy install should cost 2 x baseCost = " + cost + ", stored=" + station.getEnergyStorage().getEnergyStored());
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void removingEnergyUpgradeClampsDroneEnergyToNewMax(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = place(helper);
+        DroneData withUpgrade = DroneData.createNew().withUpgradeCount(UpgradeType.ENERGY, 1);
+        DroneData full = withUpgrade.withEnergy(DroneStats.maxEnergy(withUpgrade));
+        station.getItems().setStackInSlot(0, droneStack(full));
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+
+        station.removeUpgrade(UpgradeType.ENERGY, player);
+        DroneData after = station.getDrone().orElseThrow();
+        helper.assertTrue(after.upgradeCount(UpgradeType.ENERGY) == 0, "Energy upgrade should be removed");
+        helper.assertTrue(after.energy() == DroneStats.maxEnergy(after),
+                "Energy should be clamped to the new max " + DroneStats.maxEnergy(after) + ", was " + after.energy());
+        helper.succeed();
     }
 
     @GameTest(template = "empty", timeoutTicks = 60)

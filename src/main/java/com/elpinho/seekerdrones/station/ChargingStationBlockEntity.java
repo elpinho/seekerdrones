@@ -1,18 +1,26 @@
 package com.elpinho.seekerdrones.station;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
+import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.machine.MachineWorkingState;
+import com.elpinho.seekerdrones.machine.UpgradeSlots;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
+import com.elpinho.seekerdrones.registry.ModDataComponents;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
+import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -21,6 +29,7 @@ import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.fluids.FluidStack;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
 import net.neoforged.neoforge.fluids.capability.templates.FluidTank;
+import net.neoforged.neoforge.items.ItemStackHandler;
 
 /**
  * Drone Charging Station (DESIGN.md section 7.4). Stores FE, repair fluid and its placer's UUID, and holds a claim by the one drone
@@ -32,6 +41,11 @@ public class ChargingStationBlockEntity extends BlockEntity {
     private static final String TAG_ENERGY = "Energy";
     private static final String TAG_OWNER = "Owner";
     private static final String TAG_TANK = "Tank";
+    private static final String TAG_UPGRADES = "Upgrades";
+
+    /** What the Upgrades tab takes (section 7.4). */
+    public static final List<UpgradeSlots.Accepted> UPGRADES = List.of(
+            new UpgradeSlots.Accepted(UpgradeType.ENERGY, () -> ServerConfig.get(ServerConfig.CHARGING_STATION_MAX_ENERGY_UPGRADES)));
 
     /** A claim not renewed for this many ticks lapses. */
     private static final int CLAIM_TIMEOUT_TICKS = 20;
@@ -46,6 +60,8 @@ public class ChargingStationBlockEntity extends BlockEntity {
         }
     };
     private final IFluidHandler fluidHandler = new FillOnlyFluidHandler();
+    /** The Upgrades tab's slots. Not part of any capability, so automation can't reach them. */
+    private final ItemStackHandler upgrades = UpgradeSlots.createHandler(UPGRADES, this::onUpgradesChanged);
     /** mB already drained from the tank but not yet turned into HP, so the tank is always drained in whole mB. */
     private double repairCredit;
     @Nullable
@@ -76,6 +92,31 @@ public class ChargingStationBlockEntity extends BlockEntity {
     /** Accepts the repair fluid on every side, never gives it out. */
     public IFluidHandler getFluidHandler() {
         return fluidHandler;
+    }
+
+    public ItemStackHandler getUpgrades() {
+        return upgrades;
+    }
+
+    /** Energy Upgrades installed in the Upgrades tab (section 7.4). */
+    public int getEnergyUpgrades() {
+        return upgrades.getStackInSlot(0).getCount();
+    }
+
+    /** {@code multiplier^count}: what the Energy Upgrades multiply the charge rate and capacity by (section 7.4). */
+    private double upgradeMultiplier() {
+        return Math.pow(ServerConfig.get(ServerConfig.CHARGING_STATION_UPGRADE_MULTIPLIER), getEnergyUpgrades());
+    }
+
+    /** The most FE per tick the station gives its docked drone (section 7.4). */
+    public int getChargeRate() {
+        return (int) Math.min(ServerConfig.get(ServerConfig.CHARGING_STATION_CHARGE_RATE) * upgradeMultiplier(), Integer.MAX_VALUE);
+    }
+
+    /** Removing an Energy Upgrade lowers the capacity, and stored FE above it is lost (section 7.4). */
+    private void onUpgradesChanged() {
+        energy.stored = Math.min(energy.stored, energy.getMaxEnergyStored());
+        setChanged();
     }
 
     public FluidStack getFluid() {
@@ -218,9 +259,45 @@ public class ChargingStationBlockEntity extends BlockEntity {
         super.saveAdditional(tag, registries);
         tag.putInt(TAG_ENERGY, energy.stored);
         tag.put(TAG_TANK, tank.writeToNBT(registries, new CompoundTag()));
+        tag.put(TAG_UPGRADES, upgrades.serializeNBT(registries));
         if (owner != null) {
             tag.putUUID(TAG_OWNER, owner);
         }
+    }
+
+    /** The item keeps the upgrades when the station is broken (section 7.4). */
+    @Override
+    protected void applyImplicitComponents(DataComponentInput componentInput) {
+        super.applyImplicitComponents(componentInput);
+        Map<UpgradeType, Integer> saved = componentInput.get(ModDataComponents.MACHINE_UPGRADES);
+        if (saved != null) {
+            for (int slot = 0; slot < UPGRADES.size(); slot++) {
+                UpgradeSlots.Accepted accepted = UPGRADES.get(slot);
+                int count = saved.getOrDefault(accepted.type(), 0);
+                upgrades.setStackInSlot(slot, count > 0 ? new ItemStack(accepted.item(), count) : ItemStack.EMPTY);
+            }
+        }
+    }
+
+    @Override
+    protected void collectImplicitComponents(DataComponentMap.Builder components) {
+        super.collectImplicitComponents(components);
+        Map<UpgradeType, Integer> counts = new HashMap<>();
+        for (int slot = 0; slot < UPGRADES.size(); slot++) {
+            int count = upgrades.getStackInSlot(slot).getCount();
+            if (count > 0) {
+                counts.put(UPGRADES.get(slot).type(), count);
+            }
+        }
+        if (!counts.isEmpty()) {
+            components.set(ModDataComponents.MACHINE_UPGRADES, counts);
+        }
+    }
+
+    @Override
+    public void removeComponentsFromTag(CompoundTag tag) {
+        super.removeComponentsFromTag(tag);
+        tag.remove(TAG_UPGRADES);
     }
 
     @Override
@@ -229,6 +306,9 @@ public class ChargingStationBlockEntity extends BlockEntity {
         energy.stored = Math.max(0, tag.getInt(TAG_ENERGY));
         tank.setCapacity(ServerConfig.get(ServerConfig.CHARGING_STATION_TANK_CAPACITY));
         tank.readFromNBT(registries, tag.getCompound(TAG_TANK));
+        if (tag.contains(TAG_UPGRADES)) {
+            upgrades.deserializeNBT(registries, tag.getCompound(TAG_UPGRADES));
+        }
         owner = tag.hasUUID(TAG_OWNER) ? tag.getUUID(TAG_OWNER) : null;
     }
 
@@ -269,7 +349,7 @@ public class ChargingStationBlockEntity extends BlockEntity {
         }
     }
 
-    /** Accepts FE on every side, never gives it out. The capacity follows the config. */
+    /** Accepts FE on every side, never gives it out. The capacity follows the config and the Energy Upgrades. */
     private class Energy implements IEnergyStorage {
         private int stored;
 
@@ -295,7 +375,7 @@ public class ChargingStationBlockEntity extends BlockEntity {
 
         @Override
         public int getMaxEnergyStored() {
-            return ServerConfig.get(ServerConfig.CHARGING_STATION_CAPACITY);
+            return (int) Math.min(ServerConfig.get(ServerConfig.CHARGING_STATION_CAPACITY) * upgradeMultiplier(), Integer.MAX_VALUE);
         }
 
         @Override

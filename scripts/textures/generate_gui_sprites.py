@@ -560,6 +560,10 @@ ICONS = {
         "..WWWWW..", ".W.....W.", "W.......W", "W...C...W", "W.......W", "W.......W", ".W.....W.", "..WW.WW.."],
         {"W": (159, 210, 255, 255), "C": WHITE}),
     "name_tag": (["..TTTTTTT", ".TTTTTTTT", "TT.TTTTTT", "TTTTTTTTT", ".TTTTTTTT", "..TTTTTTT"], {"T": (226, 196, 134, 255)}),
+    # The generic machine Upgrades tab: two thin upward chevrons.
+    "upgrades": ([
+        "....L....", "...LGL...", "..LG.GL..", ".LG...GL.", "....L....", "...LGL...", "..LG.GL..", ".LG...GL."],
+        {"L": (150, 240, 160, 255), "G": (60, 200, 110, 255)}),
 }
 
 

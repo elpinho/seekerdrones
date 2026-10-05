@@ -11,6 +11,15 @@
       "entries": [
         {
           "type": "minecraft:item",
+          "functions": [
+            {
+              "function": "minecraft:copy_components",
+              "include": [
+                "seekerdrones:machine_upgrades"
+              ],
+              "source": "block_entity"
+            }
+          ],
           "name": "seekerdrones:charging_station"
         }
       ],

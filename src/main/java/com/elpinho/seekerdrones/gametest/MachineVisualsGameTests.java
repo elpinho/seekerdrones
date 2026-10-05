@@ -143,7 +143,7 @@ public class MachineVisualsGameTests {
 
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), new BlockPos(4, 3, 4));
         int max = DroneStats.maxEnergy(drone.snapshotData());
-        drone.setDroneData(drone.snapshotData().withEnergy(max / 4));
+        drone.setDroneData(drone.snapshotData().withEnergy(max - 40_000));
         forceReturning(drone, helper.absolutePos(stationRel));
 
         boolean[] sawWorking = {false};

@@ -18,7 +18,7 @@ import net.minecraft.world.entity.player.Player;
  */
 public final class DronePermissions {
     /** Permission level at which server operators bypass the operator check for direct interaction. */
-    private static final int BYPASS_PERMISSION_LEVEL = 2;
+    public static final int BYPASS_PERMISSION_LEVEL = 2;
 
     private DronePermissions() {}
 

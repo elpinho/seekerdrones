@@ -28,15 +28,16 @@ import net.minecraft.util.ByIdMap;
 import net.minecraft.world.level.material.Fluid;
 
 /**
- * Server to client: a snapshot of a Charging Station for its read-only screen (DESIGN.md section 7.4).
+ * Server to client: a snapshot of a Charging Station for its screen (DESIGN.md section 7.4). It is sent as the menu's
+ * opening data and then as the screen's once-a-second refresh.
  *
- * @param open      true to open the screen, false to refresh one that is already open
+ * @param canManage whether the player may manage the station's upgrades (section 7.4)
  * @param fluid     the fluid in the tank, or the repair fluid it takes if the tank is empty
  * @param ownerName the placer's name (or UUID if it can't be resolved), empty if a non-player placed the station
  * @param transferRate the FE per tick the station is giving the drone right now
  * @param drone     the drone holding the station, if any
  */
-public record StationStatusPayload(BlockPos pos, boolean open, Status status, int energy, int capacity, int transferRate, Fluid fluid,
+public record StationStatusPayload(BlockPos pos, boolean canManage, Status status, int energy, int capacity, int transferRate, Fluid fluid,
         int fluidAmount, int tankCapacity, String ownerName, Optional<DockedDrone> drone) implements CustomPacketPayload {
     public static final Type<StationStatusPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "station_status"));
 
@@ -48,7 +49,7 @@ public record StationStatusPayload(BlockPos pos, boolean open, Status status, in
     public static final StreamCodec<RegistryFriendlyByteBuf, StationStatusPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
                 BlockPos.STREAM_CODEC.encode(buf, payload.pos());
-                ByteBufCodecs.BOOL.encode(buf, payload.open());
+                ByteBufCodecs.BOOL.encode(buf, payload.canManage());
                 Status.STREAM_CODEC.encode(buf, payload.status());
                 ByteBufCodecs.VAR_INT.encode(buf, payload.energy());
                 ByteBufCodecs.VAR_INT.encode(buf, payload.capacity());
@@ -72,7 +73,7 @@ public record StationStatusPayload(BlockPos pos, boolean open, Status status, in
                     ByteBufCodecs.STRING_UTF8.decode(buf),
                     DRONE_CODEC.decode(buf)));
 
-    public static StationStatusPayload of(ServerLevel level, ChargingStationBlockEntity station, boolean open) {
+    public static StationStatusPayload of(ServerLevel level, ChargingStationBlockEntity station, boolean canManage) {
         Optional<DockedDrone> drone = station.getClaimant()
                 .map(level::getEntity)
                 .filter(entity -> entity instanceof DroneEntity)
@@ -80,7 +81,7 @@ public record StationStatusPayload(BlockPos pos, boolean open, Status status, in
         Status status = drone.map(docked -> docked.status(station.getEnergy())).orElse(Status.IDLE);
         String ownerName = station.getOwner().map(uuid -> playerName(level.getServer(), uuid)).orElse("");
         Fluid fluid = station.getFluid().isEmpty() ? RepairFluid.displayFluid() : station.getFluid().getFluid();
-        return new StationStatusPayload(station.getBlockPos(), open, status, station.getEnergy(), station.getEnergyStorage().getMaxEnergyStored(),
+        return new StationStatusPayload(station.getBlockPos(), canManage, status, station.getEnergy(), station.getEnergyStorage().getMaxEnergyStored(),
                 drone.isPresent() ? station.getTransferRate() : 0, fluid, station.getFluid().getAmount(), station.getTankCapacity(),
                 ownerName, drone);
     }

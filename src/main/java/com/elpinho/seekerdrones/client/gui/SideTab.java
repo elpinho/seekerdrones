@@ -51,6 +51,7 @@ public class SideTab {
     @Nullable
     private PanelClick panelClick;
     private int headerHeight;
+    private boolean passUnusedClicks;
 
     // Laid out by SideTabs.
     int x;
@@ -92,6 +93,19 @@ public class SideTab {
         this.headerHeight = headerHeight;
         this.panelClick = click;
         return this;
+    }
+
+    /**
+     * Lets clicks on the panel's body that {@link #panelClick} doesn't use go on to the screen, so slots placed in the
+     * panel (the Upgrades tab) take them.
+     */
+    public SideTab passUnusedClicks() {
+        this.passUnusedClicks = true;
+        return this;
+    }
+
+    boolean passesUnusedClicks() {
+        return passUnusedClicks && isExpanded();
     }
 
     /** The tab's (or its unfolded panel's) left edge, as laid out for this frame. */

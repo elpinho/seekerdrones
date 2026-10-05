@@ -3,6 +3,8 @@ package com.elpinho.seekerdrones.client.gui;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.elpinho.seekerdrones.machine.UpgradeSlots;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.Rect2i;
@@ -14,9 +16,9 @@ import net.minecraft.sounds.SoundEvents;
  * before the frame, so the frame's edge stays in front of them.
  */
 public class SideTabs {
-    /** How far a tab tucks under the frame. */
-    public static final int OVERLAP = 4;
-    private static final int FIRST_Y = 6;
+    /** How far a tab tucks under the frame. {@link UpgradeSlots} places the Upgrades tab's slots from this and FIRST_Y. */
+    public static final int OVERLAP = UpgradeSlots.TAB_OVERLAP;
+    private static final int FIRST_Y = UpgradeSlots.TAB_FIRST_Y;
     private static final int GAP = 2;
 
     private final List<SideTab> tabs = new ArrayList<>();
@@ -66,8 +68,10 @@ public class SideTabs {
             if (tab.isVisible() && tab.isMouseOver(mouseX, mouseY)) {
                 if (tab.click(mouseX, mouseY)) {
                     Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                    return true;
                 }
-                return true;
+                // An unused click on a panel's body goes on to the screen, e.g. to slots in the panel.
+                return !tab.passesUnusedClicks();
             }
         }
         return false;
