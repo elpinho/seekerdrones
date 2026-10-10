@@ -253,7 +253,7 @@ public class DroneFactoryBlockEntity extends BlockEntity implements MenuProvider
     }
 
     /** The total time of the current recipe, or 0 without one. */
-    private int recipeTime() {
+    public int recipeTime() {
         return recipe != null ? recipe.value().time() : 0;
     }
 

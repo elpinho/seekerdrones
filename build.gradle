@@ -30,6 +30,11 @@ repositories {
         url = 'https://maven.blamejared.com/'
         content { includeGroup 'mezz.jei' }
     }
+    maven {
+        name = 'Modrinth (Jade)'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
 }
 
 base {
@@ -72,6 +77,14 @@ runs {
     client {
         // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
         systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
+    }
+
+    // A second dev client for multiplayer tests (join the first one through "Open to LAN").
+    // It has its own game folder (runs/client2) so the two instances don't share logs or configs: ./gradlew runClient2
+    client2 {
+        runType 'client'
+        workingDirectory project.file('runs/client2')
+        arguments.addAll '--username', 'Dev2'
     }
 
     server {
@@ -128,6 +141,10 @@ dependencies {
     // JEI in the dev client, put the JEI jar in runs/client/mods.
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge-api:${jei_version}"
+
+    // Jade is optional too: the plugin in compat.jade only loads when Jade is installed. Jade ships no separate API jar,
+    // so the full mod is compile-only. To use Jade in the dev client, put the Jade jar in runs/client/mods.
+    compileOnly "maven.modrinth:jade:${jade_version}"
 
     // Example mod dependency using a mod jar from ./libs with a flat dir repository
     // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar

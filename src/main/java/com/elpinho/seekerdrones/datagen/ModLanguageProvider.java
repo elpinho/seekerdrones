@@ -267,6 +267,25 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.drone_factory.operators.already_operator", "%s is already an operator.");
         add("screen.seekerdrones.drone_factory.operators.not_operator", "%s is not an operator.");
         add("jei.seekerdrones.drone_assembly", "Drone Assembly");
+
+        add("config.jade.plugin_seekerdrones.drone", "Drone Details");
+        add("config.jade.plugin_seekerdrones.drone_energy", "Drone Energy");
+        add("config.jade.plugin_seekerdrones.machine", "Machine Status");
+        add("config.jade.plugin_seekerdrones.machine_progress", "Machine Progress");
+        add("jade.seekerdrones.drone.id", "ID: %s");
+        add("jade.seekerdrones.drone.state", "State: %s");
+        add("jade.seekerdrones.drone.state_target", "State: %s %s");
+        add("jade.seekerdrones.drone.owner", "Owner: %s");
+        add("jade.seekerdrones.drone.targets", "Targets: %s");
+        add("jade.seekerdrones.drone.targets.none", "Targets: none");
+        add("jade.seekerdrones.programming_station.mode", "Mode: %s");
+        add("jade.seekerdrones.programming_station.installing", "Installing %s");
+        add("jade.seekerdrones.programming_station.reinsert", "Re-insert the drone to program it");
+        add("jade.seekerdrones.programming_station.complete", "Complete");
+        add("jade.seekerdrones.programming_station.extra_upgrades", "Drone has extra upgrades");
+        add("jade.seekerdrones.programming_station.waiting", "Waiting for upgrades");
+        add("jade.seekerdrones.deploying_station.auto_deploy_on", "Auto-deploy: On");
+        add("jade.seekerdrones.charging_station.drone", "%s: %s");
         add("jei.seekerdrones.drone_assembly.time", "%s s");
         add("screen.seekerdrones.charging_station.energy", "Station energy");
         add("screen.seekerdrones.charging_station.charge_rate", "Charging the drone at %s");

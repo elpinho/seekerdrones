@@ -161,6 +161,16 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         return installing;
     }
 
+    /** Ticks into the running install step. */
+    public int getProgress() {
+        return progress;
+    }
+
+    /** Whether the drone in the slot was inserted in Template mode, so the template applies to it. */
+    public boolean isAccepted() {
+        return accepted;
+    }
+
     /** The drone in the slot, if any. */
     public Optional<DroneData> getDrone() {
         ItemStack stack = items.getStackInSlot(DRONE_SLOT);
@@ -285,7 +295,7 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         }
     }
 
-    private static int installTime() {
+    public static int installTime() {
         return ServerConfig.get(ServerConfig.PROGRAMMING_STATION_INSTALL_TIME);
     }
 

@@ -13,7 +13,6 @@ Status: `idea` | `decided`
 
 ## Drone behavior
 
-- **Separate vertical and horizontal sight ranges** (`idea`): split the sight range into a horizontal (x/z) range and a vertical (y) range, e.g. `drone.baseSightRange` (now 12) plus `drone.baseSightHeight`, with Sight upgrades raising one or both. A drone rarely needs to see as far up or down as it does sideways, especially with many Sight upgrades. A shorter vertical range also makes the scan box much smaller, which helps performance. The scan would use a cylinder or ellipsoid instead of a sphere.
 - **Configurable patrol speed** (`idea`): the patrol speed (`upgrades.patrol.speed` today, DESIGN.md §3.2) is configurable per drone, up to a **max speed that rises with the number of Patrol upgrades**, like the max patrol radius does. Specifics TBD, e.g. where it's set (Programming Station and `/seekerdrones config`, like the patrol radius), the base and per-upgrade values (config entries), and what a drone does when its configured speed is above the max.
 - **Drones targeting other drones** (`idea`, direction agreed): today `TargetMatcher.matches()` excludes every `DroneEntity`, so drones can never target drones. Proposal:
   - Lift that exclusion for **enemy** drones only: a drone with a different Operator Group or owner. A drone's own allies (same group, or same owner if it has no group) are always exempt, like operators are exempt from Player Seek. Unowned drones count as enemies to everyone.
@@ -24,7 +23,6 @@ Status: `idea` | `decided`
 
 ## Upgrades and energy
 
-- **Tune upgrade recipes** (`idea`): replace the placeholder upgrade recipes with final ones (materials and costs). This is listed as future work in DESIGN.md §11 (final recipes, balancing pass), so it needs the user's go-ahead before it becomes v1 work. It should follow §7.5: `c:` tags, and base and Mekanism variants where it makes sense.
 - **Antiprotonic Nucleosynthesizer for late-game recipes** (`idea`): the Mekanism variants of really late-game items (e.g. the most expensive upgrades) should require the Antiprotonic Nucleosynthesizer.
 - **Solar upgrade** (`idea`, direction agreed): a drone upgrade that generates real energy (FE) from sunlight. The drone's net energy change is the solar output minus its energy usage.
   - **Stacking:** stackable, cap 4. **One upgrade is not enough to make a drone self-sufficient.** Energy usage depends on the drone's upgrades (the upgrade multiplier, DESIGN.md §5.1), so whether a drone is self-sufficient also depends on its other upgrades.
@@ -86,7 +84,6 @@ Status: `idea` | `decided`
   1. **Read-only machine peripherals:** each machine exposes its status (energy, fluid, progress, the docked or installed drone's ID, energy and health, the queue). This fits the rule that machines never check operator permissions (`CLAUDE.md`), and it's cheap, since it only runs when a computer calls it.
   2. **Drone events:** a "Drone Receiver" block (or a peripheral on an existing machine) that receives Transmitter messages as computer events (e.g. `drone_target_spotted` with the drone ID, target and coordinates), for alarms, logging and automation. Still read-only.
   3. **Control:** recalling drones, setting targets, deploying. This needs an explicit permission decision, e.g. the peripheral block records its placer and only controls drones that the placer is an operator of. It overlaps with the **Drone Remote**, so both should share the same rule.
-- **Jade / WTHIT integration** (`idea`, direction agreed): hover tooltips showing a drone's ID, label, energy, health and state when you look at it, and each machine's status on the block. Optional integration.
 - **FTB Teams / Open Parties and Claims** (`idea`, optional, timing unclear): optionally map Operator Groups (DESIGN.md §6) to these mods' teams, so servers don't have to manage two team systems. Not yet looked into.
 - **JEI info pages** (`idea`, direction agreed): extend the existing JEI integration (DESIGN.md §8) with info pages, e.g. for the Programming Station (what each upgrade does, its caps and incompatibilities) and the other machines.
 

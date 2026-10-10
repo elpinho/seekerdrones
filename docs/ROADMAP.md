@@ -76,7 +76,8 @@ Each milestone ends in something playable or testable. The drone and its AI come
 ### M9 — Art and polish
 - Commission an artist (paid) to remake the textures of every block, item and GUI.
 - Remake the drone's 3D model and textures (same artist), including animations (e.g. rotors, idle and chase states).
-- Sounds, lang, and a basic balance pass on the config defaults.
+- Sounds, lang, and a balance pass on the config defaults.
+- Final upgrade and Charging Station recipes (materials and costs), replacing the placeholders. They follow DESIGN.md section 7.5: `c:` tags, and base and Mekanism variants where it makes sense. The Factory, component and drone assembly recipes are already decided.
 - Machine particles are done (DESIGN.md section 7.6). Tell the artist the machines have a `working` block state, so the textures can include lit "on" variants.
 - Give the artist the GUI kit and texture style rules (DESIGN.md section 7.7) and the machine faces (section 7.6). The layouts and faces are final, so only the art changes.
 - **Done when:** the commissioned art is in the game, and **v1.0** is tagged.
@@ -85,6 +86,6 @@ Each milestone ends in something playable or testable. The drone and its AI come
 
 ## Post-v1 — outlook only, DO NOT IMPLEMENT YET
 
-- **v1.x — Quality of life:** final recipes and balance, server-safety configs, queued Transmitter notifications, charging stations for multiple drones.
+- **v1.x — Quality of life:** server-safety configs, queued Transmitter notifications, charging stations for multiple drones.
 - **v2 — Visibility:** Camera upgrade, drone dashboard with POV and a map of drone positions.
 - **v3 — Spectacle and depth:** 3×3×3 Drone Factory multiblock with animation, Target Tagger, Operator Group ownership transfer, and chunk loading (to be decided).

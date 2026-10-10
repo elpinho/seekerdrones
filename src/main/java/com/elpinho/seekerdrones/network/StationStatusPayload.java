@@ -86,7 +86,7 @@ public record StationStatusPayload(BlockPos pos, boolean canManage, Status statu
                 ownerName, drone);
     }
 
-    private static String playerName(MinecraftServer server, UUID uuid) {
+    public static String playerName(MinecraftServer server, UUID uuid) {
         return Optional.ofNullable(server.getProfileCache())
                 .flatMap(cache -> cache.get(uuid))
                 .map(GameProfile::getName)

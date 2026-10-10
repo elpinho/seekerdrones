@@ -207,7 +207,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 ## 4. Upgrades
 
-- Upgrades are craftable items with expensive recipes. The materials are still to be decided (TBD), and the recipes are plain data-driven crafting recipes.
+- Upgrades are craftable items with expensive recipes. The materials are still to be decided in the v1 balance pass (ROADMAP.md M9), and the recipes are plain data-driven crafting recipes.
 - Each drone has a **total upgrade slot limit** and a **per-type cap**. Both are configurable.
 - Upgrades are installed in drones and removed from them only in the **Drone Programming Station**. Removal gives a **full refund** of the upgrade item. (The Energy Upgrade item also goes into a Charging Station's Upgrades tab, section 7.4.)
 
@@ -228,7 +228,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 - The Siren fires once per target acquisition and repeats every N seconds (configurable) while the target is being chased or followed. Its volume is `baseVolume + perUpgrade × (count − 1)`, and vanilla hears a sound of volume `v > 1` from `16 × v` blocks. Placeholder sound: the vanilla raid horn, until a custom sound exists.
 - The Transmitter fires on target acquisition only (not while following). The message gives the drone's label and ID, the target's name (the player name for players, otherwise the entity type's name) and the target's block coordinates. After a message, that drone sends no other message for `upgrades.transmitter.cooldown` ticks. The cooldown isn't saved. It goes to the drone's online operators (section 6.3): the group's, or the owner if the drone has no group. An unowned drone or one with an unknown group notifies nobody.
 - Transmitter messages sent while operators are offline are **not** queued in v1.
-- **Upgrade items:** one item per type, `seekerdrones:<type>_upgrade` (e.g. `seekerdrones:player_seek_upgrade`), with placeholder recipes until the final ones (section 11).
+- **Upgrade items:** one item per type, `seekerdrones:<type>_upgrade` (e.g. `seekerdrones:player_seek_upgrade`), with placeholder recipes until the final ones (ROADMAP.md M9).
 - **Removed upgrades:** the X-ray and Multi-target upgrades were removed (line of sight is always required, and target slots are a config value). Saved drones and templates that still list them load with those entries dropped, without a refund.
 
 ---
@@ -475,7 +475,7 @@ The FE and time values are placeholders in the recipe JSON (they are recipe data
 
 **Repair fluid** for the Charging Station (section 7.4) follows the same split: Ethene with Mekanism, Lava without.
 
-Upgrade and Charging Station recipes stay placeholders until the balance pass (section 11).
+Upgrade and Charging Station recipes stay placeholders until the v1 balance pass (ROADMAP.md M9).
 
 ### 7.6 Machine visuals
 
@@ -561,6 +561,18 @@ The drone entity saves the same data in its entity NBT. Only the fields the clie
 - Crafting recipes show up without any code. The plugin adds a **Drone Assembly** category for `seekerdrones:drone_assembly`: the item inputs with counts, the fluid, FE, processing time and the drone output. The Drone Factory is its catalyst.
 - The category lays out the item inputs like the Factory (a 3x3 grid: rotors in the corners, plating above and below the core), with the plating counts on the stacks. An unused second plating slot shows empty.
 - Clicking the Factory GUI's progress arrow opens the category, and JEI's transfer button fills the Factory's input slots from the player's inventory, each into its role's slot. It never fills the tank.
+
+### 8.6 Jade integration
+
+- Jade is an optional dependency, compile-only like JEI. The plugin (`compat.jade`) only loads when Jade is installed. For the dev client, Jade goes in `runs/client/mods`. WTHIT isn't supported.
+- It follows Jade's conventions: Jade's own displays show the machines' energy, tanks and inventories and the drone's name and health. The plugin adds only what Jade can't know, uses Jade's standard energy and progress bars, and gives machines text lines only for modes and problems, in the Jade theme's colors. Each part can be turned off in Jade's plugin settings.
+- **Drone** (data sent by the server only while a player looks at it):
+  - Everyone: the drone ID, and its energy as Jade's energy bar (drones have no energy capability, so the plugin provides it).
+  - Its operators only (the players who may open its status screen, section 2.4): the state, with the target's name while chasing or following, the owner (the group owner's name for a drone in an Operator Group) and the target entries it can actually use, like the status screen.
+- **Drone Factory:** a progress bar while building, and a line for Waiting for power, Missing fluid or Output full.
+- **Programming Station:** the mode, a progress bar and "Installing *X*" during an install step. In Template mode with a drone in the slot: Complete, Waiting for upgrades, Drone has extra upgrades, or Re-insert the drone. A template over the limits is shown even without a drone.
+- **Deploying Station:** Auto-deploy On or Off, and a line for Not enough energy or Space above blocked.
+- **Charging Station:** with a drone docking or docked, its status (Drone docking, Charging, Repairing, Out of power) and the drone's label (or ID).
 
 ---
 
@@ -664,4 +676,3 @@ These are agreed ideas for later versions. **Do not implement, stub or scaffold 
 - **Target Tagger** item to mark one specific entity as a target.
 - **Operator Group ownership transfer.**
 - Charging Stations that charge more than one drone at a time.
-- Final upgrade and Charging Station recipes and materials (TBD, balancing pass). The Factory, component and drone assembly recipes are decided (section 7.5).
