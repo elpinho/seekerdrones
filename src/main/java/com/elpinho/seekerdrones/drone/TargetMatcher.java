@@ -131,13 +131,19 @@ public final class TargetMatcher {
 
     /** Whether {@code entity} is a valid target for {@code drone} (section 3.3). Server side only. */
     public boolean matches(DroneEntity drone, Entity entity) {
-        if (isEmpty() || entity == drone || !entity.isAlive() || entity instanceof DroneEntity) {
+        if (isEmpty() || entity == drone || !entity.isAlive()) {
             return false;
         }
         EntityType<?> type = entity.getType();
         // Blacklisted types are never targets, whatever the entries say (section 3.3).
         if (TargetBlacklist.isBlacklisted(type)) {
             return false;
+        }
+        if (entity instanceof DroneEntity other) {
+            // Only enemy drones: a drone's allies (same group, or same owner if it has no group) are exempt, like
+            // operators. Unowned drones are enemies to everyone (section 3.3).
+            TargetClaims.Team team = drone.getClaimTeam();
+            return !(team.id() != null && team.equals(other.getClaimTeam())) && matchesType(type);
         }
         if (entity instanceof Player player) {
             if (!playerSeek || player.isSpectator() || player.isCreative()) {

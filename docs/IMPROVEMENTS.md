@@ -13,12 +13,8 @@ Status: `idea` | `decided`
 
 ## Drone behavior
 
-- **Drones targeting other drones** (`idea`, direction agreed): today `TargetMatcher.matches()` excludes every `DroneEntity`, so drones can never target drones. Proposal:
-  - Lift that exclusion for **enemy** drones only: a drone with a different Operator Group or owner. A drone's own allies (same group, or same owner if it has no group) are always exempt, like operators are exempt from Player Seek. Unowned drones count as enemies to everyone.
-  - Gate it behind a new **Interceptor** upgrade (name TBD, not stackable), in the same way that Player Seek gates player names. With it, `seekerdrones:drone` (or a drone tag) works as a target entry and uses a target slot like any other. The Interceptor upgrade should be **expensive to craft**.
-  - A non-Explosive interceptor has no attack, so it only follows the enemy drone (surveillance, plus Siren and Transmitter alerts). An Explosive interceptor is an anti-drone missile, built from the existing mechanics.
 - **Jammer block** (`idea`): a powered block that counters **enemy** drones within a radius, for example by breaking their target lock, stopping their scans or draining their energy (effect TBD). It should consume **ludicrous amounts of energy** so it can't cover a whole base for free. It needs a way to tell friend from foe: e.g. its own Operator Group, set by the player who places it. Machines never check operator permissions (`CLAUDE.md`), so this is about which drones it affects, not who can use it. To stay cheap, the check should run in the drone's staggered scan (DESIGN.md §3.3) against a per-level list of active jammers, not in a per-tick jammer scan. Radius, energy cost and effect would be config entries.
-- **EMP grenade** (`idea`): a throwable item that disables drones hit by its blast for a few seconds (for example they stop scanning and hover, or lose energy). Separate from the Jammer block. It's a cheap, consumable counter, so it **doesn't need to be as expensive** as the Jammer or the Interceptor upgrade. Needs decisions on whether it affects allied drones, the blast radius, the duration and the effect. All values would be config entries.
+- **EMP grenade** (`idea`): a throwable item that disables drones hit by its blast for a few seconds (for example they stop scanning and hover, or lose energy). Separate from the Jammer block. It's a cheap, consumable counter, so it **doesn't need to be as expensive** as the Jammer. Needs decisions on whether it affects allied drones, the blast radius, the duration and the effect. All values would be config entries.
 
 ## Upgrades and energy
 
