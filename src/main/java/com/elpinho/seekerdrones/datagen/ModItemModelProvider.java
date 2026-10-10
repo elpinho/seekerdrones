@@ -21,6 +21,11 @@ public class ModItemModelProvider extends ItemModelProvider {
                 .texture("layer0", modLoc("item/drone"))
                 .texture("layer1", modLoc("item/drone_tint"));
 
+        // layer1 is tinted with the linked drone's color, gray while unlinked (see SeekerDronesClient).
+        withExistingParent("drone_remote", ResourceLocation.withDefaultNamespace("item/generated"))
+                .texture("layer0", modLoc("item/drone_remote"))
+                .texture("layer1", modLoc("item/drone_remote_tint"));
+
         basicItem(modLoc("drone_rotor"));
         basicItem(modLoc("seeker_core"));
 

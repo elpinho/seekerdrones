@@ -133,6 +133,14 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue DEPLOYING_STATION_LAUNCH_HEIGHT;
     public static final ModConfigSpec.IntValue DEPLOYING_STATION_CHECK_INTERVAL;
 
+    // === remote ===
+    public static final ModConfigSpec.IntValue REMOTE_RANGE;
+    public static final ModConfigSpec.IntValue REMOTE_LINK_RANGE;
+    public static final ModConfigSpec.DoubleValue REMOTE_LINK_CONE_ANGLE;
+    public static final ModConfigSpec.IntValue REMOTE_LINK_GLOW_TICKS;
+    public static final ModConfigSpec.DoubleValue REMOTE_RECALL_DISTANCE;
+    public static final ModConfigSpec.IntValue REMOTE_RECALL_HOVER_TICKS;
+
     // === sounds ===
     public static final ModConfigSpec.IntValue SOUNDS_RESORT_INTERVAL;
     public static final ModConfigSpec.IntValue SOUNDS_FLYING_MAX_PLAYING;
@@ -433,6 +441,27 @@ public class ServerConfig {
         DEPLOYING_STATION_CHECK_INTERVAL = BUILDER
                 .comment("How often (ticks) a Deploying Station retries a drone that couldn't be deployed yet.")
                 .defineInRange("checkInterval", 10, 1, 1200);
+        BUILDER.pop();
+
+        BUILDER.push("remote");
+        REMOTE_RANGE = BUILDER
+                .comment("How far (blocks) a Drone Remote reaches its linked drone.")
+                .defineInRange("range", 256, 1, 30_000_000);
+        REMOTE_LINK_RANGE = BUILDER
+                .comment("How far (blocks) Shift + right-click linking by aiming reaches.")
+                .defineInRange("linkRange", 64, 1, 1024);
+        REMOTE_LINK_CONE_ANGLE = BUILDER
+                .comment("How far (degrees) from the crosshair a drone may be to be linked by aiming.")
+                .defineInRange("linkConeAngle", 10.0, 0.1, 90.0);
+        REMOTE_LINK_GLOW_TICKS = BUILDER
+                .comment("How long (ticks) a newly linked drone glows for the linking player.")
+                .defineInRange("linkGlowTicks", 40, 1, 1200);
+        REMOTE_RECALL_DISTANCE = BUILDER
+                .comment("How far (blocks) in front of the player a recalled drone stops.")
+                .defineInRange("recallDistance", 3.0, 1.0, 32.0);
+        REMOTE_RECALL_HOVER_TICKS = BUILDER
+                .comment("How long (ticks) a recalled drone holds by the player before it goes back to patrolling on its own.")
+                .defineInRange("recallHoverTicks", 600, 1, Integer.MAX_VALUE);
         BUILDER.pop();
 
         BUILDER.comment("Drone and machine sounds. Volumes are clamped to 1.0 by the game when played: above that they only extend",

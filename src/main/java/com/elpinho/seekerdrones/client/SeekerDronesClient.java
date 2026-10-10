@@ -12,8 +12,10 @@ import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
 import com.elpinho.seekerdrones.registry.ModItems;
 import com.elpinho.seekerdrones.registry.ModMenuTypes;
+import com.elpinho.seekerdrones.remote.RemoteLink;
 
 import net.minecraft.util.FastColor;
+import net.minecraft.world.item.DyeColor;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -27,6 +29,10 @@ import net.neoforged.neoforge.common.NeoForge;
 public class SeekerDronesClient {
     /** The drone item model's tinted layer. */
     private static final int DRONE_TINT_LAYER = 1;
+    /** The Drone Remote item model's tinted layer. */
+    private static final int REMOTE_TINT_LAYER = 1;
+    /** The Drone Remote's tint while it isn't linked to a drone. */
+    private static final int UNLINKED_REMOTE_TINT = 0x7B8490;
 
     public SeekerDronesClient(IEventBus modEventBus) {
         modEventBus.addListener(SeekerDronesClient::registerRenderers);
@@ -65,5 +71,14 @@ public class SeekerDronesClient {
             DroneData data = stack.get(ModDataComponents.DRONE_DATA);
             return FastColor.ARGB32.opaque((data != null ? data.config().color() : DroneConfig.DEFAULT_COLOR).getTextureDiffuseColor());
         }, ModItems.DRONE.get());
+        // The remote takes the color its drone had when it was linked (DESIGN.md section 2.10).
+        event.register((stack, tintIndex) -> {
+            if (tintIndex != REMOTE_TINT_LAYER) {
+                return -1;
+            }
+            RemoteLink link = stack.get(ModDataComponents.REMOTE_LINK);
+            DyeColor color = link != null ? link.color() : null;
+            return FastColor.ARGB32.opaque(color != null ? color.getTextureDiffuseColor() : UNLINKED_REMOTE_TINT);
+        }, ModItems.DRONE_REMOTE.get());
     }
 }

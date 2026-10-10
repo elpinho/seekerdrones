@@ -43,6 +43,10 @@ public class MekanismRecipeProvider implements DataProvider {
                 'D', tag("c:gems/diamond"),
                 'E', item("minecraft:ender_eye"),
                 'C', tag("c:circuits/elite"))));
+        writes.add(shaped(cache, ModItems.DRONE_REMOTE.get(), List.of(" S ", "BCB", "SSS"), keys(
+                'S', tag("c:ingots/steel"),
+                'B', tag("c:circuits/basic"),
+                'C', item("seekerdrones:seeker_core"))));
         writes.add(shaped(cache, ModItems.DRONE_FACTORY.get(), List.of("ACA", "DSD", "APA"), keys(
                 'A', tag("c:alloys/ultimate"),
                 'C', item("minecraft:crafter"),

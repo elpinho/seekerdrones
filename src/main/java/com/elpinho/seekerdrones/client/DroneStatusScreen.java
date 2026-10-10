@@ -282,13 +282,15 @@ public class DroneStatusScreen extends PanelScreen {
     }
 
     private Kit.Light stateLight() {
-        if (!status.isDeployed()) {
-            return Kit.Light.IDLE;
-        }
-        return switch (status.state()) {
+        return status.isDeployed() ? stateLight(status.state()) : Kit.Light.IDLE;
+    }
+
+    /** The state pill's light for a deployed drone: green working, amber held or going to charge, gray idle. */
+    static Kit.Light stateLight(DroneState state) {
+        return switch (state) {
             case IDLE -> Kit.Light.IDLE;
-            case PATROLLING, CHASING, FOLLOWING -> Kit.Light.OK;
-            case RETURNING, CHARGING -> Kit.Light.WARN;
+            case PATROLLING, CHASING, FOLLOWING, RECALLED -> Kit.Light.OK;
+            case RETURNING, CHARGING, HOLDING -> Kit.Light.WARN;
         };
     }
 

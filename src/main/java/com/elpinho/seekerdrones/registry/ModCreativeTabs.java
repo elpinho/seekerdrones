@@ -23,6 +23,7 @@ public class ModCreativeTabs {
                     .icon(() -> new ItemStack(ModItems.DRONE.get()))
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.DRONE.get());
+                        output.accept(ModItems.DRONE_REMOTE.get());
                         output.accept(ModItems.DRONE_FACTORY.get());
                         output.accept(ModItems.PROGRAMMING_STATION.get());
                         output.accept(ModItems.DEPLOYING_STATION.get());

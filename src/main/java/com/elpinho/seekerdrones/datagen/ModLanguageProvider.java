@@ -147,6 +147,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.programming_station.status.complete", "Complete: ready to be taken out");
         add("screen.seekerdrones.programming_station.status.reinsert_drone", "This drone was here before Template mode. Re-insert it to program it.");
         add("screen.seekerdrones.programming_station.status.working", "Programming...");
+        addItem(ModItems.DRONE_REMOTE, "Drone Remote");
         addItem(ModItems.DRONE_ROTOR, "Drone Rotor");
         addItem(ModItems.SEEKER_CORE, "Seeker Core");
 
@@ -207,6 +208,8 @@ public class ModLanguageProvider extends LanguageProvider {
         add(DroneState.FOLLOWING.getTranslationKey(), "Following");
         add(DroneState.RETURNING.getTranslationKey(), "Returning to charge");
         add(DroneState.CHARGING.getTranslationKey(), "Charging");
+        add(DroneState.HOLDING.getTranslationKey(), "Holding");
+        add(DroneState.RECALLED.getTranslationKey(), "Recalled");
 
         add("screen.seekerdrones.drone_status", "Drone Status");
         add("screen.seekerdrones.drone_status.health", "Health");
@@ -334,6 +337,41 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.energy_unit.tooltip", "Energy unit: %s\nClick to change. Saved for you in this world.");
 
         add("message.seekerdrones.not_operator", "You are not an operator of this drone");
+
+        // Drone Remote (DESIGN.md section 2.10).
+        add("tooltip.seekerdrones.remote.not_linked", "Not linked");
+        add("message.seekerdrones.remote.linked", "Linked to %s");
+        add("message.seekerdrones.remote.not_linked", "Not linked: right-click a drone to link it");
+        add("message.seekerdrones.remote.none_in_sight", "No drone in sight");
+        add("message.seekerdrones.remote.no_id", "This drone has no ID yet");
+        add("message.seekerdrones.remote.no_station", "No usable Charging Station in range");
+        add("message.seekerdrones.remote.already_charging", "Already returning to charge");
+        add("message.seekerdrones.remote.needs_patrol", "Setting the patrol center needs a Patrol upgrade");
+        add("screen.seekerdrones.drone_remote", "Drone Remote");
+        add("screen.seekerdrones.drone_remote.reach.not_deployed", "Not deployed");
+        add("screen.seekerdrones.drone_remote.reach.not_deployed.detail", "Not deployed, or not in a loaded chunk");
+        add("screen.seekerdrones.drone_remote.reach.other_dimension", "Other dimension");
+        add("screen.seekerdrones.drone_remote.reach.other_dimension.detail", "In another dimension");
+        add("screen.seekerdrones.drone_remote.reach.denied", "No access");
+        add("screen.seekerdrones.drone_remote.reach.denied.detail", "You are not an operator of this drone");
+        add("screen.seekerdrones.drone_remote.reach.out_of_range", "Out of range");
+        add("screen.seekerdrones.drone_remote.reach.out_of_range.detail", "%s blocks away: out of range");
+        add("screen.seekerdrones.drone_remote.reach.ok", "In range");
+        add("screen.seekerdrones.drone_remote.slots", "%s / %s slots");
+        add("screen.seekerdrones.drone_remote.upgrades.hint", "Install upgrades in a Programming Station");
+        add("screen.seekerdrones.drone_remote.targets.hint", "Change targets in a Programming Station");
+        add("screen.seekerdrones.drone_remote.recall", "Recall");
+        add("screen.seekerdrones.drone_remote.recall.tooltip", "Drops any target and flies to you, then holds there for a while before going back to patrol");
+        add("screen.seekerdrones.drone_remote.hold", "Hold");
+        add("screen.seekerdrones.drone_remote.hold.tooltip", "Drops any target and hovers where it is until resumed");
+        add("screen.seekerdrones.drone_remote.resume", "Resume");
+        add("screen.seekerdrones.drone_remote.resume.tooltip", "Ends the hold or recall: the drone patrols again, or goes back to where it was recalled");
+        add("screen.seekerdrones.drone_remote.charge", "Charge");
+        add("screen.seekerdrones.drone_remote.charge.tooltip", "Sends the drone to a Charging Station now");
+        add("screen.seekerdrones.drone_remote.charge.disabled", "Already returning to charge");
+        add("screen.seekerdrones.drone_remote.center", "Center");
+        add("screen.seekerdrones.drone_remote.center.tooltip", "Sets the patrol center to where you are looking from");
+        add("screen.seekerdrones.drone_remote.center.disabled", "Needs a Patrol upgrade");
 
         add("commands.seekerdrones.not_holding_drone", "You must hold a drone item in your main hand");
         add("commands.seekerdrones.no_drones", "No drones matched");

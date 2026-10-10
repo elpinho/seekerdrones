@@ -117,6 +117,40 @@ The sound files are in `assets/seekerdrones/sounds/`, with their sources and lic
   - There's no Programming Station completion sound and no charging hum.
 - **Louder with more upgrades:** the flying loop and the drone's one-shots play at `volume × min(1 + volumePerUpgrade × totalUpgrades, maxVolumeMultiplier)` and `pitch × max(1 − pitchPerUpgrade × totalUpgrades, minPitchMultiplier)`, so a heavily upgraded drone is louder and deeper, matching its bigger model (section 3.7). The server computes both multipliers and syncs them, like the visual scale. The Siren and the low-power beeps don't use them.
 
+### 2.10 Drone Remote
+
+A handheld item for controlling one deployed drone without catching it. Upgrades and targets still need the Programming Station (section 7.2). The remote only gives commands and changes a few settings.
+
+- **Linking:** a remote is linked to **one** drone at a time. Linking another drone replaces the link.
+  - **On the drone:** right-click a drone entity with the remote (with or without Shift).
+  - **By aiming:** Shift + right-click while not looking at a drone. This links the drone closest to the crosshair, picked from drones within `remote.linkRange` blocks whose direction is within `remote.linkConeAngle` degrees of the look direction. The candidates come from one AABB query, sorted by angle, and are raycast nearest-to-the-crosshair first, like the target scan (section 3.3, with the same per-use raycast cap). The drone must be in **line of sight**. If none qualifies, the action bar says so.
+  - Linking requires being an operator of the drone (section 6.3). It **never** sets the owner. Only hand-deploying does (section 2.2).
+  - On a link, the remote beeps and the drone glows for `remote.linkGlowTicks`, visible only to the linking player, so it's clear which drone was picked.
+  - The remote stores the drone ID (plus the label and color at link time, for the tooltip and tint) in a data component (`seekerdrones:remote_link`). The tooltip shows `<label> - <drone ID>` in the drone's color, like the drone item (section 2.1), or "Not linked".
+- **Using it:** right-click (without Shift) opens the remote screen. Every command and setting change checks that the player is an operator of the drone **when it's used**, not when it was linked, so revoking access works right away. Server operators get the same bypass as for the other direct interactions (section 6.2).
+- **Reach:** the drone must be deployed, in the player's dimension, in a loaded chunk and within `remote.range` blocks. Otherwise the screen shows why (Not deployed or not found, Other dimension, Out of range) and its controls are disabled. The drone is found by ID through a per-level index of loaded drone entities, updated when a drone joins or leaves the level, not by searching.
+- **Commands:**
+  - **Recall:** the drone drops any target (releasing its claim, section 3.3) and flies to `remote.recallDistance` blocks in front of the player, at eye level, tracking the player while it flies (state RECALLED, section 3.1). Once there (or if it can't get closer, or the player leaves), it switches to **HOLDING** with a timeout: after `remote.recallHoverTicks` it goes back to patrolling on its own. A drone without Patrol goes back to where it was when it was recalled (like after charging, section 5.3).
+  - **Hold / Resume:** Hold makes the drone drop its target and hover where it is indefinitely (state HOLDING, no timeout). While the drone is HOLDING or RECALLED the button shows **Resume**, which ends the hold or recall early: the drone patrols again, or without Patrol hovers where it is (after a Hold) or goes back to where it was recalled (after a Recall).
+  - **Return to charge:** sends the drone to charge now, as if it had reached its return threshold (section 5.2), even an Explosive drone that is chasing. If no usable station is in range, it does nothing and the screen says so. Disabled while it's already returning or charging.
+  - **Patrol center here:** sets the drone's configured patrol center (section 3.2) to the player's eye position, in the player's dimension. Only with a Patrol upgrade.
+  - Recall and Hold also work on a docked drone: it undocks and stops charging.
+- **Settings** (the same validation and caps as the Programming Station, re-checked by the server): **patrol radius** and **patrol speed** (only with Patrol, sliders up to the drone's max), **follow distance**, **label** and **color**. Targets and upgrades **can't** be changed from the remote.
+- **Passive while held or recalled:** a HOLDING or RECALLED drone doesn't scan for targets, chase or claim anything, even when it's attacked. It still pays the hover and flight energy costs. Its return threshold still applies: reaching it overrides Hold and Recall, and after charging the drone patrols as usual (the Hold is **not** restored).
+- **Not saved in the drone data:** Hold and Recall live only on the entity. Picking the drone up, or anything else that turns it into an item, clears them, so a redeployed drone behaves normally. They are saved with the entity, so they survive a chunk reload.
+- **Screen** (the machine GUI kit, section 7.7): the drone status screen (section 2.4) laid out so the remote fits in one frame, 228 × 176.
+  - The header, radar column, and energy and health rows are the same as the status screen.
+  - Under the health bar, the right column becomes an editor on a dark display with tabs on its top edge, reusing the Programming Station's editor tabs, sliders, value boxes and color palette (section 7.2). The tabs are icon-only, with their names in tooltips:
+    - **Upgrades:** the installed upgrades as cells with counts and the slots used. Read-only.
+    - **Targets:** the usable targets as preview cards, like the status screen. Read-only.
+    - **Behavior:** patrol radius and patrol speed (only with Patrol), and follow distance, each as a slider with a value box.
+    - **Identity:** the label field and the 16-color palette with the selected color's name.
+  - A **command bar** along the bottom has four buttons, each with an icon and a label: **Recall** (a blue U-turn arrow), **Hold** (an amber pause icon, which turns into **Resume** with a green play icon while held), **Charge** (the energy bolt) and **Center** (the pin). They're disabled, with the reason under the header, when the drone can't be reached.
+  - The state pill also shows HOLDING (amber), RECALLED (green), OUT OF RANGE (red) and NOT DEPLOYED (gray).
+  - The screen asks the server for the drone's status on demand, like the status screen (no per-tick syncing), and refreshes while it's open.
+- **Item texture:** an RC-controller-style handset: a screen on top, twin antennas and two sticks. The antenna tips and the grips are a tint layer in the linked drone's color, gray when unlinked.
+- **Recipe:** shaped crafting-table recipe, with a Mekanism variant (section 7.5). The ingredients are placeholders until M9.
+
 ---
 
 ## 3. Drone Behavior (AI)
@@ -147,6 +181,7 @@ The sound files are in `assets/seekerdrones/sounds/`, with their sources and lic
   - **Facing:** a following drone faces its target loosely. It only turns once it faces more than `drone.facingTolerance` away, then eases into the turn at up to `drone.turnSpeed`.
 - **EXPLODE** (Explosive only): An Explosive drone never follows. It chases straight at the center of the target's hitbox and stays CHASING. Once its own center is within `drone.explosionTriggerDistance` of that point, it explodes and is removed. The explosion damages entities but **never breaks blocks** in v1 (a block damage option is future work, section 11). Its power is `basePower + perUpgrade × (count − 1)`.
 - **RETURNING / CHARGING:** See section 5.
+- **HOLDING / RECALLED** (Drone Remote only): the drone hovers in place (HOLDING), or flies to the player (RECALLED) and then holds there with a timeout, without scanning. See section 2.10.
 
 ### 3.2 Patrol center
 
@@ -328,16 +363,17 @@ Drone Operators control who can interact with drones. A drone's operators come f
 | Pick up a drone (Shift + right-click) | Yes |
 | Hand-deploy a drone | Yes |
 | Open the drone status GUI | Yes |
+| Link a Drone Remote, or use its commands and settings | Yes (checked on every use, section 2.10) |
 | Receive Transmitter notifications | Yes (all online operators) |
 | Exempt from being targeted by Player Seek | Yes |
 | Insert/extract drones in machines (manually or by automation) | **No**. Machines never check permissions, so automation keeps working. |
 | Drone may charge at a Charging Station | The station's placer must be an operator of the drone (section 6.3). An unowned drone may charge at any station (section 5.2). |
 | Open a Charging Station's Upgrades tab or change its upgrades | A **station** operator (section 7.4), not a drone operator. The rest of the station screen is open to anyone. |
 
-Edge cases for the direct-interaction checks (pick up, hand-deploy, status GUI):
+Edge cases for the direct-interaction checks (pick up, hand-deploy, status GUI, Drone Remote):
 - An **unowned** drone (no group and no owner, e.g. fresh from the creative tab or `/give`) may be used by **anyone**. The first player to hand-deploy it becomes its owner.
 - A drone whose group ID **doesn't exist** in saved data (foreign or wiped data) has no operators: **nobody** may interact with it, except via the bypass below. Its owner field doesn't help, since a group ID is present.
-- **Server operators** (permission level ≥ 2) bypass the operator check for these three actions only. The bypass does **not** make them exempt from Player Seek and does **not** make them receive Transmitter messages. Those stay operator-only.
+- **Server operators** (permission level ≥ 2) bypass the operator check for these direct interactions only. The bypass does **not** make them exempt from Player Seek and does **not** make them receive Transmitter messages. Those stay operator-only.
 - Transmitter messages and the Player Seek exemption go to the operators from section 6.3. An unowned drone notifies nobody and exempts nobody.
 - A blocked player gets an action-bar message saying they are not an operator of this drone.
 
@@ -667,6 +703,12 @@ All values below are placeholders.
 | `upgrades.patrol.waypointSpacing` | 8 blocks | Distance between patrol waypoints along the circle (at least 8 waypoints) |
 | `upgrades.patrol.maxClimb` | 16 blocks | How far above the patrol height a waypoint may be raised to clear an obstacle; beyond that it is skipped |
 | `upgrades.patrol.climbClearance` | 1.0 block | Gap kept above the obstacle under a raised waypoint |
+| `remote.range` | 256 blocks | How far a Drone Remote reaches its linked drone (section 2.10) |
+| `remote.linkRange` | 64 blocks | How far Shift + right-click linking by aiming reaches |
+| `remote.linkConeAngle` | 10 degrees | How far from the crosshair a drone may be to be linked by aiming |
+| `remote.linkGlowTicks` | 40 ticks | How long a newly linked drone glows for the linking player |
+| `remote.recallDistance` | 3 blocks | Where a recalled drone stops, in front of the player |
+| `remote.recallHoverTicks` | 600 ticks | How long a recalled drone holds by the player before it goes back to patrolling on its own |
 | `upgrades.sight.perUpgrade` | 8 blocks | |
 | `upgrades.explosive.basePower` / `perUpgrade` | 2.0 / 1.0 | TNT = 4.0 |
 | `upgrades.siren.baseVolume` / `perUpgrade` / `repeatInterval` | 2.0 / 2.0 / 140 ticks | The siren sound is 6.5 s long, so it doesn't overlap itself |

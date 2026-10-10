@@ -128,6 +128,16 @@ public class ModRecipeProvider extends RecipeProvider {
                 .define('B', Tags.Items.STORAGE_BLOCKS_REDSTONE)
                 .unlockedBy(getHasName(Items.ENDER_EYE), has(Items.ENDER_EYE))
                 .save(output);
+        // Placeholder Drone Remote recipe until the balance pass (section 2.10, ROADMAP.md M9).
+        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ModItems.DRONE_REMOTE.get())
+                .pattern(" I ")
+                .pattern("RCR")
+                .pattern("III")
+                .define('I', Tags.Items.INGOTS_IRON)
+                .define('R', Tags.Items.DUSTS_REDSTONE)
+                .define('C', ModItems.SEEKER_CORE.get())
+                .unlockedBy(getHasName(ModItems.SEEKER_CORE.get()), has(ModItems.SEEKER_CORE.get()))
+                .save(output);
         ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ModItems.DRONE_FACTORY.get())
                 .pattern("DRD")
                 .pattern("ICI")

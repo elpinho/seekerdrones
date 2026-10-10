@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import com.elpinho.seekerdrones.command.SeekerDronesCommand;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
+import com.elpinho.seekerdrones.drone.DroneIndex;
 import com.elpinho.seekerdrones.drone.TargetBlacklist;
 import com.elpinho.seekerdrones.drone.TargetClaims;
 import com.elpinho.seekerdrones.drone.TargetMatcher;
@@ -70,6 +71,7 @@ public class SeekerDrones {
         NeoForge.EVENT_BUS.addListener((TagsUpdatedEvent event) -> TargetBlacklist.invalidate());
         // Shared target claims are transient and kept per level (DESIGN.md section 3.3).
         NeoForge.EVENT_BUS.addListener((LevelEvent.Unload event) -> TargetClaims.clear(event.getLevel()));
+        NeoForge.EVENT_BUS.addListener((LevelEvent.Unload event) -> DroneIndex.clear(event.getLevel()));
 
         // A null player means a /reload for everyone, so Factories must look their recipes up again.
         NeoForge.EVENT_BUS.addListener((OnDatapackSyncEvent event) -> {

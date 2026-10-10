@@ -8,7 +8,7 @@ import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class ModNetwork {
-    private static final String PROTOCOL_VERSION = "4";
+    private static final String PROTOCOL_VERSION = "5";
 
     private ModNetwork() {}
 
@@ -31,6 +31,16 @@ public final class ModNetwork {
                 (payload, context) -> ClientPayloadHandlers.handleProgramTemplate(payload));
         registrar.playToServer(EditProgramPayload.TYPE, EditProgramPayload.STREAM_CODEC,
                 EditProgramPayload::handle);
+        registrar.playToClient(RemoteStatusPayload.TYPE, RemoteStatusPayload.STREAM_CODEC,
+                (payload, context) -> ClientPayloadHandlers.handleRemoteStatus(payload));
+        registrar.playToServer(RequestRemoteStatusPayload.TYPE, RequestRemoteStatusPayload.STREAM_CODEC,
+                RequestRemoteStatusPayload::handle);
+        registrar.playToServer(RemoteCommandPayload.TYPE, RemoteCommandPayload.STREAM_CODEC,
+                RemoteCommandPayload::handle);
+        registrar.playToServer(EditRemoteSettingsPayload.TYPE, EditRemoteSettingsPayload.STREAM_CODEC,
+                EditRemoteSettingsPayload::handle);
+        registrar.playToClient(LinkGlowPayload.TYPE, LinkGlowPayload.STREAM_CODEC,
+                (payload, context) -> ClientPayloadHandlers.handleLinkGlow(payload));
         registrar.playBidirectional(EnergyUnitPayload.TYPE, EnergyUnitPayload.STREAM_CODEC, new DirectionalPayloadHandler<>(
                 (payload, context) -> EnergyFormat.setClientUnit(payload.unit()),
                 EnergyUnitPayload::handleOnServer));

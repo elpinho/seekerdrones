@@ -4,6 +4,7 @@ import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.programming.ProgrammingStationSettings;
+import com.elpinho.seekerdrones.remote.RemoteLink;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -27,6 +28,14 @@ public class ModDataComponents {
             () -> DataComponentType.<DroneData>builder()
                     .persistent(DroneData.CODEC)
                     .networkSynchronized(DroneData.STREAM_CODEC)
+                    .build());
+
+    /** The drone a Drone Remote is linked to (DESIGN.md section 2.10). */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<RemoteLink>> REMOTE_LINK = DATA_COMPONENT_TYPES.register(
+            "remote_link",
+            () -> DataComponentType.<RemoteLink>builder()
+                    .persistent(RemoteLink.CODEC)
+                    .networkSynchronized(RemoteLink.STREAM_CODEC)
                     .build());
 
     /** The Operator Group ID a broken Drone Factory keeps on its item (DESIGN.md section 6.1). */

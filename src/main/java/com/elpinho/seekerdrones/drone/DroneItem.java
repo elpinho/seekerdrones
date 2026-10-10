@@ -18,6 +18,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -148,14 +149,18 @@ public class DroneItem extends Item {
 
     /** "label - ID" (or just the ID) in the drone's color. */
     public static MutableComponent identity(DroneData data) {
-        Component id = data.hasDroneId()
-                ? Component.literal(data.droneId())
+        return identity(data.droneId(), data.config().label(), data.config().color());
+    }
+
+    /** {@link #identity(DroneData)} from the parts, e.g. a Drone Remote's link (section 2.10). */
+    public static MutableComponent identity(String droneId, String label, DyeColor color) {
+        Component id = !droneId.isEmpty()
+                ? Component.literal(droneId)
                 : Component.translatable("tooltip.seekerdrones.drone.unassigned");
-        String label = data.config().label();
         MutableComponent line = label.isEmpty()
                 ? id.copy()
                 : Component.literal(label + " - ").append(id);
-        return line.withStyle(style -> style.withColor(TextColor.fromRgb(data.config().color().getTextColor())));
+        return line.withStyle(style -> style.withColor(TextColor.fromRgb(color.getTextColor())));
     }
 
     public static String formatHealth(float health) {

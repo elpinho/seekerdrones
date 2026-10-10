@@ -564,6 +564,15 @@ ICONS = {
     "upgrades": ([
         "....L....", "...LGL...", "..LG.GL..", ".LG...GL.", "....L....", "...LGL...", "..LG.GL..", ".LG...GL."],
         {"L": (150, 240, 160, 255), "G": (60, 200, 110, 255)}),
+    # Drone Remote: the command bar's icons and the Behavior tab's sliders.
+    "recall": ([
+        "...bb....", "..bbb....", ".bbbbbbb.", "..bbb..bb", "...bb...b", "........b", ".......bb", "..bbbbbb.", "..bbbbb.."],
+        {"b": (126, 182, 255, 255)}),
+    "hold": (["aa..aa"] * 7, {"a": (251, 191, 36, 255)}),
+    "resume": (["g.....", "ggg...", "ggggg.", "gggggg", "ggggg.", "ggg...", "g....."], {"g": (74, 222, 128, 255)}),
+    "settings": ([
+        ".s...s...", ".s...s.S.", "SSS..s.s.", ".s..SSSs.", ".s...s.s.", ".s...sSSS", ".s...s.s.", ".s...s.s."],
+        {"s": (154, 164, 176, 255), "S": (94, 104, 116, 255)}),
 }
 
 

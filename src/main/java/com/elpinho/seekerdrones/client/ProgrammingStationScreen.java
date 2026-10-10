@@ -15,7 +15,9 @@ import javax.annotation.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import com.elpinho.seekerdrones.client.gui.DronePreview;
+import com.elpinho.seekerdrones.client.gui.EditorTab;
 import com.elpinho.seekerdrones.client.gui.EntityPreview;
+import com.elpinho.seekerdrones.client.gui.FieldBox;
 import com.elpinho.seekerdrones.client.gui.Gauges;
 import com.elpinho.seekerdrones.client.gui.Kit;
 import com.elpinho.seekerdrones.client.gui.KitButton;
@@ -24,6 +26,7 @@ import com.elpinho.seekerdrones.client.gui.KitWidget;
 import com.elpinho.seekerdrones.client.gui.MachineScreen;
 import com.elpinho.seekerdrones.client.gui.SideTab;
 import com.elpinho.seekerdrones.client.gui.StatusStrip;
+import com.elpinho.seekerdrones.client.gui.Swatch;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
@@ -87,7 +90,6 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private static final int DIRECT_ACCENT = 0xFF47B5EF;
     private static final int TEMPLATE_ACCENT = 0xFFF0A838;
     private static final int OK_COLOR = 0xFF4ADE80;
-    private static final int WARN_COLOR = 0xFFFBBF24;
     private static final int BAD_COLOR = 0xFFF45B5B;
     private static final int MISSING_COLOR = 0xFF6E5518;
     private static final int TRACK_COLOR = 0xFF1D3034;
@@ -97,7 +99,6 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private static final int SEGMENT_OFF_TEXT = 0xFF99AAAA;
     private static final int SEGMENT_ON_TEXT = 0xFF0B1013;
     private static final int NAMEPLATE_BACKGROUND = 0x73000000;
-    private static final int INVALID_TEXT = 0xFF6060;
     /** Laid over an upgrade icon that nothing uses yet. */
     private static final int LOW_KEY_FADE = 0x8C101B1F;
 
@@ -124,9 +125,6 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private static final int MODE_HEIGHT = 12;
     private static final int TAB_X = 84;
     private static final int TAB_Y = 18;
-    private static final int TAB_WIDTH = 24;
-    private static final int TAB_HEIGHT = 13;
-    private static final int TAB_PITCH = 25;
     private static final int EDITOR_X = 84;
     private static final int EDITOR_Y = 30;
     private static final int EDITOR_WIDTH = 152;
@@ -177,8 +175,6 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private static final int VALUE_X = 112;
     private static final int VALUE_WIDTH = 36;
     private static final int FIELD_HEIGHT = 13;
-    private static final int SWATCH_SIZE = 12;
-    private static final int SWATCH_PITCH = 14;
     /** The Behavior tab scrolls in the editor rows between these, below the header. */
     private static final int BEHAVIOR_TOP = 14;
     private static final int BEHAVIOR_BOTTOM = EDITOR_HEIGHT - 3;
@@ -187,9 +183,6 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private static final double MIN_SPEED_SECONDS = 0.2;
     private static final int MIN_SPEED_HUNDREDTHS = 20;
 
-    private static final ResourceLocation TAB = Kit.sprite("programming/tab");
-    private static final ResourceLocation TAB_HIGHLIGHTED = Kit.sprite("programming/tab_highlighted");
-    private static final ResourceLocation TAB_SELECTED = Kit.sprite("programming/tab_selected");
     private static final ResourceLocation ICON_TARGET = Kit.sprite("icon/target");
     private static final ResourceLocation ICON_ROUTE = Kit.sprite("icon/route");
     private static final ResourceLocation ICON_NAME_TAG = Kit.sprite("icon/name_tag");
@@ -330,7 +323,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         addRenderableWidget(new ModeSwitch(leftPos + MODE_X, topPos + MODE_Y));
         Tab[] tabs = Tab.values();
         for (int i = 0; i < tabs.length; i++) {
-            addRenderableWidget(new EditorTab(leftPos + TAB_X + i * TAB_PITCH, topPos + TAB_Y, tabs[i]));
+            addRenderableWidget(editorTab(leftPos + TAB_X + i * EditorTab.PITCH, topPos + TAB_Y, tabs[i]));
         }
         addRenderableWidget(new StatusStrip(leftPos + 8, topPos + STATUS_Y, WIDTH - 16, this::status));
 
@@ -384,7 +377,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
                             Component.translatable(KEY + "target.kind",
                                     Component.translatable("screen.seekerdrones.target.kind." + rowKind(index).getSerializedName())),
                             Component.translatable(KEY + "target.kind.tooltip").withStyle(ChatFormatting.GRAY)));
-            FieldBox box = addRenderableWidget(new FieldBox(x + ROW_FIELD_X, rowY, ROW_FIELD_WIDTH, ROW_HEIGHT,
+            FieldBox box = addRenderableWidget(fieldBox(x + ROW_FIELD_X, rowY, ROW_FIELD_WIDTH, ROW_HEIGHT,
                     Component.translatable(KEY + "target.value"), self -> commitTarget(index)));
             box.setMaxLength(64);
             box.setResponder(text -> updateSuggestions());
@@ -412,7 +405,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
                 }, this::accent, value -> showDragged(followBox, value), this::setFollowDistance)));
         sliders.getLast().tooltip(() -> List.of(Component.translatable(KEY + "follow_distance"),
                 Component.translatable(KEY + "follow_distance.tooltip", 1, ProgramRules.maxFollowDistance()).withStyle(ChatFormatting.GRAY)));
-        followBox = addBehaviorWidget(new FieldBox(x + VALUE_X, y + 21, VALUE_WIDTH, FIELD_HEIGHT,
+        followBox = addBehaviorWidget(fieldBox(x + VALUE_X, y + 21, VALUE_WIDTH, FIELD_HEIGHT,
                 Component.translatable(KEY + "follow_distance"), self -> commitFollowDistance()));
         followBox.setMaxLength(3);
         followBox.setFilter(text -> text.chars().allMatch(Character::isDigit));
@@ -426,7 +419,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         FieldBox[] boxes = new FieldBox[3];
         for (int i = 0; i < 3; i++) {
             String axis = axes[i];
-            FieldBox box = addBehaviorWidget(new FieldBox(x + 3 + i * 32, y + 49, 30, FIELD_HEIGHT, Component.literal(axis), self -> commitCenter()));
+            FieldBox box = addBehaviorWidget(fieldBox(x + 3 + i * 32, y + 49, 30, FIELD_HEIGHT, Component.literal(axis), self -> commitCenter()));
             box.setMaxLength(9);
             box.setFilter(text -> text.isEmpty() || text.matches("-?\\d*"));
             box.setHint(Component.literal(axis.toUpperCase()).withColor(Kit.DISPLAY_TEXT_DIM & 0xFFFFFF));
@@ -452,7 +445,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
                 this::currentRadius, this::accent, value -> showDragged(radiusBox, value), this::setRadius)));
         sliders.getLast().tooltip(() -> List.of(Component.translatable(KEY + "patrol_radius"),
                 Component.translatable(KEY + "patrol_radius.slider", maxRadius()).withStyle(ChatFormatting.GRAY)));
-        radiusBox = addBehaviorWidget(new FieldBox(x + VALUE_X, y + 76, VALUE_WIDTH, FIELD_HEIGHT,
+        radiusBox = addBehaviorWidget(fieldBox(x + VALUE_X, y + 76, VALUE_WIDTH, FIELD_HEIGHT,
                 Component.translatable(KEY + "patrol_radius"), self -> commitRadius()));
         radiusBox.setMaxLength(6);
         radiusBox.setFilter(text -> text.chars().allMatch(Character::isDigit));
@@ -465,7 +458,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         sliders.add(speedSlider);
         speedSlider.tooltip(() -> List.of(Component.translatable(KEY + "patrol_speed"),
                 Component.translatable(KEY + "patrol_speed.slider", formatSpeed(toSeconds(maxSpeed()))).withStyle(ChatFormatting.GRAY)));
-        speedBox = addBehaviorWidget(new FieldBox(x + VALUE_X, y + 103, VALUE_WIDTH, FIELD_HEIGHT,
+        speedBox = addBehaviorWidget(fieldBox(x + VALUE_X, y + 103, VALUE_WIDTH, FIELD_HEIGHT,
                 Component.translatable(KEY + "patrol_speed"), self -> commitSpeed()));
         speedBox.setMaxLength(5);
         speedBox.setFilter(text -> text.matches("\\d*\\.?\\d*"));
@@ -508,13 +501,14 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
 
     private void initIdentity(int x, int y) {
         y += BODY_SHIFT;
-        labelBox = addRenderableWidget(new FieldBox(x + 3, y + 22, EDITOR_WIDTH - 7, FIELD_HEIGHT, Component.translatable(KEY + "label"),
+        labelBox = addRenderableWidget(fieldBox(x + 3, y + 22, EDITOR_WIDTH - 7, FIELD_HEIGHT, Component.translatable(KEY + "label"),
                 self -> commitLabel()));
         labelBox.setMaxLength(ProgramRules.MAX_LABEL_LENGTH);
         labelBox.setHint(Component.translatable(KEY + "label.hint").withColor(Kit.DISPLAY_TEXT_DIM & 0xFFFFFF));
         DyeColor[] colors = DyeColor.values();
         for (int i = 0; i < colors.length; i++) {
-            addRenderableWidget(new Swatch(x + 3 + (i % 8) * SWATCH_PITCH, y + 50 + (i / 8) * SWATCH_PITCH, colors[i]));
+            addRenderableWidget(new Swatch(x + 3 + (i % 8) * Swatch.PITCH, y + 50 + (i / 8) * Swatch.PITCH, colors[i], this::currentColor,
+                    this::accent, this::setColor));
         }
     }
 
@@ -1132,40 +1126,16 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         }
     }
 
-    /** One of the 16 dye colors. The selected one has a white outline. */
-    private class Swatch extends KitWidget {
-        private final DyeColor color;
+    @Nullable
+    private DyeColor currentColor() {
+        DroneProgram program = program();
+        return program != null ? program.config().color() : null;
+    }
 
-        Swatch(int x, int y, DyeColor color) {
-            super(x, y, SWATCH_SIZE, SWATCH_SIZE);
-            this.color = color;
-            tooltip(() -> List.of(Component.translatable("color.minecraft." + color.getName())));
-        }
-
-        @Override
-        protected void draw(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            DroneProgram program = program();
-            if (program != null && program.config().color() == color) {
-                Kit.outline(graphics, getX() - 2, getY() - 2, width + 4, height + 4, Kit.WHITE);
-            }
-            graphics.fill(getX(), getY(), getX() + width, getY() + height, 0xFF000000);
-            graphics.fill(getX() + 1, getY() + 1, getX() + width - 1, getY() + height - 1, FastColor.ARGB32.opaque(color.getTextureDiffuseColor()));
-            if (isHovered()) {
-                Kit.outline(graphics, getX(), getY(), width, height, accent());
-            }
-        }
-
-        @Override
-        public boolean mouseClicked(double mouseX, double mouseY, int button) {
-            DroneProgram program = program();
-            if (visible && button == 0 && isMouseOver(mouseX, mouseY) && program != null) {
-                playDownSound(minecraft.getSoundManager());
-                if (program.config().color() != color) {
-                    sendConfig(program.config().withColor(color));
-                }
-                return true;
-            }
-            return false;
+    private void setColor(DyeColor color) {
+        DroneProgram program = program();
+        if (program != null) {
+            sendConfig(program.config().withColor(color));
         }
     }
 
@@ -1582,7 +1552,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         label(graphics, Component.translatable(KEY + "color"), x + 3, y + 42);
         DyeColor color = program.config().color();
         // The color's name beside the palette, on up to two lines.
-        int nameX = x + 3 + 8 * SWATCH_PITCH + 2;
+        int nameX = x + 3 + 8 * Swatch.PITCH + 2;
         int nameWidth = x + EDITOR_WIDTH - 3 - nameX;
         List<FormattedCharSequence> lines = font.split(Component.translatable("color.minecraft." + color.getName()), (int) (nameWidth / Kit.SMALL));
         for (int i = 0; i < Math.min(2, lines.size()); i++) {
@@ -1744,136 +1714,25 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     }
 
     /** A tab over the editor. The selected one joins the editor and has the accent on its top edge. */
-    private class EditorTab extends KitWidget {
-        private final Tab target;
-
-        EditorTab(int x, int y, Tab target) {
-            super(x, y, TAB_WIDTH, TAB_HEIGHT);
-            this.target = target;
-            tooltip(() -> List.of(Component.translatable(KEY + "tab." + target.name().toLowerCase())));
-        }
-
-        @Override
-        protected void draw(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            int x = getX();
-            int y = getY();
-            boolean on = tab == target;
-            if (on) {
-                // One row taller, over the editor's top edge, so it joins the editor.
-                graphics.blitSprite(TAB_SELECTED, x, y, width, height);
-                graphics.fill(x + 1, y + 1, x + width - 1, y + 2, accent());
-            } else {
-                graphics.blitSprite(isHovered() ? TAB_HIGHLIGHTED : TAB, x, y, width, height - 1);
-            }
+    private EditorTab editorTab(int x, int y, Tab target) {
+        SideTab.Drawer icon = (graphics, tx, ty, mouseX, mouseY) -> {
             switch (target) {
-                case UPGRADES -> Kit.item(graphics, new ItemStack(ModItems.upgrade(UpgradeType.SIGHT).get()), x + 7, y + 2, 10);
-                case TARGETS -> graphics.blitSprite(ICON_TARGET, x + 8, y + 3, 9, 9);
-                case BEHAVIOR -> graphics.blitSprite(ICON_ROUTE, x + 8, y + 3, 9, 8);
-                case IDENTITY -> graphics.blitSprite(ICON_NAME_TAG, x + 8, y + 4, 9, 6);
+                case UPGRADES -> Kit.item(graphics, new ItemStack(ModItems.upgrade(UpgradeType.SIGHT).get()), tx + 7, ty + 2, 10);
+                case TARGETS -> graphics.blitSprite(ICON_TARGET, tx + 8, ty + 3, 9, 9);
+                case BEHAVIOR -> graphics.blitSprite(ICON_ROUTE, tx + 8, ty + 3, 9, 8);
+                case IDENTITY -> graphics.blitSprite(ICON_NAME_TAG, tx + 8, ty + 4, 9, 6);
             }
-        }
-
-        @Override
-        public boolean mouseClicked(double mouseX, double mouseY, int button) {
-            if (!visible || button != 0 || !isMouseOver(mouseX, mouseY)) {
-                return false;
-            }
-            if (tab != target) {
-                playDownSound(minecraft.getSoundManager());
-                tab = target;
-                rebuildWidgets();
-            }
-            return true;
-        }
+        };
+        return new EditorTab(x, y, () -> tab == target, icon, () -> List.of(Component.translatable(KEY + "tab." + target.name().toLowerCase())),
+                this::accent, () -> {
+                    tab = target;
+                    rebuildWidgets();
+                });
     }
 
     // --- Fields ---
 
-    /**
-     * A text field on a display: a dark box with the text inset, an accent border while focused or selected, and a
-     * tooltip built when hovered. It commits its value on Enter and when it loses focus.
-     */
-    private class FieldBox extends EditBox {
-        private static final int PADDING_X = 3;
-        private final Consumer<FieldBox> onCommit;
-        /** Drawn with a dashed border while empty: an empty target row. */
-        boolean dashed;
-        BooleanSupplier selected = () -> false;
-        /** Shows an amber "!" at the right end: an ignored target entry. */
-        BooleanSupplier warning = () -> false;
-        Supplier<List<Component>> tooltipLines = List::of;
-
-        FieldBox(int x, int y, int width, int height, Component message, Consumer<FieldBox> onCommit) {
-            super(ProgrammingStationScreen.this.font, x, y, width, height, message);
-            this.onCommit = onCommit;
-            setBordered(false);
-            setTextColor(Kit.DISPLAY_TEXT & 0xFFFFFF);
-        }
-
-        private int paddingY() {
-            return (height - 7) / 2;
-        }
-
-        void showValue(String value) {
-            if (!getValue().equals(value)) {
-                setValue(value);
-            }
-        }
-
-        void setInvalid(boolean invalid) {
-            setTextColor(invalid ? INVALID_TEXT : Kit.DISPLAY_TEXT & 0xFFFFFF);
-        }
-
-        @Override
-        public int getInnerWidth() {
-            // EditBox can ask before this box's fields are set.
-            return width - 2 * PADDING_X - (warning != null && warning.getAsBoolean() ? 6 : 0);
-        }
-
-        @Override
-        public void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-            if (!isVisible()) {
-                return;
-            }
-            boolean empty = dashed && getValue().isEmpty() && !isFocused();
-            graphics.blitSprite(empty ? Kit.FIELD_EMPTY : Kit.FIELD, getX(), getY(), width, height);
-            if (isFocused() || selected.getAsBoolean()) {
-                Kit.outline(graphics, getX(), getY(), width, height, accent());
-            }
-            // EditBox draws its text at its own corner without a border, so shift it inside the box.
-            graphics.pose().pushPose();
-            graphics.pose().translate(PADDING_X, paddingY(), 0);
-            super.renderWidget(graphics, mouseX - PADDING_X, mouseY - paddingY(), partialTick);
-            graphics.pose().popPose();
-            if (warning.getAsBoolean()) {
-                graphics.drawString(font, "!", getX() + width - 6, getY() + paddingY(), WARN_COLOR, false);
-            }
-            if (isHovered() && !isFocused()) {
-                KitWidget.showTooltip(tooltipLines.get());
-            }
-        }
-
-        @Override
-        public void onClick(double mouseX, double mouseY) {
-            super.onClick(mouseX - PADDING_X, mouseY);
-        }
-
-        @Override
-        public void setFocused(boolean focused) {
-            boolean wasFocused = isFocused();
-            super.setFocused(focused);
-            if (wasFocused && !focused) {
-                onCommit.accept(this);
-            }
-        }
-
-        @Override
-        public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-            if (isFocused() && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER)) {
-                onCommit.accept(this);
-                return true;
-            }
-            return super.keyPressed(keyCode, scanCode, modifiers);
-        }
+    private FieldBox fieldBox(int x, int y, int width, int height, Component message, Consumer<FieldBox> onCommit) {
+        return new FieldBox(font, x, y, width, height, message, this::accent, onCommit);
     }
 }

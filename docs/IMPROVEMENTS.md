@@ -30,6 +30,7 @@ Status: `idea` | `decided`
   - It **hides the drone's nameplate** (label), since a floating name tag defeats the point.
   - It's **mutually exclusive with the Siren upgrade**: a drone is either a loud deterrent or a silent watcher. The Programming Station and the debug command must refuse to install one while the other is installed.
   - **Still open:** how much each upgrade lowers the volume, the cap, whether it offsets the extra loudness from having many upgrades, and whether it also quiets the Explosive approach sound (a stealth kamikaze drone is fun but maybe harsh in PvP). All values would be config entries.
+- **Drone self-healing** (`idea`): a drone slowly regains HP on its own, away from a Charging Station, and uses energy at a higher rate while it heals. Today drones only heal while docked (DESIGN.md §2.5, §5.3). To stay cheap, the healing and its extra energy cost would go in the existing batched energy drain (DESIGN.md §8.4). Still open: whether it's an upgrade or built in, the heal rate, how much the energy rate goes up, whether it pauses while chasing, and how it interacts with the return threshold (§5.2), since a healing drone runs low sooner. All values would be config entries.
 - **Transparent drone upgrade** (`idea`): an upgrade that makes the drone (semi-)transparent or invisible. Could be part of the Quiet upgrade above as one "Stealth" upgrade, or separate.
 
 ## Drone GUI and visuals
@@ -40,6 +41,10 @@ Status: `idea` | `decided`
   - Growth rate and max scale would be config entries (client-side rendering, driven by the synced upgrade count).
   - It fits with the upgrade-dependent energy usage (DESIGN.md §5.1) and louder drones with many upgrades (DESIGN.md section 2.9): a heavily upgraded drone is bigger, hungrier and louder.
   - It depends on the new drone model (ROADMAP.md M9). Tell the artist so the model and animations work at any scale.
+- **Status reasons** (`idea`): the status screen (DESIGN.md §2.4) and Jade (§8.6) show a drone's state, but not why it is in it. Drones can sit idle or misbehave for reasons the player can't see, so each state should come with a short reason line, e.g. "Idle: no usable target entries" or "Returning: station unreachable, trying the next one".
+  - **Reasons to cover** (from the existing rules): no target entries, or only blacklisted or unusable ones (a player entry without Player Seek, §3.3); a target in view but already claimed by a teammate (§3.3); target out of sight, with the lost-sight countdown (§3.5); no usable Charging Station in range, so it will drop at 0 energy (§5.2); waiting by a busy station (§5.3); a station skipped as unreachable (§5.2); docked at a station with no FE; an unknown Operator Group (§6.2).
+  - **Performance:** no extra syncing. The reason is worked out on the server only when a status screen or Jade asks for the drone's status (the existing on-demand payloads), from state the drone already keeps. Where a reason needs data the drone doesn't keep today (e.g. why the last scan found nothing), it's recorded cheaply during the staggered scan, not by an extra check.
+  - **Still open:** the exact list and wording, whether operators only see the reasons (like the rest of the Jade details, §8.6), and whether recent events are shown too (e.g. "Lost target 12 s ago").
 
 ## Sounds
 
@@ -50,8 +55,12 @@ Status: `idea` | `decided`
 
 ## Items and interaction
 
-- **Drone Remote** (`idea`): a handheld item for controlling drones remotely, e.g. recalling them or sending them to recharge. Specifics TBD. It's direct player interaction, so it checks operator permissions (DESIGN.md §6.3). It may overlap with the v2 drone dashboard (ROADMAP.md).
-- **Drone Tracker** (`idea`): a compass-like item that points to a specific drone, e.g. to find one that ran out of energy and dropped as an item. Specifics TBD.
+- **Drone Remote** (`decided`, see DESIGN.md §2.10): link one drone (on it, or Shift + right-click toward it), then recall, hold/resume, send to charge, set the patrol center, and change the patrol radius and speed, follow distance, label and color. Targets and upgrades stay in the Programming Station. Multi-drone or Operator Group control may come later.
+- **Drone Tracker and drone list** (`idea`, prioritized): help players find their drones. A drone that runs out of energy drops as an item wherever it is (§5.2), and drones far from players freeze in unloaded chunks (§3.6), so with dozens of drones losing track of them is common.
+  - **Drone list:** a screen listing the drones a player operates (by label and ID, §2.8), with each one's last known position and dimension, state and energy, and whether it's deployed, docked, or an item (dropped, in a chest or in an inventory). It could be opened from the Drone Remote or the Tracker. It's a small slice of the v2 dashboard, without the camera or map.
+  - **Tracker:** a compass-like item that points to one drone's last known position, picked from the list or linked like the Remote.
+  - **Needs:** a server-side registry of drone ID → last known position and form (a `SavedData`, like the Charging Station registry, §8.3). It's updated at the moments a drone changes form or is saved (deploy, pickup, drop at 0 energy, destruction, chunk unload), not every tick. Positions of deployed drones in loaded chunks can be read live when the list is opened.
+  - **Still open:** whether an item in a chest or another player's inventory is tracked (hard to keep current), how long destroyed drones stay in the list, and whether non-operators can see a drone in the list at all (probably not, §6.3).
 
 ## Mod compatibility
 
@@ -65,6 +74,7 @@ Status: `idea` | `decided`
   1. **Read-only machine peripherals:** each machine exposes its status (energy, fluid, progress, the docked or installed drone's ID, energy and health, the queue). This fits the rule that machines never check operator permissions (`CLAUDE.md`), and it's cheap, since it only runs when a computer calls it.
   2. **Drone events:** a "Drone Receiver" block (or a peripheral on an existing machine) that receives Transmitter messages as computer events (e.g. `drone_target_spotted` with the drone ID, target and coordinates), for alarms, logging and automation. Still read-only.
   3. **Control:** recalling drones, setting targets, deploying. This needs an explicit permission decision, e.g. the peripheral block records its placer and only controls drones that the placer is an operator of. It overlaps with the **Drone Remote**, so both should share the same rule.
+- **Chargeable drone item** (`idea`): the drone item can be charged in other mods' item chargers, e.g. Mekanism Energy Cubes and Chargepads, or any block that charges FE items. The item would expose NeoForge's item energy capability (`Capabilities.EnergyStorage.ITEM`), backed by the `energy` field of the drone data component (DESIGN.md §8.2), with its max energy derived from its upgrades as usual. This is standard NeoForge rather than Mekanism-specific, so it works without Mekanism. Still open: whether there's a max receive rate per tick (e.g. matching the Charging Station's `chargeRate`), whether the item can also be discharged (extract) to power other things (probably not), whether the item shows an energy bar, and whether it also repairs HP (probably not, since repair needs the Charging Station's fluid). Values would be config entries.
 - **FTB Teams / Open Parties and Claims** (`idea`, optional, timing unclear): optionally map Operator Groups (DESIGN.md §6) to these mods' teams, so servers don't have to manage two team systems. Not yet looked into.
 - **JEI info pages** (`idea`, direction agreed): extend the existing JEI integration (DESIGN.md §8) with info pages, e.g. for the Programming Station (what each upgrade does, its caps and incompatibilities) and the other machines.
 

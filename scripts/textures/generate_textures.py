@@ -199,6 +199,46 @@ DRONE_ITEM_TINT = [
 ]
 
 
+# --- Drone Remote item (base layer + tinted layer) -------------------------------------------------------------
+
+# An RC-controller handset: a screen on top, twin antennas and two sticks. The antenna tips and the grips are the tint
+# layer, multiplied by the linked drone's color (gray when unlinked, see SeekerDronesClient).
+REMOTE_PALETTE = {
+    "O": (0x16, 0x18, 0x1C, 255), "h": (0x4A, 0x51, 0x5C, 255), "d": (0x35, 0x3A, 0x42, 255), "D": (0x26, 0x2A, 0x30, 255),
+    "S": (0x0E, 0x1A, 0x1C, 255), "t": (0x8F, 0xE5, 0xD6, 255), "T": (0x2E, 0x6E, 0x66, 255),
+    "a": (0x8C, 0x95, 0xA1, 255), "A": (0x5E, 0x66, 0x70, 255), "w": (0xC9, 0xCE, 0xD6, 255),
+    "c": (255, 255, 255, 255), "C": (0xA8, 0xA8, 0xA8, 255),
+}
+REMOTE_TINT_KEYS = "cC"
+REMOTE_ROWS = [
+    "................",
+    "..c..........c..",
+    "..a..........a..",
+    "..a.OOOOOOOO.a..",
+    "..aOSSSSSSSSOa..",
+    "..aOStTtTtTSOa..",
+    "..aOSTtTtTtSOa..",
+    "..aOSSSSSSSSOa..",
+    "..AOOOOOOOOOOA..",
+    ".OhhhhhhhhhhhhO.",
+    "OhdOOdddddOOddhO",
+    "OhOwwOdccdOwwOdO",
+    "OhdOOdddddOOddhO",
+    "OhddddddddddddhO",
+    ".OCCCO....OCCCO.",
+    "..OOO......OOO..",
+]
+
+
+def drone_remote(tint):
+    """The remote's base layer (tint=False) or its tinted layer (tint=True)."""
+    rows = [
+        "".join(key if (key in REMOTE_TINT_KEYS) == tint else "." for key in row)
+        for row in REMOTE_ROWS
+    ]
+    return grid(rows, REMOTE_PALETTE)
+
+
 # --- Upgrades ----------------------------------------------------------------------------------------------------
 
 # Every upgrade is the same metal module card with contact pins, and an 8x8 symbol on a colored face. In the
@@ -1154,6 +1194,8 @@ def outputs():
         "item/drone_tint.png": grid(DRONE_ITEM_TINT),
         "item/drone_rotor.png": drone_rotor(),
         "item/seeker_core.png": seeker_core(),
+        "item/drone_remote.png": drone_remote(False),
+        "item/drone_remote_tint.png": drone_remote(True),
     }
     for name in UPGRADES:
         textures[f"item/{name}_upgrade.png"] = upgrade(name)
@@ -1180,7 +1222,7 @@ HOTBAR_SLOT = (19, 27, 17, 255)
 
 def contact_sheet(textures, scale=6):
     """Items on an inventory slot and on the hotbar (the drone in several colors), then the block faces."""
-    items = [img for name, img in textures.items() if name.startswith("item/") and name != "item/drone_tint.png"]
+    items = [img for name, img in textures.items() if name.startswith("item/") and not name.endswith("_tint.png")]
     tint = textures["item/drone_tint.png"]
     for color in ((60, 68, 170), (180, 40, 40), (240, 240, 240), (29, 29, 33)):
         drone = textures["item/drone.png"].copy()
