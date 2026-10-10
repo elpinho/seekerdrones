@@ -119,10 +119,20 @@ public class DroneItem extends Item {
 
     /** The GUI kit's energy green. */
     private static final int ENERGY_BAR_COLOR = 0x35C25C;
+    /**
+     * The creative tab's icon. The tab draws it with item decorations, but it isn't a drone, so it gets no bar. The
+     * tab creates it once and keeps it, so it's recognized by identity.
+     */
+    private static ItemStack tabIcon = ItemStack.EMPTY;
+
+    public static ItemStack createTabIcon() {
+        tabIcon = new ItemStack(ModItems.DRONE.get());
+        return tabIcon;
+    }
 
     @Override
     public boolean isBarVisible(ItemStack stack) {
-        return true;
+        return stack != tabIcon;
     }
 
     @Override

@@ -1,13 +1,13 @@
 package com.elpinho.seekerdrones.registry;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
-import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -20,7 +20,7 @@ public class ModCreativeTabs {
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.seekerdrones"))
                     .withTabsBefore(CreativeModeTabs.COMBAT)
-                    .icon(() -> new ItemStack(ModItems.DRONE.get()))
+                    .icon(DroneItem::createTabIcon)
                     .displayItems((parameters, output) -> {
                         output.accept(ModItems.DRONE.get());
                         output.accept(ModItems.DRONE_REMOTE.get());
