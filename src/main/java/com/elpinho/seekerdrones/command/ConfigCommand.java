@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.function.IntFunction;
 
@@ -15,6 +16,7 @@ import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.drone.TargetBlacklist;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;
@@ -121,6 +123,12 @@ public final class ConfigCommand {
                                 .then(onDrones(Commands.argument("radius", IntegerArgumentType.integer(1)),
                                         (ctx, drones) -> setPatrolRadius(ctx, drones, Optional.of(IntegerArgumentType.getInteger(ctx, "radius"))))))
                         .then(onDrones(Commands.literal("clear"), (ctx, drones) -> setPatrolRadius(ctx, drones, Optional.empty()))))
+                .then(Commands.literal("patrolspeed")
+                        .then(Commands.literal("set")
+                                .then(onDrones(Commands.argument("speed", DoubleArgumentType.doubleArg(0.2)),
+                                        (ctx, drones) -> setPatrolSpeed(ctx, drones,
+                                                Optional.of(DoubleArgumentType.getDouble(ctx, "speed") / DroneStats.TICKS_PER_SECOND)))))
+                        .then(onDrones(Commands.literal("clear"), (ctx, drones) -> setPatrolSpeed(ctx, drones, Optional.empty()))))
                 .then(Commands.literal("color")
                         .then(onDrones(Commands.argument("color", StringArgumentType.word()).suggests(SUGGEST_COLORS),
                                 (ctx, drones) -> setColor(ctx, drones, colorArgument(ctx)))));
@@ -213,6 +221,18 @@ public final class ConfigCommand {
                 count -> radius
                         .map(r -> Component.translatable(KEY + "patrolradius.set", count, r))
                         .orElseGet(() -> Component.translatable(KEY + "patrolradius.cleared", count)));
+    }
+
+    /**
+     * Sets the wanted patrol speed in blocks/tick, or clears it so the drone patrols at the fastest speed its Patrol
+     * upgrades allow (section 3.2). A speed above that max is kept but capped at runtime. The message shows blocks/second.
+     */
+    private static int setPatrolSpeed(CommandContext<CommandSourceStack> ctx, Collection<DroneEntity> drones, Optional<Double> speed) throws CommandSyntaxException {
+        return apply(ctx.getSource(), drones, data -> data.withConfig(data.config().withPatrolSpeed(speed)),
+                count -> speed
+                        .map(s -> Component.translatable(KEY + "patrolspeed.set", count,
+                                String.format(Locale.ROOT, "%.2f", s * DroneStats.TICKS_PER_SECOND)))
+                        .orElseGet(() -> Component.translatable(KEY + "patrolspeed.cleared", count)));
     }
 
     /** Sets the drone's color (section 2.6), which tints its model and item. */

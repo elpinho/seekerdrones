@@ -63,6 +63,7 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue UPGRADES_PATROL_BASE_RADIUS;
     public static final ModConfigSpec.IntValue UPGRADES_PATROL_PER_UPGRADE_RADIUS;
     public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_SPEED;
+    public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_PER_UPGRADE_SPEED;
     public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_WAYPOINT_SPACING;
     public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_MAX_CLIMB;
     public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_CLIMB_CLEARANCE;
@@ -274,7 +275,8 @@ public class ServerConfig {
         UPGRADES_PATROL_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds). The first Patrol upgrade doesn't count.").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         UPGRADES_PATROL_BASE_RADIUS = BUILDER.comment("Patrol radius (blocks) with one Patrol upgrade.").defineInRange("baseRadius", 16, 1, Integer.MAX_VALUE);
         UPGRADES_PATROL_PER_UPGRADE_RADIUS = BUILDER.comment("Extra patrol radius (blocks) per additional Patrol upgrade.").defineInRange("perUpgrade", 16, 0, Integer.MAX_VALUE);
-        UPGRADES_PATROL_SPEED = BUILDER.comment("Patrol flight speed (blocks/tick).").defineInRange("speed", 0.25, 0.01, 1.5);
+        UPGRADES_PATROL_SPEED = BUILDER.comment("Patrol flight speed (blocks/second) with one Patrol upgrade, the max speed of a patrol drone with one.").defineInRange("speed", 5.0, 0.2, 30.0);
+        UPGRADES_PATROL_PER_UPGRADE_SPEED = BUILDER.comment("Extra max patrol speed (blocks/second) per additional Patrol upgrade. Patrol speed is capped at the drone's max speed (drone.maxSpeed, blocks/tick).").defineInRange("perUpgradeSpeed", 2.0, 0.0, 30.0);
         UPGRADES_PATROL_WAYPOINT_SPACING = BUILDER.comment("Distance (blocks) between patrol waypoints along the circle. There are always at least 8 waypoints.").defineInRange("waypointSpacing", 8.0, 1.0, 256.0);
         UPGRADES_PATROL_MAX_CLIMB = BUILDER.comment("How far (blocks) above the patrol height a patrol waypoint may be raised to clear an obstacle. Waypoints that need more are skipped.").defineInRange("maxClimb", 16.0, 0.0, 384.0);
         UPGRADES_PATROL_CLIMB_CLEARANCE = BUILDER.comment("Gap (blocks) kept between the drone and the obstacle below a raised patrol waypoint.").defineInRange("climbClearance", 1.0, 0.0, 16.0);

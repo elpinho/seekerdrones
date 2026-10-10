@@ -3,6 +3,7 @@ package com.elpinho.seekerdrones.client;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
@@ -42,6 +43,7 @@ import com.elpinho.seekerdrones.registry.ModItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
@@ -177,6 +179,13 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private static final int FIELD_HEIGHT = 13;
     private static final int SWATCH_SIZE = 12;
     private static final int SWATCH_PITCH = 14;
+    /** The Behavior tab scrolls in the editor rows between these, below the header. */
+    private static final int BEHAVIOR_TOP = 14;
+    private static final int BEHAVIOR_BOTTOM = EDITOR_HEIGHT - 3;
+    private static final int BEHAVIOR_SCROLL_STEP = 4;
+    /** The patrol speed slider and box show blocks/second. The smallest is the server config's 0.01 blocks/tick. */
+    private static final double MIN_SPEED_SECONDS = 0.2;
+    private static final int MIN_SPEED_HUNDREDTHS = 20;
 
     private static final ResourceLocation TAB = Kit.sprite("programming/tab");
     private static final ResourceLocation TAB_HIGHLIGHTED = Kit.sprite("programming/tab_highlighted");
@@ -228,6 +237,11 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private FieldBox centerZ;
     @Nullable
     private FieldBox radiusBox;
+    private FieldBox speedBox;
+    /** The Behavior tab's widgets, each with its y before scrolling. */
+    private final Map<AbstractWidget, Integer> behaviorBaseY = new HashMap<>();
+    private int behaviorOriginY;
+    private int behaviorScroll;
     /** Auto-complete for the focused target row. Created in {@link #init()}, once the font is set. */
     @Nullable
     private TargetSuggestions suggestions;
@@ -302,7 +316,8 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         targetBoxes.clear();
         removeButtons.clear();
         sliders.clear();
-        followBox = labelBox = centerX = centerY = centerZ = radiusBox = null;
+        behaviorBaseY.clear();
+        followBox = labelBox = centerX = centerY = centerZ = radiusBox = speedBox = null;
         suggestions = new TargetSuggestions(font, this::acceptSuggestion);
 
         addRenderableWidget(new Gauges.Energy(leftPos + ENERGY_X, topPos + ENERGY_Y, 12, ENERGY_HEIGHT,
@@ -330,6 +345,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
                 case IDENTITY -> initIdentity(x, y);
             }
         }
+        applyBehaviorScroll();
         structure = currentStructure();
         syncedConfig = null;
         syncWidgets();
@@ -386,16 +402,17 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     }
 
     private void initBehavior(DroneProgram program, int x, int y) {
+        behaviorOriginY = y;
         y += BODY_SHIFT;
         int maxFollow = ProgramRules.maxFollowDistance();
-        sliders.add(addRenderableWidget(new KitSlider(x + 3, y + 25, SLIDER_WIDTH, SLIDER_HEIGHT, () -> 1, ProgramRules::maxFollowDistance,
+        sliders.add(addBehaviorWidget(new KitSlider(x + 3, y + 25, SLIDER_WIDTH, SLIDER_HEIGHT, () -> 1, ProgramRules::maxFollowDistance,
                 () -> {
                     DroneProgram current = program();
                     return current != null ? current.config().followDistance() : 1;
                 }, this::accent, value -> showDragged(followBox, value), this::setFollowDistance)));
         sliders.getLast().tooltip(() -> List.of(Component.translatable(KEY + "follow_distance"),
                 Component.translatable(KEY + "follow_distance.tooltip", 1, ProgramRules.maxFollowDistance()).withStyle(ChatFormatting.GRAY)));
-        followBox = addRenderableWidget(new FieldBox(x + VALUE_X, y + 21, VALUE_WIDTH, FIELD_HEIGHT,
+        followBox = addBehaviorWidget(new FieldBox(x + VALUE_X, y + 21, VALUE_WIDTH, FIELD_HEIGHT,
                 Component.translatable(KEY + "follow_distance"), self -> commitFollowDistance()));
         followBox.setMaxLength(3);
         followBox.setFilter(text -> text.chars().allMatch(Character::isDigit));
@@ -409,7 +426,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         FieldBox[] boxes = new FieldBox[3];
         for (int i = 0; i < 3; i++) {
             String axis = axes[i];
-            FieldBox box = addRenderableWidget(new FieldBox(x + 3 + i * 32, y + 49, 30, FIELD_HEIGHT, Component.literal(axis), self -> commitCenter()));
+            FieldBox box = addBehaviorWidget(new FieldBox(x + 3 + i * 32, y + 49, 30, FIELD_HEIGHT, Component.literal(axis), self -> commitCenter()));
             box.setMaxLength(9);
             box.setFilter(text -> text.isEmpty() || text.matches("-?\\d*"));
             box.setHint(Component.literal(axis.toUpperCase()).withColor(Kit.DISPLAY_TEXT_DIM & 0xFFFFFF));
@@ -420,27 +437,73 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         centerX = boxes[0];
         centerY = boxes[1];
         centerZ = boxes[2];
-        addRenderableWidget(new KitButton(x + 100, y + 49, 22, FIELD_HEIGHT, KitButton.Style.DISPLAY,
+        addBehaviorWidget(new KitButton(x + 100, y + 49, 22, FIELD_HEIGHT, KitButton.Style.DISPLAY,
                 (graphics, bx, by, mouseX, mouseY) -> graphics.blitSprite(ICON_PIN, bx + 7, by + 3, 7, 7),
                 () -> setCenter(Optional.of(menu.getPos().above()))))
                 .tooltip(() -> List.of(Component.translatable(KEY + "patrol_center.here"),
                         Component.translatable(KEY + "patrol_center.here.tooltip").withStyle(ChatFormatting.GRAY)));
-        addRenderableWidget(new KitButton(x + 125, y + 49, 22, FIELD_HEIGHT, KitButton.Style.DISPLAY,
+        addBehaviorWidget(new KitButton(x + 125, y + 49, 22, FIELD_HEIGHT, KitButton.Style.DISPLAY,
                 (graphics, bx, by, mouseX, mouseY) -> graphics.drawCenteredString(font, "×", bx + 11, by + 3, Kit.DISPLAY_TEXT),
                 () -> setCenter(Optional.empty())))
                 .tooltip(() -> List.of(Component.translatable(KEY + "patrol_center.clear"),
                         Component.translatable(KEY + "patrol_center.clear.tooltip").withStyle(ChatFormatting.GRAY)));
 
-        sliders.add(addRenderableWidget(new KitSlider(x + 3, y + 80, SLIDER_WIDTH, SLIDER_HEIGHT, () -> 1, this::maxRadius,
+        sliders.add(addBehaviorWidget(new KitSlider(x + 3, y + 80, SLIDER_WIDTH, SLIDER_HEIGHT, () -> 1, this::maxRadius,
                 this::currentRadius, this::accent, value -> showDragged(radiusBox, value), this::setRadius)));
         sliders.getLast().tooltip(() -> List.of(Component.translatable(KEY + "patrol_radius"),
                 Component.translatable(KEY + "patrol_radius.slider", maxRadius()).withStyle(ChatFormatting.GRAY)));
-        radiusBox = addRenderableWidget(new FieldBox(x + VALUE_X, y + 76, VALUE_WIDTH, FIELD_HEIGHT,
+        radiusBox = addBehaviorWidget(new FieldBox(x + VALUE_X, y + 76, VALUE_WIDTH, FIELD_HEIGHT,
                 Component.translatable(KEY + "patrol_radius"), self -> commitRadius()));
         radiusBox.setMaxLength(6);
         radiusBox.setFilter(text -> text.chars().allMatch(Character::isDigit));
         radiusBox.tooltipLines = () -> List.of(Component.translatable(KEY + "patrol_radius"),
                 Component.translatable(KEY + "patrol_radius.tooltip", maxRadius()).withStyle(ChatFormatting.GRAY));
+
+        // The speed slider works in hundredths of a block per second, so it steps by 0.01.
+        KitSlider speedSlider = addBehaviorWidget(new KitSlider(x + 3, y + 107, SLIDER_WIDTH, SLIDER_HEIGHT, () -> MIN_SPEED_HUNDREDTHS, this::maxSpeedHundredths,
+                this::currentSpeedHundredths, this::accent, value -> showDraggedSpeed(value), this::setSpeed));
+        sliders.add(speedSlider);
+        speedSlider.tooltip(() -> List.of(Component.translatable(KEY + "patrol_speed"),
+                Component.translatable(KEY + "patrol_speed.slider", formatSpeed(toSeconds(maxSpeed()))).withStyle(ChatFormatting.GRAY)));
+        speedBox = addBehaviorWidget(new FieldBox(x + VALUE_X, y + 103, VALUE_WIDTH, FIELD_HEIGHT,
+                Component.translatable(KEY + "patrol_speed"), self -> commitSpeed()));
+        speedBox.setMaxLength(5);
+        speedBox.setFilter(text -> text.matches("\\d*\\.?\\d*"));
+        speedBox.tooltipLines = () -> List.of(Component.translatable(KEY + "patrol_speed"),
+                Component.translatable(KEY + "patrol_speed.tooltip", formatSpeed(toSeconds(maxSpeed()))).withStyle(ChatFormatting.GRAY));
+    }
+
+    /** Adds a Behavior widget. It keeps its unscrolled y here, and {@link #applyBehaviorScroll} moves it. */
+    private <W extends AbstractWidget> W addBehaviorWidget(W widget) {
+        behaviorBaseY.put(widget, widget.getY());
+        return addRenderableWidget(widget);
+    }
+
+    /** The farthest the Behavior tab scrolls, in pixels: how far its content hangs below the window. */
+    private int maxBehaviorScroll() {
+        int bottom = 0;
+        for (Map.Entry<AbstractWidget, Integer> entry : behaviorBaseY.entrySet()) {
+            bottom = Math.max(bottom, entry.getValue() + entry.getKey().getHeight() - behaviorOriginY);
+        }
+        return Math.max(0, bottom - BEHAVIOR_BOTTOM);
+    }
+
+    /**
+     * Moves the Behavior tab's widgets to the scroll offset. Only a widget wholly inside the window is shown and
+     * clickable, so one cut off at the edge can't be hit from outside it.
+     */
+    private void applyBehaviorScroll() {
+        behaviorScroll = Math.clamp(behaviorScroll, 0, maxBehaviorScroll());
+        int top = behaviorOriginY + BEHAVIOR_TOP;
+        int bottom = behaviorOriginY + BEHAVIOR_BOTTOM;
+        for (Map.Entry<AbstractWidget, Integer> entry : behaviorBaseY.entrySet()) {
+            AbstractWidget widget = entry.getKey();
+            int y = entry.getValue() - behaviorScroll;
+            widget.setY(y);
+            boolean inside = y >= top && y + widget.getHeight() <= bottom;
+            widget.visible = inside;
+            widget.active = inside;
+        }
     }
 
     private void initIdentity(int x, int y) {
@@ -979,6 +1042,83 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         }
     }
 
+    /** The fastest the Patrol upgrades allow, in blocks/tick. */
+    private double maxSpeed() {
+        DroneProgram program = program();
+        return program != null ? DroneStats.maxPatrolSpeed(program.upgradeCount(UpgradeType.PATROL)) : 0.01;
+    }
+
+    private int maxSpeedHundredths() {
+        return Math.max(MIN_SPEED_HUNDREDTHS, (int) Math.round(toSeconds(maxSpeed()) * 100));
+    }
+
+    /** The speed the slider shows: the set one, capped at the max, or the max if none is set. */
+    private int currentSpeedHundredths() {
+        DroneProgram program = program();
+        double max = maxSpeed();
+        double speed = program != null ? program.config().patrolSpeed().map(s -> Math.min(s, max)).orElse(max) : max;
+        return (int) Math.round(toSeconds(speed) * 100);
+    }
+
+    private void setSpeed(int hundredths) {
+        DroneProgram program = program();
+        syncedConfig = null;
+        Optional<Double> speed = Optional.of(toTicks(hundredths / 100.0));
+        if (program != null && !speed.equals(program.config().patrolSpeed())) {
+            sendConfig(program.config().withPatrolSpeed(speed));
+        }
+    }
+
+    /** While the speed slider is dragged, its box shows the speed it would set. */
+    private void showDraggedSpeed(int hundredths) {
+        if (speedBox != null) {
+            speedBox.showValue(formatSpeed(hundredths / 100.0));
+            speedBox.setInvalid(false);
+        }
+    }
+
+    private void commitSpeed() {
+        DroneProgram program = program();
+        if (program == null || speedBox == null) {
+            return;
+        }
+        String text = speedBox.getValue().trim();
+        Optional<Double> speed = Optional.empty();
+        if (!text.isEmpty()) {
+            double seconds = parseDouble(text, -1);
+            if (!(seconds >= MIN_SPEED_SECONDS)) {
+                reject(speedBox, Component.translatable(KEY + "patrol_speed.invalid"));
+                return;
+            }
+            speed = Optional.of(toTicks(seconds));
+        }
+        speedBox.setInvalid(false);
+        if (!speed.equals(program.config().patrolSpeed())) {
+            sendConfig(program.config().withPatrolSpeed(speed));
+        }
+    }
+
+    /** Shows a speed in blocks/second, to two decimals. */
+    private static String formatSpeed(double blocksPerSecond) {
+        return String.format(Locale.ROOT, "%.2f", blocksPerSecond);
+    }
+
+    private static double toSeconds(double blocksPerTick) {
+        return blocksPerTick * DroneStats.TICKS_PER_SECOND;
+    }
+
+    private static double toTicks(double blocksPerSecond) {
+        return blocksPerSecond / DroneStats.TICKS_PER_SECOND;
+    }
+
+    private static double parseDouble(String text, double fallback) {
+        try {
+            return Double.parseDouble(text.trim());
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
     // --- Identity ---
 
     private void commitLabel() {
@@ -1087,6 +1227,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         if (sliders.stream().noneMatch(KitSlider::isDragging)) {
             setIfIdle(followBox, String.valueOf(config.followDistance()));
             setIfIdle(radiusBox, config.patrolRadius().map(String::valueOf).orElse(""));
+            setIfIdle(speedBox, config.patrolSpeed().map(speed -> formatSpeed(toSeconds(speed))).orElse(""));
         }
         setIfIdle(labelBox, config.label());
         Optional<BlockPos> center = config.patrolCenter().map(GlobalPos::pos);
@@ -1095,6 +1236,9 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         setIfIdle(centerZ, center.map(p -> String.valueOf(p.getZ())).orElse(""));
         if (radiusBox != null) {
             radiusBox.setHint(Component.literal(String.valueOf(maxRadius())).withColor(Kit.DISPLAY_TEXT_DIM & 0xFFFFFF));
+        }
+        if (speedBox != null) {
+            speedBox.setHint(Component.literal(formatSpeed(toSeconds(maxSpeed()))).withColor(Kit.DISPLAY_TEXT_DIM & 0xFFFFFF));
         }
     }
 
@@ -1185,6 +1329,9 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
                 tileScroll = Math.clamp(tileScroll + step, 0, maxTileScroll());
             } else if (tab == Tab.TARGETS && program != null) {
                 targetScroll = Math.clamp(targetScroll + step, 0, Math.max(0, targetRows(program) - VISIBLE_ROWS));
+            } else if (tab == Tab.BEHAVIOR) {
+                behaviorScroll = Math.clamp(behaviorScroll + step * BEHAVIOR_SCROLL_STEP, 0, maxBehaviorScroll());
+                applyBehaviorScroll();
             }
             if (!currentStructure().equals(structure)) {
                 rebuildWidgets();
@@ -1398,6 +1545,25 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
 
     private void renderBehavior(GuiGraphics graphics, DroneProgram program, int x, int y) {
         header(graphics, Tab.BEHAVIOR, x, y);
+        // The body scrolls under the header and is clipped to the window below it.
+        graphics.enableScissor(x + 1, y + BEHAVIOR_TOP, x + EDITOR_WIDTH - 1, y + BEHAVIOR_BOTTOM);
+        renderBehaviorBody(graphics, program, x, y - behaviorScroll);
+        graphics.disableScissor();
+
+        int maxScroll = maxBehaviorScroll();
+        if (maxScroll > 0) {
+            int trackY = y + BEHAVIOR_TOP;
+            int trackHeight = BEHAVIOR_BOTTOM - BEHAVIOR_TOP;
+            int barX = x + EDITOR_WIDTH - 3;
+            graphics.fill(barX, trackY, barX + 2, trackY + trackHeight, TRACK_COLOR);
+            int content = trackHeight + maxScroll;
+            int thumbHeight = Math.max(4, trackHeight * trackHeight / content);
+            int thumbY = trackY + (trackHeight - thumbHeight) * behaviorScroll / maxScroll;
+            graphics.fill(barX, thumbY, barX + 2, thumbY + thumbHeight, accent());
+        }
+    }
+
+    private void renderBehaviorBody(GuiGraphics graphics, DroneProgram program, int x, int y) {
         y += BODY_SHIFT;
         label(graphics, Component.translatable(KEY + "follow_distance.header"), x + 3, y + 15);
         label(graphics, Component.translatable(KEY + "patrol_center"), x + 3, y + 41);
@@ -1406,6 +1572,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
             return;
         }
         label(graphics, Component.translatable(KEY + "patrol_radius.header", maxRadius()), x + 3, y + 69);
+        label(graphics, Component.translatable(KEY + "patrol_speed.header", formatSpeed(toSeconds(maxSpeed()))), x + 3, y + 96);
     }
 
     private void renderIdentity(GuiGraphics graphics, DroneProgram program, int x, int y) {

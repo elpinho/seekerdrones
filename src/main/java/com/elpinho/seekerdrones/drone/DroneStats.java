@@ -10,6 +10,8 @@ import com.elpinho.seekerdrones.config.ServerConfig;
 public final class DroneStats {
     /** Vanilla's upper bound for the max health attribute. */
     private static final float MAX_HEALTH_CEILING = 1024f;
+    /** Speeds are stored in blocks/tick. Player-facing commands and screens show blocks/second. */
+    public static final double TICKS_PER_SECOND = 20;
 
     private DroneStats() {}
 
@@ -114,6 +116,22 @@ public final class DroneStats {
     public static int patrolRadius(DroneData data) {
         int max = maxPatrolRadius(data);
         return data.config().patrolRadius().map(radius -> Math.min(radius, max)).orElse(max);
+    }
+
+    /**
+     * The fastest a drone can patrol in blocks/tick (section 3.2): {@code basePatrolSpeed + perUpgrade × (count − 1)},
+     * with both config values in blocks/second, capped at the drone's max speed (section 3.4).
+     */
+    public static double maxPatrolSpeed(int count) {
+        double perSecond = ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED)
+                + ServerConfig.get(ServerConfig.UPGRADES_PATROL_PER_UPGRADE_SPEED) * Math.max(0, count - 1);
+        return Math.min(perSecond / TICKS_PER_SECOND, ServerConfig.get(ServerConfig.DRONE_MAX_SPEED));
+    }
+
+    /** The speed the drone patrols at: its configured speed capped at the max, or the max if none is set. */
+    public static double patrolSpeed(DroneData data) {
+        double max = maxPatrolSpeed(data.upgradeCount(UpgradeType.PATROL));
+        return data.config().patrolSpeed().map(speed -> Math.min(speed, max)).orElse(max);
     }
 
     public static boolean isExplosive(DroneData data) {

@@ -101,6 +101,10 @@ public final class ProgramRules {
         if (requested.patrolRadius().isPresent() && requested.patrolRadius().get() < 1) {
             return Optional.empty();
         }
+        // Written as a negated comparison so NaN is rejected too.
+        if (requested.patrolSpeed().isPresent() && !(requested.patrolSpeed().get() > 0)) {
+            return Optional.empty();
+        }
         Optional<GlobalPos> center = requested.patrolCenter();
         // An unchanged center keeps its dimension; a new one is always in the station's.
         if (center.isPresent() && !center.equals(previous.patrolCenter())) {

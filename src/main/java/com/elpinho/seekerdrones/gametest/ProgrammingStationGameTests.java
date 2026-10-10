@@ -351,7 +351,7 @@ public class ProgrammingStationGameTests {
         DroneConfig config = new DroneConfig(
                 List.of(new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie"), new TargetEntry(TargetEntry.Kind.TAG, "minecraft:raiders")),
                 10, Optional.of(GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(6, 5, 6)))), Optional.of(3),
-                "Bob", DyeColor.RED);
+                Optional.empty(), "Bob", DyeColor.RED);
         station.setConfig(config);
         helper.assertValueEqual(station.getTemplate().config(), config, "Template config should be accepted");
 

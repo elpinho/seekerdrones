@@ -970,7 +970,7 @@ public class DroneEntity extends PathfinderMob {
             patrolWaypoint = -1;
         }
         int count = patrolWaypointCount(radius);
-        double speed = ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED);
+        double speed = DroneStats.patrolSpeed(data);
         double acceleration = ServerConfig.get(ServerConfig.DRONE_ACCELERATION);
         if (patrolWaypoint < 0 || patrolWaypoint >= count) {
             if (!staggered && patrolWaypoint == NO_FREE_WAYPOINT) {
@@ -978,7 +978,7 @@ public class DroneEntity extends PathfinderMob {
                 steerTowards(centerPos, speed, acceleration, centerPos, false, false);
                 return;
             }
-            selectWaypoint(nearestWaypoint(centerPos, count), centerPos, radius, count);
+            selectWaypoint(nearestWaypoint(centerPos, count), centerPos, radius, count, speed);
         }
         if (patrolWaypoint == NO_FREE_WAYPOINT) {
             steerTowards(centerPos, speed, acceleration, centerPos, staggered, false);
@@ -1004,7 +1004,7 @@ public class DroneEntity extends PathfinderMob {
         } else {
             return;
         }
-        selectWaypoint((patrolWaypoint + 1) % count, centerPos, radius, count);
+        selectWaypoint((patrolWaypoint + 1) % count, centerPos, radius, count, speed);
     }
 
     private static int patrolWaypointCount(double radius) {
@@ -1027,8 +1027,7 @@ public class DroneEntity extends PathfinderMob {
      * Picks the first usable waypoint from {@code start} on, skipping spots in unloaded chunks and obstacles too tall
      * to climb over. Sets {@link #NO_FREE_WAYPOINT} if none is usable.
      */
-    private void selectWaypoint(int start, Vec3 center, double radius, int count) {
-        double speed = ServerConfig.get(ServerConfig.UPGRADES_PATROL_SPEED);
+    private void selectWaypoint(int start, Vec3 center, double radius, int count, double speed) {
         for (int i = 0; i < count; i++) {
             int index = (start + i) % count;
             Vec3 spot = waypoint(center, radius, count, index);

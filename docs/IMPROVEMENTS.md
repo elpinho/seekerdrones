@@ -13,7 +13,6 @@ Status: `idea` | `decided`
 
 ## Drone behavior
 
-- **Configurable patrol speed** (`idea`): the patrol speed (`upgrades.patrol.speed` today, DESIGN.md §3.2) is configurable per drone, up to a **max speed that rises with the number of Patrol upgrades**, like the max patrol radius does. Specifics TBD, e.g. where it's set (Programming Station and `/seekerdrones config`, like the patrol radius), the base and per-upgrade values (config entries), and what a drone does when its configured speed is above the max.
 - **Drones targeting other drones** (`idea`, direction agreed): today `TargetMatcher.matches()` excludes every `DroneEntity`, so drones can never target drones. Proposal:
   - Lift that exclusion for **enemy** drones only: a drone with a different Operator Group or owner. A drone's own allies (same group, or same owner if it has no group) are always exempt, like operators are exempt from Player Seek. Unowned drones count as enemies to everyone.
   - Gate it behind a new **Interceptor** upgrade (name TBD, not stackable), in the same way that Player Seek gates player names. With it, `seekerdrones:drone` (or a drone tag) works as a target entry and uses a target slot like any other. The Interceptor upgrade should be **expensive to craft**.
