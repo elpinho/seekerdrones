@@ -1,9 +1,11 @@
 package com.elpinho.seekerdrones.client;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.client.sound.DroneSounds;
 import com.elpinho.seekerdrones.deploying.DeployingStationBlock;
 import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
+import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.energy.EnergyFormat;
 import com.elpinho.seekerdrones.energy.EnergyUnit;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
@@ -34,6 +36,10 @@ public class SeekerDronesClient {
         // The unit is saved per world/server, so forget it when leaving one (DESIGN.md section 5.4).
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> EnergyFormat.setClientUnit(EnergyUnit.AUTO));
         DeployingStationBlock.setClientDeployListener(DeployingStationScreen::onDeployed);
+        // Drone flying and low-power loops (DESIGN.md section 2.9).
+        NeoForge.EVENT_BUS.addListener(DroneSounds::onClientTick);
+        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> DroneSounds.clear());
+        DroneEntity.setClientSoundListener(DroneSounds::markDirty);
     }
 
     private static void registerScreens(RegisterMenuScreensEvent event) {

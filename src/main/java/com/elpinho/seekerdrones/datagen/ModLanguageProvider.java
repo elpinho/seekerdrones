@@ -187,6 +187,18 @@ public class ModLanguageProvider extends LanguageProvider {
         add("tooltip.seekerdrones.upgrade.max_count", "Max per drone: %s");
 
         add("subtitles.seekerdrones.drone_siren", "Drone siren blares");
+        add("subtitles.seekerdrones.drone_fly", "Drone whirs");
+        add("subtitles.seekerdrones.drone_deploy", "Drone spins up");
+        add("subtitles.seekerdrones.drone_hurt", "Drone hurts");
+        add("subtitles.seekerdrones.drone_destroy", "Drone breaks");
+        add("subtitles.seekerdrones.drone_low_power", "Drone beeps low battery");
+        add("subtitles.seekerdrones.drone_low_power_critical", "Drone beeps urgently");
+        add("subtitles.seekerdrones.drone_lock_on", "Drone locks on");
+        add("subtitles.seekerdrones.drone_target_lost", "Drone loses target");
+        add("subtitles.seekerdrones.drone_charged", "Drone chirps");
+        add("subtitles.seekerdrones.deploying_station_launch", "Deploying Station launches");
+        add("subtitles.seekerdrones.charging_station_dock", "Drone docks");
+        add("subtitles.seekerdrones.programming_station_install", "Upgrade clicks in");
         add("message.seekerdrones.transmitter", "[%s] spotted %s at %s, %s, %s");
 
         add(DroneState.IDLE.getTranslationKey(), "Idle");

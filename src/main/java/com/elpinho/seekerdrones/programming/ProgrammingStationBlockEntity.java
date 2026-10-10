@@ -18,6 +18,7 @@ import com.elpinho.seekerdrones.machine.MachineWorkingState;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModItems;
+import com.elpinho.seekerdrones.registry.ModSounds;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.core.BlockPos;
@@ -26,6 +27,7 @@ import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Containers;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
@@ -283,6 +285,8 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         }
         items.extractItem(inputSlot(type), 1, false);
         writeDrone(drone.withUpgradeCount(type, drone.upgradeCount(type) + 1));
+        level.playSound(null, worldPosition, ModSounds.PROGRAMMING_STATION_INSTALL.get(), SoundSource.BLOCKS,
+                ServerConfig.get(ServerConfig.SOUNDS_INSTALL_VOLUME).floatValue(), ServerConfig.get(ServerConfig.SOUNDS_INSTALL_PITCH).floatValue());
     }
 
     private void cancelStep() {

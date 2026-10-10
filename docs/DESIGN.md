@@ -64,10 +64,10 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 - Drones take damage from every normal source: players, mobs, projectiles (including other mods' weapons), fire, lava and explosions.
 - Drones fly, so they make no footstep sounds or step vibrations, never spawn landing particles and never trample farmland.
 - Drones are immune to fall damage (they don't fall) and to drowning. Instead, while **in water** (not rain) a drone takes `drone.waterDamage` HP every `drone.waterDamageInterval` ticks.
-- Taking damage has no mob-style feedback: no knockback (from hits or explosions), no red hurt flash, and a drone-specific damage sound instead of the generic one (placeholder: the iron golem damage sound until a custom sound exists).
+- Taking damage has no mob-style feedback: no knockback (from hits or explosions), no red hurt flash, and a drone-specific damage sound instead of the generic one (section 2.9).
 - Drones don't take part in entity pushing: they never push other entities (including other drones) and are never pushed by them. This also means they never take entity-cramming damage. (Performance decision, from M3 profiling.)
 - Drones do **not** regenerate health on their own. HP is restored only while docked at a Charging Station (section 5.3).
-- When HP reaches 0, the drone is **destroyed and lost**. It plays a small explosion effect (particles and sound only, with no damage and no block breaking) and disappears. It leaves no drop, and its upgrades are lost. This applies whether or not it has Explosive upgrades.
+- When HP reaches 0, the drone is **destroyed and lost**. It plays a small explosion effect (particles and sound only, with no damage and no block breaking) with a plastic crunch (section 2.9) and disappears. It leaves no drop, and its upgrades are lost. This applies whether or not it has Explosive upgrades.
 - An Explosive drone that **reaches its target** explodes and is **consumed**, leaving no drop. It is a suicide drone.
 
 ### 2.6 Base configuration (always present, not tied to an upgrade)
@@ -91,6 +91,31 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 - It never changes, is kept through every item/entity conversion, and is shown in the drone GUI, the item tooltip and Transmitter messages.
 - A drone item without an ID (e.g. from the creative tab or `/give`) shows "Unassigned" in its tooltip and gets a new ID the first time it is deployed.
 - **Creative mode:** hand-deploying a drone item with an ID uses it up even in creative mode, since it's one specific drone. An "Unassigned" item stays in a creative player's hand, like a spawn egg. Every deploy gets a fresh ID, so no IDs are duplicated. (Creative players can still copy an item with middle-click, which isn't blocked.)
+
+### 2.9 Sounds
+
+The sound files are in `assets/seekerdrones/sounds/`, with their sources and licenses in `SOUND_CREDITS.md`. Every sound is registered through the sounds `DeferredRegister` (section 8.1) and has a `sounds.json` entry and a subtitle. A file used for several things (the beep, the clunk) gets one sound event per use, so each use has its own subtitle. Drone sounds use the NEUTRAL category and machine sounds use BLOCKS, so players control them with the vanilla volume sliders. All volumes, pitches and limits are server config entries (`sounds.*`, section 9). The game clamps a played volume to 1.0, and a volume above 1 only extends the range it's heard from.
+
+- **Flying loop** (`drone/fly.ogg`): a looping rotor sound for every deployed drone, played on the client as a tickable sound instance per drone, with no server packets. Pitch and volume follow the drone's speed (from its synced position), from `minVolume`/`minPitch` while hovering to `maxVolume`/`maxPitch` at `sounds.flying.fullSpeed`.
+- **Low power** (client-side beep loops). The server syncs one low-power level per drone:
+  - none while docked, or while it has enough energy and isn't RETURNING.
+  - returning (`drone/low_power.ogg`, a double beep every 1 s) while RETURNING, including while it waits by a busy station (section 5.3). It stops when the drone docks.
+  - critical (`drone/low_power_critical.ogg`, every 0.62 s) while the drone is undocked and its energy would run out within `sounds.lowPower.criticalSeconds` of hovering, at its real hover cost (with its upgrade multiplier, section 5.1). This applies in any state: a drone with no usable station in range carries on until it drops at 0 (section 5.2), and an Explosive drone may keep chasing instead of returning. Both get the critical beep as a warning.
+  - The level is re-derived on every state change, every batched energy drain (section 8.4) and whenever the drone's data is replaced.
+- **Nearest only:** sound channels are limited, so each client plays the flying loop only for the `sounds.flying.maxPlaying` nearest drones in earshot, and the low-power loop only for the `sounds.lowPower.maxPlaying` nearest low-power drones. The sets are re-picked every `sounds.resortInterval` ticks, and right away when a drone appears or its low-power level or Explosive approach changes. An Explosive drone that is chasing a target goes first for the flying loop, so a kamikaze is never silent in a swarm. Its rising pitch as it speeds up is its approach sound.
+- **One-shots** (played by the server):
+  - Deploy (`drone/deploy.ogg`): a propeller spin-up whenever a drone is deployed, by hand or by a Deploying Station.
+  - Lock-on: a short, quiet beep (`drone/beep.ogg`) when a drone spots a target and starts chasing. Target lost: the same beep at a lower pitch when it drops its target (section 3.5). No beep when a returning drone drops its target, or when an Explosive drone explodes.
+  - "Charged" chirp: the same beep at a higher pitch when a drone finishes charging and undocks.
+  - Hurt: a short collision hit (`drone/hurt.ogg`), with the vanilla random pitch.
+  - Destroyed: a double plastic crunch (`drone/destroy.ogg`) together with the explosion (section 2.5).
+  - Pickup keeps the vanilla item pickup sound.
+- **Machines** (`machine/clunk.ogg`, a drone arm folding):
+  - The Deploying Station plays it as a launch clunk, on top of the drone's spin-up.
+  - The Charging Station plays it when a drone docks. A drone that re-docks after its chunk reloads plays nothing.
+  - The Programming Station plays it as a click for each upgrade installed.
+  - There's no Programming Station completion sound and no charging hum.
+- **Louder with more upgrades:** the flying loop and the drone's one-shots play at `volume × min(1 + volumePerUpgrade × totalUpgrades, maxVolumeMultiplier)` and `pitch × max(1 − pitchPerUpgrade × totalUpgrades, minPitchMultiplier)`, so a heavily upgraded drone is louder and deeper, matching its bigger model (section 3.7). The server computes both multipliers and syncs them, like the visual scale. The Siren and the low-power beeps don't use them.
 
 ---
 
@@ -233,7 +258,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 - The default **total slot limit** is 20.
 - The caps are enforced when upgrades are installed (Programming Station, debug command). A flying drone uses its installed counts as they are, even if the config was lowered afterwards.
 - **Health upgrades arrive full:** installing one also adds the extra HP to the drone's current HP. **Energy upgrades arrive empty:** the new capacity has to be charged. Removing an Energy or Health upgrade lowers the max, and anything above the new max is lost.
-- The Siren fires once per target acquisition and repeats every N seconds (configurable) while the target is being chased or followed. Its volume is `baseVolume + perUpgrade × (count − 1)`, and vanilla hears a sound of volume `v > 1` from `16 × v` blocks. Placeholder sound: the vanilla raid horn, until a custom sound exists.
+- The Siren fires once per target acquisition and repeats every N seconds (configurable) while the target is being chased or followed. Its volume is `baseVolume + perUpgrade × (count − 1)`, and vanilla hears a sound of volume `v > 1` from `16 × v` blocks. The sound is a synthesized soft air-raid wail (`drone/siren.ogg`, one 6.5 s rise and fall), so the repeat interval (140 ticks) keeps it from overlapping itself. The upgrade loudness of section 2.9 doesn't apply to it.
 - The Transmitter fires on target acquisition only (not while following). The message gives the drone's label and ID, the target's name (the player name for players, otherwise the entity type's name) and the target's block coordinates. After a message, that drone sends no other message for `upgrades.transmitter.cooldown` ticks. The cooldown isn't saved. It goes to the drone's online operators (section 6.3): the group's, or the owner if the drone has no group. An unowned drone or one with an unknown group notifies nobody.
 - Transmitter messages sent while operators are offline are **not** queued in v1.
 - **Upgrade items:** one item per type, `seekerdrones:<type>_upgrade` (e.g. `seekerdrones:player_seek_upgrade`), with placeholder recipes until the final ones (ROADMAP.md M9).
@@ -644,7 +669,7 @@ All values below are placeholders.
 | `upgrades.patrol.climbClearance` | 1.0 block | Gap kept above the obstacle under a raised waypoint |
 | `upgrades.sight.perUpgrade` | 8 blocks | |
 | `upgrades.explosive.basePower` / `perUpgrade` | 2.0 / 1.0 | TNT = 4.0 |
-| `upgrades.siren.baseVolume` / `perUpgrade` / `repeatInterval` | 2.0 / 2.0 / 100 ticks | |
+| `upgrades.siren.baseVolume` / `perUpgrade` / `repeatInterval` | 2.0 / 2.0 / 140 ticks | The siren sound is 6.5 s long, so it doesn't overlap itself |
 | `upgrades.transmitter.cooldown` | 200 ticks | |
 | `upgrades.energy.multiplier` | 2.0 | Max energy multiplier per Energy upgrade (compounds) |
 | `upgrades.<type>.energyFactor` | 1.3 (Energy: 1.0) | Energy usage multiplier per upgrade of that type (compounds; the first Patrol upgrade doesn't count, section 5.1) |
@@ -665,6 +690,23 @@ All values below are placeholders.
 | `deployingStation.energyCapacity` | 50 000 FE | FE the station can store |
 | `deployingStation.launchHeight` | 0.8 blocks | How far the upward boost lifts a deployed drone; at most 1 (section 7.3) |
 | `deployingStation.checkInterval` | 10 ticks | How often a waiting drone is retried |
+| `sounds.resortInterval` | 20 ticks | How often each client re-picks which drones play the loops (section 2.9) |
+| `sounds.flying.maxPlaying` | 8 | Nearest drones that play the flying loop; approaching Explosive drones go first |
+| `sounds.flying.fullSpeed` | 1.0 blocks/tick | Speed at which the flying loop reaches its max volume and pitch |
+| `sounds.flying.minVolume` / `maxVolume` | 0.2 / 0.45 | Flying loop volume hovering / at full speed |
+| `sounds.flying.minPitch` / `maxPitch` | 0.9 / 1.4 | Flying loop pitch hovering / at full speed |
+| `sounds.lowPower.maxPlaying` | 4 | Nearest low-power drones that play the beep loop |
+| `sounds.lowPower.criticalSeconds` | 30 s | Hover time left below which the critical beep plays |
+| `sounds.lowPower.volume` | 0.4 | |
+| `sounds.upgrades.volumePerUpgrade` / `maxVolumeMultiplier` | 0.05 / 2.0 | Louder with more upgrades |
+| `sounds.upgrades.pitchPerUpgrade` / `minPitchMultiplier` | 0.01 / 0.85 | Deeper with more upgrades |
+| `sounds.drone.deployVolume` / `hurtVolume` / `destroyVolume` | 0.5 / 0.5 / 0.5 | |
+| `sounds.drone.lockOnVolume` / `lockOnPitch` | 0.3 / 1.2 | |
+| `sounds.drone.targetLostVolume` / `targetLostPitch` | 0.3 / 0.8 | |
+| `sounds.drone.chargedVolume` / `chargedPitch` | 0.3 / 1.5 | |
+| `sounds.machine.launchVolume` / `launchPitch` | 0.6 / 0.9 | Deploying Station |
+| `sounds.machine.dockVolume` / `dockPitch` | 0.6 / 1.0 | Charging Station |
+| `sounds.machine.installVolume` / `installPitch` | 0.5 / 1.3 | Programming Station, per upgrade |
 
 ---
 

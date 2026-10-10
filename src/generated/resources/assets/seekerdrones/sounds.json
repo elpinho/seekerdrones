@@ -1,11 +1,80 @@
 {
+  "charging_station_dock": {
+    "sounds": [
+      "seekerdrones:machine/clunk"
+    ],
+    "subtitle": "subtitles.seekerdrones.charging_station_dock"
+  },
+  "deploying_station_launch": {
+    "sounds": [
+      "seekerdrones:machine/clunk"
+    ],
+    "subtitle": "subtitles.seekerdrones.deploying_station_launch"
+  },
+  "drone_charged": {
+    "sounds": [
+      "seekerdrones:drone/beep"
+    ],
+    "subtitle": "subtitles.seekerdrones.drone_charged"
+  },
+  "drone_deploy": {
+    "sounds": [
+      "seekerdrones:drone/deploy"
+    ],
+    "subtitle": "subtitles.seekerdrones.drone_deploy"
+  },
+  "drone_destroy": {
+    "sounds": [
+      "seekerdrones:drone/destroy"
+    ],
+    "subtitle": "subtitles.seekerdrones.drone_destroy"
+  },
+  "drone_fly": {
+    "sounds": [
+      "seekerdrones:drone/fly"
+    ],
+    "subtitle": "subtitles.seekerdrones.drone_fly"
+  },
+  "drone_hurt": {
+    "sounds": [
+      "seekerdrones:drone/hurt"
+    ],
+    "subtitle": "subtitles.seekerdrones.drone_hurt"
+  },
+  "drone_lock_on": {
+    "sounds": [
+      "seekerdrones:drone/beep"
+    ],
+    "subtitle": "subtitles.seekerdrones.drone_lock_on"
+  },
+  "drone_low_power": {
+    "sounds": [
+      "seekerdrones:drone/low_power"
+    ],
+    "subtitle": "subtitles.seekerdrones.drone_low_power"
+  },
+  "drone_low_power_critical": {
+    "sounds": [
+      "seekerdrones:drone/low_power_critical"
+    ],
+    "subtitle": "subtitles.seekerdrones.drone_low_power_critical"
+  },
   "drone_siren": {
     "sounds": [
-      "event/raid/raidhorn_01",
-      "event/raid/raidhorn_02",
-      "event/raid/raidhorn_03",
-      "event/raid/raidhorn_04"
+      "seekerdrones:drone/siren"
     ],
     "subtitle": "subtitles.seekerdrones.drone_siren"
+  },
+  "drone_target_lost": {
+    "sounds": [
+      "seekerdrones:drone/beep"
+    ],
+    "subtitle": "subtitles.seekerdrones.drone_target_lost"
+  },
+  "programming_station_install": {
+    "sounds": [
+      "seekerdrones:machine/clunk"
+    ],
+    "subtitle": "subtitles.seekerdrones.programming_station_install"
   }
 }

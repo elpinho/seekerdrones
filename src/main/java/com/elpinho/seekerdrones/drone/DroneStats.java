@@ -92,6 +92,27 @@ public final class DroneStats {
         return (float) Math.min(scale, ServerConfig.get(ServerConfig.DRONE_MAX_VISUAL_SCALE));
     }
 
+    /** Volume multiplier for the drone's own sounds, not the Siren (section 2.9): louder with more upgrades. */
+    public static float soundVolume(DroneData data) {
+        double volume = 1.0 + ServerConfig.get(ServerConfig.SOUNDS_UPGRADES_VOLUME_PER_UPGRADE) * totalUpgrades(data.upgrades());
+        return (float) Math.min(volume, ServerConfig.get(ServerConfig.SOUNDS_UPGRADES_MAX_VOLUME_MULTIPLIER));
+    }
+
+    /** Pitch multiplier for the drone's own sounds, not the Siren (section 2.9): lower with more upgrades. */
+    public static float soundPitch(DroneData data) {
+        double pitch = 1.0 - ServerConfig.get(ServerConfig.SOUNDS_UPGRADES_PITCH_PER_UPGRADE) * totalUpgrades(data.upgrades());
+        return (float) Math.max(pitch, ServerConfig.get(ServerConfig.SOUNDS_UPGRADES_MIN_PITCH_MULTIPLIER));
+    }
+
+    /**
+     * Whether the drone's energy would run out within {@code sounds.lowPower.criticalSeconds} of hovering, with its
+     * upgrade multiplier (section 2.9).
+     */
+    public static boolean isCriticalEnergy(DroneData data) {
+        double hoverPerSecond = ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK) * TICKS_PER_SECOND * energyUsageMultiplier(data);
+        return data.energy() <= ServerConfig.get(ServerConfig.SOUNDS_LOW_POWER_CRITICAL_SECONDS) * hoverPerSecond;
+    }
+
     /** Whether the upgrade counts fit the per-type caps and the total slot limit (section 4). */
     public static boolean withinUpgradeLimits(Map<UpgradeType, Integer> upgrades) {
         for (Map.Entry<UpgradeType, Integer> entry : upgrades.entrySet()) {

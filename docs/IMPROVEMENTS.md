@@ -26,7 +26,7 @@ Status: `idea` | `decided`
   - **Performance:** the generation is applied in the existing batched energy drain (every `drone.energyDrainInterval` ticks, DESIGN.md §8.4), so it adds no extra ticking.
   - Output per upgrade and the weather multipliers would be config entries.
 - **Quiet upgrade** (`idea`, direction agreed; name TBD, e.g. "Stealth" or "Silencer"): a drone upgrade for silent watchers.
-  - It lowers the volume of the drone's own sounds (flying, charging, low power and so on; see **Drone and machine sounds** below).
+  - It lowers the volume of the drone's own sounds (flying, low power and so on, DESIGN.md section 2.9).
   - It **hides the drone's nameplate** (label), since a floating name tag defeats the point.
   - It's **mutually exclusive with the Siren upgrade**: a drone is either a loud deterrent or a silent watcher. The Programming Station and the debug command must refuse to install one while the other is installed.
   - **Still open:** how much each upgrade lowers the volume, the cap, whether it offsets the extra loudness from having many upgrades, and whether it also quiets the Explosive approach sound (a stealth kamikaze drone is fun but maybe harsh in PvP). All values would be config entries.
@@ -38,28 +38,15 @@ Status: `idea` | `decided`
   - The growth is **slight**: a fully upgraded drone must never reach 2.5× the base size.
   - The base model can be slightly smaller than it is now, to make room for the growth.
   - Growth rate and max scale would be config entries (client-side rendering, driven by the synced upgrade count).
-  - It fits with the upgrade-dependent energy usage (DESIGN.md §5.1) and louder drones with many upgrades (**Drone and machine sounds**): a heavily upgraded drone is bigger, hungrier and louder.
+  - It fits with the upgrade-dependent energy usage (DESIGN.md §5.1) and louder drones with many upgrades (DESIGN.md section 2.9): a heavily upgraded drone is bigger, hungrier and louder.
   - It depends on the new drone model (ROADMAP.md M9). Tell the artist so the model and animations work at any scale.
 
 ## Sounds
 
-- **Drone and machine sounds** (`idea`, direction agreed): add custom sounds, registered through the sounds `DeferredRegister` (DESIGN.md §8). Today only the Siren has its own sound event (`seekerdrones:drone_siren`, with the raid horn as a placeholder). Hurt, destroyed and pickup use vanilla sounds, and flying and the machines are silent. Samples come from **free libraries** (e.g. CC0 on freesound.org, with the licenses checked and credited where required). There's no sound designer, and the M9 commission covers art only.
-  - **Flying loop:** a looping hum or rotor sound for every deployed drone. It's played on the client (a tickable sound instance per drone), so there are no server packets. Pitch and volume follow the drone's velocity (already synced), so hovering is a low hum and chasing is higher and louder. Minecraft has a limited pool of sound channels, so **only the N nearest drones play the loop** (re-sorted about once a second). Farther drones are silent.
-  - **Explosive approach:** no separate sound. The flying loop's speed-driven pitch already rises as an Explosive drone accelerates toward its target (§3.4). Caveats to check in playtests:
-    - A non-Explosive drone chasing a fast target also flies fast, so pitch alone may not tell a kamikaze from a follower. If needed, give Explosive drones that are chasing a steeper pitch curve. The client would need one synced "Explosive and chasing" flag.
-    - An approaching Explosive drone should always be in the nearest-N loop set, or it could be silent in a swarm.
-    - If it still isn't distinct enough, add a speeding-up beep layer later.
-  - **Siren:** a custom siren to replace the raid horn (DESIGN.md §4). It repeats every `upgrades.siren.repeatInterval` (100 ticks), so it should be a ~3–4 s wail that doesn't overlap itself. It's already a variable-range event, so volume > 1 keeps extending the audible range.
-  - **Deploy:** a drone spin-up sound whenever a drone spawns, whether by hand or by a Deploying Station. The Deploying Station adds a mechanical launch clunk on top.
-  - **Programming Station:** a soft click for each upgrade installed, and a chime when programming is complete.
-  - **Charging Station:** a docking clamp sound when a drone docks, a faint electric hum loop while charging (a block loop driven by the `working` block state, DESIGN.md §7.6), and a "charged" chirp when the drone undocks.
-  - **Damage and destruction:** a metallic clank on hurt, replacing the iron golem placeholder (DESIGN.md §2.5), and an electrical fizzle before the destruction explosion.
-  - **Low power:** a descending "power-down" chirp when the drone starts RETURNING to charge.
-  - **Others:** a short, quiet lock-on beep when a drone starts chasing (useful for drones without a Siren), a short "scanning" sound when it loses its target, a power-down sound on pickup (replacing the vanilla item pickup), Factory crafting sounds, and sounds for the Jammer block and EMP grenade if those are made.
-  - **Louder with more upgrades:** `volume = base × (1 + perUpgrade × totalUpgrades)`, capped (e.g. at 2× base). Heavier drones also play at a slightly lower pitch, matching their bigger model (**Drone size by upgrade count**). It applies to the flying loop and the drone's own one-shot sounds. The Siren keeps its own volume rules. The **Quiet upgrade** reduces the result. Values are server config entries.
-  - **Categories:** drone sounds use NEUTRAL (as today), and machine sounds use BLOCKS, so players can control them with the vanilla volume sliders.
-  - **Subtitles:** every sound gets a subtitle lang entry and a `sounds.json` entry.
-  - **Client config:** a client-side config (a new config file) for the flying loop volume and the max number of looping drones (N above). These are personal audio preferences, not gameplay values, so they belong in a client config rather than the server config.
+- **More sounds** (`idea`): the drone and machine sounds are implemented (DESIGN.md section 2.9). Still open:
+  - **Explosive approach:** check in playtests whether the flying loop's rising pitch is enough. A non-Explosive drone chasing a fast target also flies fast, so pitch alone may not tell a kamikaze from a follower. If needed, give Explosive drones that are chasing a steeper pitch curve (the client already knows when one is approaching), or add a speeding-up beep layer.
+  - Factory crafting sounds, a Programming Station completion chime, a Charging Station hum loop, a pickup sound, and sounds for the Jammer block and EMP grenade if those are made.
+  - The **Quiet upgrade** lowers the result of the upgrade loudness (see above).
 
 ## Items and interaction
 

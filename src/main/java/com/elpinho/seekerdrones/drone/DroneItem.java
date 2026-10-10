@@ -107,7 +107,11 @@ public class DroneItem extends Item {
         // Server-side player velocity is unreliable, so use the movement last reported by the client.
         drone.setDeltaMovement(player.getKnownMovement().add(look.scale(throwSpeed)));
         drone.startDrifting();
-        return level.addFreshEntity(drone);
+        if (!level.addFreshEntity(drone)) {
+            return false;
+        }
+        drone.playDeploySound();
+        return true;
     }
 
     // --- Tooltip (section 2.1) ---

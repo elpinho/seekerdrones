@@ -133,6 +133,37 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue DEPLOYING_STATION_LAUNCH_HEIGHT;
     public static final ModConfigSpec.IntValue DEPLOYING_STATION_CHECK_INTERVAL;
 
+    // === sounds ===
+    public static final ModConfigSpec.IntValue SOUNDS_RESORT_INTERVAL;
+    public static final ModConfigSpec.IntValue SOUNDS_FLYING_MAX_PLAYING;
+    public static final ModConfigSpec.DoubleValue SOUNDS_FLYING_FULL_SPEED;
+    public static final ModConfigSpec.DoubleValue SOUNDS_FLYING_MIN_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_FLYING_MAX_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_FLYING_MIN_PITCH;
+    public static final ModConfigSpec.DoubleValue SOUNDS_FLYING_MAX_PITCH;
+    public static final ModConfigSpec.IntValue SOUNDS_LOW_POWER_MAX_PLAYING;
+    public static final ModConfigSpec.IntValue SOUNDS_LOW_POWER_CRITICAL_SECONDS;
+    public static final ModConfigSpec.DoubleValue SOUNDS_LOW_POWER_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_UPGRADES_VOLUME_PER_UPGRADE;
+    public static final ModConfigSpec.DoubleValue SOUNDS_UPGRADES_MAX_VOLUME_MULTIPLIER;
+    public static final ModConfigSpec.DoubleValue SOUNDS_UPGRADES_PITCH_PER_UPGRADE;
+    public static final ModConfigSpec.DoubleValue SOUNDS_UPGRADES_MIN_PITCH_MULTIPLIER;
+    public static final ModConfigSpec.DoubleValue SOUNDS_DEPLOY_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_HURT_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_DESTROY_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_LOCK_ON_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_LOCK_ON_PITCH;
+    public static final ModConfigSpec.DoubleValue SOUNDS_TARGET_LOST_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_TARGET_LOST_PITCH;
+    public static final ModConfigSpec.DoubleValue SOUNDS_CHARGED_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_CHARGED_PITCH;
+    public static final ModConfigSpec.DoubleValue SOUNDS_LAUNCH_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_LAUNCH_PITCH;
+    public static final ModConfigSpec.DoubleValue SOUNDS_DOCK_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_DOCK_PITCH;
+    public static final ModConfigSpec.DoubleValue SOUNDS_INSTALL_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_INSTALL_PITCH;
+
     public static final ModConfigSpec SPEC;
 
     static {
@@ -308,7 +339,7 @@ public class ServerConfig {
         UPGRADES_SIREN_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         UPGRADES_SIREN_BASE_VOLUME = BUILDER.comment("Sound volume with one Siren upgrade.").defineInRange("baseVolume", 2.0, 0.0, 128.0);
         UPGRADES_SIREN_PER_UPGRADE = BUILDER.comment("Extra sound volume per additional Siren upgrade.").defineInRange("perUpgrade", 2.0, 0.0, 128.0);
-        UPGRADES_SIREN_REPEAT_INTERVAL = BUILDER.comment("Ticks between siren repeats while chasing or following.").defineInRange("repeatInterval", 100, 1, Integer.MAX_VALUE);
+        UPGRADES_SIREN_REPEAT_INTERVAL = BUILDER.comment("Ticks between siren repeats while chasing or following.").defineInRange("repeatInterval", 140, 1, Integer.MAX_VALUE);
         BUILDER.pop();
 
         BUILDER.push("transmitter");
@@ -403,6 +434,65 @@ public class ServerConfig {
                 .comment("How often (ticks) a Deploying Station retries a drone that couldn't be deployed yet.")
                 .defineInRange("checkInterval", 10, 1, 1200);
         BUILDER.pop();
+
+        BUILDER.comment("Drone and machine sounds. Volumes are clamped to 1.0 by the game when played: above that they only extend",
+                "the range a sound is heard from (16 x volume blocks), so keep base volumes at or below 1 / upgrades.maxVolumeMultiplier",
+                "for upgrades to make drones audibly louder.").push("sounds");
+        SOUNDS_RESORT_INTERVAL = BUILDER
+                .comment("How often (ticks) each client re-picks which nearby drones play their flying and low-power loops.")
+                .defineInRange("resortInterval", 20, 1, 1200);
+        BUILDER.push("flying");
+        SOUNDS_FLYING_MAX_PLAYING = BUILDER
+                .comment("Only this many drones nearest to each player play the flying loop. An Explosive drone chasing a target goes first.")
+                .defineInRange("maxPlaying", 8, 0, 64);
+        SOUNDS_FLYING_FULL_SPEED = BUILDER
+                .comment("Speed (blocks/tick) at which the flying loop reaches its max volume and pitch. Hovering plays at the min.")
+                .defineInRange("fullSpeed", 1.0, 0.01, 1.5);
+        SOUNDS_FLYING_MIN_VOLUME = BUILDER.comment("Flying loop volume while hovering.").defineInRange("minVolume", 0.2, 0.0, 4.0);
+        SOUNDS_FLYING_MAX_VOLUME = BUILDER.comment("Flying loop volume at fullSpeed.").defineInRange("maxVolume", 0.45, 0.0, 4.0);
+        SOUNDS_FLYING_MIN_PITCH = BUILDER.comment("Flying loop pitch while hovering.").defineInRange("minPitch", 0.9, 0.5, 2.0);
+        SOUNDS_FLYING_MAX_PITCH = BUILDER.comment("Flying loop pitch at fullSpeed.").defineInRange("maxPitch", 1.4, 0.5, 2.0);
+        BUILDER.pop();
+        BUILDER.push("lowPower");
+        SOUNDS_LOW_POWER_MAX_PLAYING = BUILDER
+                .comment("Only this many low-power drones nearest to each player play the low-power beep loop.")
+                .defineInRange("maxPlaying", 4, 0, 64);
+        SOUNDS_LOW_POWER_CRITICAL_SECONDS = BUILDER
+                .comment("An undocked drone whose energy would run out within this many seconds of hovering (with its upgrades) plays the",
+                        "faster critical beep instead of the returning one.")
+                .defineInRange("criticalSeconds", 30, 0, 3600);
+        SOUNDS_LOW_POWER_VOLUME = BUILDER.comment("Low-power beep loop volume.").defineInRange("volume", 0.4, 0.0, 4.0);
+        BUILDER.pop();
+        BUILDER.push("upgrades");
+        SOUNDS_UPGRADES_VOLUME_PER_UPGRADE = BUILDER
+                .comment("A drone's own sounds (not the Siren) play at volume x (1 + volumePerUpgrade x installed upgrades), capped at maxVolumeMultiplier.")
+                .defineInRange("volumePerUpgrade", 0.05, 0.0, 1.0);
+        SOUNDS_UPGRADES_MAX_VOLUME_MULTIPLIER = BUILDER.comment("Cap on the upgrade volume multiplier.").defineInRange("maxVolumeMultiplier", 2.0, 1.0, 16.0);
+        SOUNDS_UPGRADES_PITCH_PER_UPGRADE = BUILDER
+                .comment("A drone's own sounds (not the Siren) play at pitch x (1 - pitchPerUpgrade x installed upgrades), floored at minPitchMultiplier.")
+                .defineInRange("pitchPerUpgrade", 0.01, 0.0, 0.5);
+        SOUNDS_UPGRADES_MIN_PITCH_MULTIPLIER = BUILDER.comment("Floor on the upgrade pitch multiplier.").defineInRange("minPitchMultiplier", 0.85, 0.5, 1.0);
+        BUILDER.pop();
+        BUILDER.push("drone");
+        SOUNDS_DEPLOY_VOLUME = BUILDER.comment("Spin-up when a drone is deployed by hand or by a Deploying Station.").defineInRange("deployVolume", 0.5, 0.0, 4.0);
+        SOUNDS_HURT_VOLUME = BUILDER.comment("Hit sound when a drone takes damage.").defineInRange("hurtVolume", 0.5, 0.0, 4.0);
+        SOUNDS_DESTROY_VOLUME = BUILDER.comment("Crunch played with the explosion when a drone is destroyed.").defineInRange("destroyVolume", 0.5, 0.0, 4.0);
+        SOUNDS_LOCK_ON_VOLUME = BUILDER.comment("Beep when a drone spots a target and starts chasing.").defineInRange("lockOnVolume", 0.3, 0.0, 4.0);
+        SOUNDS_LOCK_ON_PITCH = BUILDER.defineInRange("lockOnPitch", 1.2, 0.5, 2.0);
+        SOUNDS_TARGET_LOST_VOLUME = BUILDER.comment("Beep when a drone loses its target.").defineInRange("targetLostVolume", 0.3, 0.0, 4.0);
+        SOUNDS_TARGET_LOST_PITCH = BUILDER.defineInRange("targetLostPitch", 0.8, 0.5, 2.0);
+        SOUNDS_CHARGED_VOLUME = BUILDER.comment("\"Charged\" chirp when a drone undocks from a Charging Station.").defineInRange("chargedVolume", 0.3, 0.0, 4.0);
+        SOUNDS_CHARGED_PITCH = BUILDER.defineInRange("chargedPitch", 1.5, 0.5, 2.0);
+        BUILDER.pop();
+        BUILDER.push("machine");
+        SOUNDS_LAUNCH_VOLUME = BUILDER.comment("Clunk when a Deploying Station launches a drone.").defineInRange("launchVolume", 0.6, 0.0, 4.0);
+        SOUNDS_LAUNCH_PITCH = BUILDER.defineInRange("launchPitch", 0.9, 0.5, 2.0);
+        SOUNDS_DOCK_VOLUME = BUILDER.comment("Clunk when a drone docks at a Charging Station.").defineInRange("dockVolume", 0.6, 0.0, 4.0);
+        SOUNDS_DOCK_PITCH = BUILDER.defineInRange("dockPitch", 1.0, 0.5, 2.0);
+        SOUNDS_INSTALL_VOLUME = BUILDER.comment("Click for each upgrade a Programming Station installs.").defineInRange("installVolume", 0.5, 0.0, 4.0);
+        SOUNDS_INSTALL_PITCH = BUILDER.defineInRange("installPitch", 1.3, 0.5, 2.0);
+        BUILDER.pop();
+        BUILDER.pop(); // sounds
 
         SPEC = BUILDER.build();
     }

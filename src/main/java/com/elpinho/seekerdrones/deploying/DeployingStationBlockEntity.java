@@ -10,6 +10,7 @@ import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
 import com.elpinho.seekerdrones.registry.ModItems;
+import com.elpinho.seekerdrones.registry.ModSounds;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
@@ -17,6 +18,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -201,6 +203,9 @@ public class DeployingStationBlockEntity extends BlockEntity implements MenuProv
         if (!level.addFreshEntity(drone)) {
             return;
         }
+        drone.playDeploySound();
+        level.playSound(null, worldPosition, ModSounds.DEPLOYING_STATION_LAUNCH.get(), SoundSource.BLOCKS,
+                ServerConfig.get(ServerConfig.SOUNDS_LAUNCH_VOLUME).floatValue(), ServerConfig.get(ServerConfig.SOUNDS_LAUNCH_PITCH).floatValue());
         energy.stored -= energyPerDeploy();
         items.setStackInSlot(DRONE_SLOT, ItemStack.EMPTY);
         setChanged();

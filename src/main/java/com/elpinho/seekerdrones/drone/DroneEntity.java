@@ -76,6 +76,14 @@ public class DroneEntity extends PathfinderMob {
     private static final EntityDataAccessor<Integer> DATA_COLOR = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Float> DATA_SCALE = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Integer> DATA_STATE = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.INT);
+    // Sounds (section 2.9): the client plays the flying and low-power loops from these.
+    private static final EntityDataAccessor<Byte> DATA_LOW_POWER = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.BYTE);
+    private static final EntityDataAccessor<Boolean> DATA_EXPLOSIVE = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.BOOLEAN);
+    private static final EntityDataAccessor<Float> DATA_SOUND_VOLUME = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
+    private static final EntityDataAccessor<Float> DATA_SOUND_PITCH = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
+
+    /** Client side: told when a drone's low-power level or Explosive approach changes, so the loops are re-picked at once. */
+    private static Runnable clientSoundListener = () -> {};
 
     private static final String TAG_DRONE_DATA = "DroneData";
     private static final String TAG_DRIFTING = "Drifting";
@@ -253,6 +261,8 @@ public class DroneEntity extends PathfinderMob {
     /** The closest the drone got to its station, and the tick when it last got a block closer. */
     private double stationBestDistance;
     private int stationProgressTick;
+    /** Set when loaded docked: re-docking after a reload plays no dock clunk. Not saved. */
+    private boolean silentRedock;
 
     public DroneEntity(EntityType<? extends DroneEntity> type, Level level) {
         super(type, level);
@@ -296,6 +306,30 @@ public class DroneEntity extends PathfinderMob {
         builder.define(DATA_COLOR, DroneConfig.DEFAULT_COLOR.getId());
         builder.define(DATA_SCALE, 1.0F);
         builder.define(DATA_STATE, DroneState.IDLE.ordinal());
+        builder.define(DATA_LOW_POWER, (byte) LowPowerLevel.NONE.ordinal());
+        builder.define(DATA_EXPLOSIVE, false);
+        builder.define(DATA_SOUND_VOLUME, 1.0F);
+        builder.define(DATA_SOUND_PITCH, 1.0F);
+    }
+
+    public static void setClientSoundListener(Runnable listener) {
+        clientSoundListener = listener;
+    }
+
+    @Override
+    public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
+        super.onSyncedDataUpdated(key);
+        if (level().isClientSide() && (key == DATA_LOW_POWER || key == DATA_EXPLOSIVE || key == DATA_STATE && entityData.get(DATA_EXPLOSIVE))) {
+            clientSoundListener.run();
+        }
+    }
+
+    @Override
+    public void onAddedToLevel() {
+        super.onAddedToLevel();
+        if (level().isClientSide()) {
+            clientSoundListener.run();
+        }
     }
 
     // --- Drone data ---
@@ -336,6 +370,10 @@ public class DroneEntity extends PathfinderMob {
         entityData.set(DATA_LABEL, data.config().label());
         entityData.set(DATA_COLOR, data.config().color().getId());
         entityData.set(DATA_SCALE, DroneStats.visualScale(data));
+        entityData.set(DATA_EXPLOSIVE, DroneStats.isExplosive(data));
+        entityData.set(DATA_SOUND_VOLUME, DroneStats.soundVolume(data));
+        entityData.set(DATA_SOUND_PITCH, DroneStats.soundPitch(data));
+        updateLowPower();
     }
 
     /**
@@ -396,6 +434,60 @@ public class DroneEntity extends PathfinderMob {
 
     private void setState(DroneState state) {
         entityData.set(DATA_STATE, state.ordinal());
+        updateLowPower();
+    }
+
+    // --- Sounds (section 2.9) ---
+
+    /** Which low-power beep loop the drone plays. */
+    public LowPowerLevel getLowPower() {
+        return LowPowerLevel.BY_ID.apply(entityData.get(DATA_LOW_POWER));
+    }
+
+    /** Whether the drone is an Explosive drone flying at its target, whose flying loop always plays. */
+    public boolean isApproachingExplosive() {
+        return entityData.get(DATA_EXPLOSIVE) && getState() == DroneState.CHASING;
+    }
+
+    /** Volume multiplier for the drone's own sounds (not the Siren), from its upgrade count. */
+    public float getSoundVolumeMultiplier() {
+        return entityData.get(DATA_SOUND_VOLUME);
+    }
+
+    /** Pitch multiplier for the drone's own sounds (not the Siren), from its upgrade count. */
+    public float getSoundPitchMultiplier() {
+        return entityData.get(DATA_SOUND_PITCH);
+    }
+
+    /**
+     * Re-derives the synced low-power level from the state and energy: none while docked, critical while undocked with
+     * little energy left (in any state), else returning while RETURNING.
+     */
+    private void updateLowPower() {
+        if (level().isClientSide() || droneData == null) {
+            return;
+        }
+        DroneState state = getState();
+        LowPowerLevel lowPower;
+        if (state == DroneState.CHARGING) {
+            lowPower = LowPowerLevel.NONE;
+        } else if (DroneStats.isCriticalEnergy(droneData)) {
+            lowPower = LowPowerLevel.CRITICAL;
+        } else {
+            lowPower = state == DroneState.RETURNING ? LowPowerLevel.RETURNING : LowPowerLevel.NONE;
+        }
+        entityData.set(DATA_LOW_POWER, (byte) lowPower.ordinal());
+    }
+
+    /** Plays one of the drone's own one-shot sounds, louder and lower with more upgrades. */
+    private void playDroneSound(SoundEvent sound, double volume, double pitch) {
+        level().playSound(null, getX(), getY(), getZ(), sound, SoundSource.NEUTRAL,
+                (float) volume * getSoundVolumeMultiplier(), (float) pitch * getSoundPitchMultiplier());
+    }
+
+    /** The propeller spin-up, played whenever a drone is deployed by hand or by a Deploying Station. */
+    public void playDeploySound() {
+        playDroneSound(ModSounds.DRONE_DEPLOY.get(), ServerConfig.get(ServerConfig.SOUNDS_DEPLOY_VOLUME), 1.0);
     }
 
     /** The entity being chased or followed, if any. Server side only. */
@@ -659,6 +751,7 @@ public class DroneEntity extends PathfinderMob {
         patrolWaypoint = -1;
         homeGoal = null;
         setState(DroneState.CHASING);
+        playDroneSound(ModSounds.DRONE_LOCK_ON.get(), ServerConfig.get(ServerConfig.SOUNDS_LOCK_ON_VOLUME), ServerConfig.get(ServerConfig.SOUNDS_LOCK_ON_PITCH));
         DroneData data = getDroneData();
         playSiren(data);
         transmit(data, entity);
@@ -726,6 +819,8 @@ public class DroneEntity extends PathfinderMob {
         resetFollow();
         stopNavigating();
         setState(DroneState.IDLE);
+        playDroneSound(ModSounds.DRONE_TARGET_LOST.get(), ServerConfig.get(ServerConfig.SOUNDS_TARGET_LOST_VOLUME),
+                ServerConfig.get(ServerConfig.SOUNDS_TARGET_LOST_PITCH));
     }
 
     /** Forgets the smoothed target position and the follow position chosen for the previous target. */
@@ -1219,6 +1314,7 @@ public class DroneEntity extends PathfinderMob {
             return;
         }
         droneData = data.withEnergy((int) energy);
+        updateLowPower();
         checkReturnThreshold(droneData);
     }
 
@@ -1381,6 +1477,11 @@ public class DroneEntity extends PathfinderMob {
             if (distance <= DOCK_REACH_DISTANCE) {
                 stopNavigating();
                 setState(DroneState.CHARGING);
+                if (!silentRedock) {
+                    level.playSound(null, pos, ModSounds.CHARGING_STATION_DOCK.get(), SoundSource.BLOCKS,
+                            ServerConfig.get(ServerConfig.SOUNDS_DOCK_VOLUME).floatValue(), ServerConfig.get(ServerConfig.SOUNDS_DOCK_PITCH).floatValue());
+                }
+                silentRedock = false;
                 ((DroneMoveControl) moveControl).hold(acceleration);
                 return;
             }
@@ -1478,6 +1579,7 @@ public class DroneEntity extends PathfinderMob {
             }
         }
         if (data.energy() >= maxEnergy && (getHealth() >= getMaxHealth() || !station.canRepair())) {
+            playDroneSound(ModSounds.DRONE_CHARGED.get(), ServerConfig.get(ServerConfig.SOUNDS_CHARGED_VOLUME), ServerConfig.get(ServerConfig.SOUNDS_CHARGED_PITCH));
             endReturn(data);
         }
     }
@@ -1505,6 +1607,7 @@ public class DroneEntity extends PathfinderMob {
      * other drone flies back to where it left and hovers there (section 5.3).
      */
     private void endReturn(DroneData data) {
+        silentRedock = false;
         releaseStation();
         stopNavigating();
         if (!DroneStats.isPatrolling(data) && departurePosition != null && departurePosition.dimension() == level().dimension()) {
@@ -1606,14 +1709,25 @@ public class DroneEntity extends PathfinderMob {
             serverLevel.sendParticles(ParticleTypes.EXPLOSION, getX(), y, getZ(), 1, 0, 0, 0, 0);
             serverLevel.sendParticles(ParticleTypes.SMOKE, getX(), y, getZ(), 8, 0.2, 0.2, 0.2, 0.02);
             serverLevel.playSound(null, getX(), y, getZ(), SoundEvents.GENERIC_EXPLODE.value(), SoundSource.NEUTRAL, 0.5F, 1.5F);
+            playDroneSound(ModSounds.DRONE_DESTROY.get(), ServerConfig.get(ServerConfig.SOUNDS_DESTROY_VOLUME), 1.0);
             remove(RemovalReason.KILLED);
         }
     }
 
     @Override
     protected SoundEvent getHurtSound(DamageSource source) {
-        // Placeholder until the drone gets its own damage sound.
-        return SoundEvents.IRON_GOLEM_DAMAGE;
+        return ModSounds.DRONE_HURT.get();
+    }
+
+    /** Only used for the hurt sound: drones have no ambient sound, and tickDeath() plays the destruction sounds. */
+    @Override
+    protected float getSoundVolume() {
+        return ServerConfig.get(ServerConfig.SOUNDS_HURT_VOLUME).floatValue() * getSoundVolumeMultiplier();
+    }
+
+    @Override
+    public float getVoicePitch() {
+        return super.getVoicePitch() * getSoundPitchMultiplier();
     }
 
     @Override
@@ -1732,7 +1846,8 @@ public class DroneEntity extends PathfinderMob {
             pendingTargetId = tag.getUUID(TAG_TARGET);
             setState(state);
         } else if (chargingStation != null && (state == DroneState.RETURNING || state == DroneState.CHARGING)) {
-            // Claims aren't saved: a docked drone claims its station again and re-docks.
+            // Claims aren't saved: a docked drone claims its station again and re-docks, without a second dock clunk.
+            silentRedock = state == DroneState.CHARGING;
             setStation(chargingStation);
         } else {
             chargingStation = null;
