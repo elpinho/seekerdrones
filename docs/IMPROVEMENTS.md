@@ -33,12 +33,6 @@ Status: `idea` | `decided`
 - **Transparent drone upgrade** (`idea`): an upgrade that makes the drone (semi-)transparent or invisible. Could be part of the Quiet upgrade above as one "Stealth" upgrade, or separate.
 
 ## Drone GUI and visuals
-
-- **Drone size by upgrade count** (`idea`, direction agreed): a drone's **model** gets slightly bigger the more upgrades it has. It's **visual only**: the hitbox stays fixed (0.75 × 0.4 today), so path finding (the flying node size), the clear-path raycasts (§3.4 and §8.4), the fit checks at follow and patrol positions and the deploy obstruction checks are all unaffected.
-  - The growth is **slight**: a fully upgraded drone must never reach 2.5× the base size.
-  - The base model can be slightly smaller than it is now, to make room for the growth.
-  - Growth rate and max scale would be config entries (client-side rendering, driven by the synced upgrade count).
-  - It fits with the upgrade-dependent energy usage (DESIGN.md §5.1) and louder drones with many upgrades (DESIGN.md section 2.9): a heavily upgraded drone is bigger, hungrier and louder.
   - It depends on the new drone model (ROADMAP.md M9). Tell the artist so the model and animations work at any scale.
 - **Status reasons** (`idea`): the status screen (DESIGN.md §2.4) and Jade (§8.6) show a drone's state, but not why it is in it. Drones can sit idle or misbehave for reasons the player can't see, so each state should come with a short reason line, e.g. "Idle: no usable target entries" or "Returning: station unreachable, trying the next one".
   - **Reasons to cover** (from the existing rules): no target entries, or only blacklisted or unusable ones (a player entry without Player Seek, §3.3); a target in view but already claimed by a teammate (§3.3); target out of sight, with the lost-sight countdown (§3.5); no usable Charging Station in range, so it will drop at 0 energy (§5.2); waiting by a busy station (§5.3); a station skipped as unreachable (§5.2); docked at a station with no FE; an unknown Operator Group (§6.2).
@@ -54,7 +48,6 @@ Status: `idea` | `decided`
 
 ## Items and interaction
 
-- **Drone Remote** (`decided`, see DESIGN.md §2.10): link one drone (on it, or Shift + right-click toward it), then recall, hold/resume, send to charge, set the patrol center, and change the patrol radius and speed, follow distance, label and color. Targets and upgrades stay in the Programming Station. Multi-drone or Operator Group control may come later.
 - **Drone Tracker and drone list** (`idea`, prioritized): help players find their drones. A drone that runs out of energy drops as an item wherever it is (§5.2), and drones far from players freeze in unloaded chunks (§3.6), so with dozens of drones losing track of them is common.
   - **Drone list:** a screen listing the drones a player operates (by label and ID, §2.8), with each one's last known position and dimension, state and energy, and whether it's deployed, docked, or an item (dropped, in a chest or in an inventory). It could be opened from the Drone Remote or the Tracker. It's a small slice of the v2 dashboard, without the camera or map.
   - **Tracker:** a compass-like item that points to one drone's last known position, picked from the list or linked like the Remote.
