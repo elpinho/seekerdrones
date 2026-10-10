@@ -57,6 +57,9 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue DRONE_DEPLOY_REST_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_WATER_DAMAGE;
     public static final ModConfigSpec.IntValue DRONE_WATER_DAMAGE_INTERVAL;
+    public static final ModConfigSpec.DoubleValue DRONE_SELF_HEAL_PERCENT_PER_SECOND;
+    public static final ModConfigSpec.IntValue DRONE_SELF_HEAL_DELAY;
+    public static final ModConfigSpec.IntValue DRONE_SELF_HEAL_ENERGY_PER_HP;
 
     // === upgrades ===
     public static final ModConfigSpec.IntValue UPGRADES_TOTAL_SLOTS;
@@ -87,6 +90,7 @@ public class ServerConfig {
 
     public static final ModConfigSpec.IntValue UPGRADES_ENERGY_MAX_COUNT;
     public static final ModConfigSpec.DoubleValue UPGRADES_ENERGY_MULTIPLIER;
+    public static final ModConfigSpec.DoubleValue UPGRADES_ENERGY_SELF_HEAL_BONUS;
 
     public static final ModConfigSpec.IntValue UPGRADES_HEALTH_MAX_COUNT;
     public static final ModConfigSpec.DoubleValue UPGRADES_HEALTH_PER_UPGRADE;
@@ -310,6 +314,15 @@ public class ServerConfig {
         DRONE_WATER_DAMAGE_INTERVAL = BUILDER
                 .comment("Ticks between water damage applications.")
                 .defineInRange("waterDamageInterval", 20, 1, Integer.MAX_VALUE);
+        DRONE_SELF_HEAL_PERCENT_PER_SECOND = BUILDER
+                .comment("Percent of its max HP a drone regains per second on its own, before the Energy upgrade bonus. 0 disables self-healing.")
+                .defineInRange("selfHealPercentPerSecond", 0.5, 0.0, 100.0);
+        DRONE_SELF_HEAL_DELAY = BUILDER
+                .comment("Ticks a drone must go without taking damage before it starts healing on its own.")
+                .defineInRange("selfHealDelay", 20, 0, Integer.MAX_VALUE);
+        DRONE_SELF_HEAL_ENERGY_PER_HP = BUILDER
+                .comment("FE used per HP a drone heals on its own (no upgrade multiplier).")
+                .defineInRange("selfHealEnergyPerHp", 2000, 0, Integer.MAX_VALUE);
         BUILDER.pop();
 
         BUILDER.push("upgrades");
@@ -360,6 +373,7 @@ public class ServerConfig {
         UPGRADES_ENERGY_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 6, 0, 64);
         UPGRADES_ENERGY_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.0, 0.0, 100.0);
         UPGRADES_ENERGY_MULTIPLIER = BUILDER.comment("Max energy multiplier per Energy upgrade (compounds).").defineInRange("multiplier", 2.0, 1.0, 16.0);
+        UPGRADES_ENERGY_SELF_HEAL_BONUS = BUILDER.comment("Self-heal rate bonus per Energy upgrade, as a fraction of the base rate (adds up, 0.5 = +50%).").defineInRange("selfHealBonus", 0.5, 0.0, 100.0);
         BUILDER.pop();
 
         BUILDER.push("health");

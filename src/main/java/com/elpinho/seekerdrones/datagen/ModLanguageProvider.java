@@ -182,7 +182,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.EXPLOSIVE.getTranslationKey() + ".description", "Explodes on reaching its target.");
         add(UpgradeType.SIREN.getTranslationKey() + ".description", "Sounds a siren when a target is spotted.");
         add(UpgradeType.TRANSMITTER.getTranslationKey() + ".description", "Tells the drone's online operators when a target is spotted.");
-        add(UpgradeType.ENERGY.getTranslationKey() + ".description", "Doubles max energy.");
+        add(UpgradeType.ENERGY.getTranslationKey() + ".description", "Doubles max energy and speeds up self-healing.");
         add(UpgradeType.HEALTH.getTranslationKey() + ".description", "Increases max health.");
         add(UpgradeType.PLAYER_SEEK.getTranslationKey() + ".description", "Allows setting players as targets.");
         add("tooltip.seekerdrones.upgrade.max_count", "Max per drone: %s");

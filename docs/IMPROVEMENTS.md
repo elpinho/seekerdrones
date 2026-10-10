@@ -30,7 +30,6 @@ Status: `idea` | `decided`
   - It **hides the drone's nameplate** (label), since a floating name tag defeats the point.
   - It's **mutually exclusive with the Siren upgrade**: a drone is either a loud deterrent or a silent watcher. The Programming Station and the debug command must refuse to install one while the other is installed.
   - **Still open:** how much each upgrade lowers the volume, the cap, whether it offsets the extra loudness from having many upgrades, and whether it also quiets the Explosive approach sound (a stealth kamikaze drone is fun but maybe harsh in PvP). All values would be config entries.
-- **Drone self-healing** (`idea`): a drone slowly regains HP on its own, away from a Charging Station, and uses energy at a higher rate while it heals. Today drones only heal while docked (DESIGN.md §2.5, §5.3). To stay cheap, the healing and its extra energy cost would go in the existing batched energy drain (DESIGN.md §8.4). Still open: whether it's an upgrade or built in, the heal rate, how much the energy rate goes up, whether it pauses while chasing, and how it interacts with the return threshold (§5.2), since a healing drone runs low sooner. All values would be config entries.
 - **Transparent drone upgrade** (`idea`): an upgrade that makes the drone (semi-)transparent or invisible. Could be part of the Quiet upgrade above as one "Stealth" upgrade, or separate.
 
 ## Drone GUI and visuals

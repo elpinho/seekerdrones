@@ -55,7 +55,7 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 
 - Operators can open a read-only status screen by right-clicking a drone entity, or by right-clicking (without Shift) while holding a drone item. For an item, the state shows as "Not deployed" and the screen doesn't refresh.
 - It shows the drone ID, label, energy, health, sight range (the total in blocks, including the Sight upgrade bonus, section 3.3), installed upgrades, the target entries the drone can actually use (entries ignored by the runtime fail-safe, section 2.7, or blocked by the target blacklist, section 3.3, aren't listed; the Programming Station and `/seekerdrones config target list` still show them), current state (idle / patrolling / chasing / following / returning to charge / charging) and, only if the drone has a Patrol upgrade, its patrol center and patrol radius (with the max).
-- **Layout** (the machine GUI kit, section 7.7): a header in the drone's color with the label (the item name, "Drone", when it has none), the ID chip right after it and a state pill (Not deployed for an item). A **radar** display shows the drone circling its patrol radius (drawn relative to its max) with a turning sweep. It's a client-side preview, never the drone's real position. Without Patrol, the drone hovers in the middle. Under it: the patrol radius and center (scrolling if too long, exact values in the radar's tooltip), or "Stationary" without Patrol, a row for the sight range and one for the follow distance (each number right-aligned, "blocks" in their tooltips). On the right: energy and health with bars, with the drone's current energy use per tick right-aligned on the energy row (estimated on the client from the drain config, section 5.1, and how fast the drone is moving; hidden for a drone item or a docked drone), the installed upgrades as icons with counts and the total, and the usable targets as a row of small cards with previews (entities turn, tags cycle through their members, players show their tab-list skin). Upgrades and targets scroll sideways with the mouse wheel, with a thin scrollbar, when there are more than fit (7 upgrades, 3 targets).
+- **Layout** (the machine GUI kit, section 7.7): a header in the drone's color with the label (the item name, "Drone", when it has none), the ID chip right after it and a state pill (Not deployed for an item). A **radar** display shows the drone circling its patrol radius (drawn relative to its max) with a turning sweep. It's a client-side preview, never the drone's real position. Without Patrol, the drone hovers in the middle. Under it: the patrol radius and center (scrolling if too long, exact values in the radar's tooltip), or "Stationary" without Patrol, a row for the sight range and one for the follow distance (each number right-aligned, "blocks" in their tooltips). On the right: energy and health with bars, with the drone's current energy use per tick right-aligned on the energy row (estimated on the client from the drain config, section 5.1, and how fast the drone is moving, plus what self-healing cost per tick at the last drain, section 2.5, which the server sends; hidden for a drone item or a docked drone), the installed upgrades as icons with counts and the total, and the usable targets as a row of small cards with previews (entities turn, tags cycle through their members, players show their tab-list skin). Upgrades and targets scroll sideways with the mouse wheel, with a thin scrollbar, when there are more than fit (7 upgrades, 3 targets).
 - The drone's configuration is **not** editable here. Configuration is done in the Drone Programming Station.
 
 ### 2.5 Health and destruction
@@ -66,7 +66,11 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 - Drones are immune to fall damage (they don't fall) and to drowning. Instead, while **in water** (not rain) a drone takes `drone.waterDamage` HP every `drone.waterDamageInterval` ticks.
 - Taking damage has no mob-style feedback: no knockback (from hits or explosions), no red hurt flash, and a drone-specific damage sound instead of the generic one (section 2.9).
 - Drones don't take part in entity pushing: they never push other entities (including other drones) and are never pushed by them. This also means they never take entity-cramming damage. (Performance decision, from M3 profiling.)
-- Drones do **not** regenerate health on their own. HP is restored only while docked at a Charging Station (section 5.3).
+- **Self-healing:** a drone slowly regains HP on its own, built in (not an upgrade). It is faster with Energy upgrades: `selfHealPercentPerSecond × (1 + selfHealBonus × energyUpgrades)` percent of its **max** HP per second (defaults 0.5% and +50% per upgrade, so 2%/s with 6). Docking at a Charging Station (section 5.3) heals much faster.
+  - It only starts once the drone hasn't taken damage for `drone.selfHealDelay` ticks, so it can't out-heal a fight (or water damage). Chasing alone doesn't stop it. The time of the last damage isn't saved.
+  - It costs `drone.selfHealEnergyPerHp` FE per HP healed, with no upgrade multiplier, so a drone at full health pays nothing.
+  - To stay cheap, it is applied in the batched energy drain (section 8.4), for the airborne ticks being billed.
+  - It never spends the energy reserved by the return threshold (section 5.2): it heals only as much as it can afford above the threshold for the nearest usable station, or above 0 FE when no station is in range. It doesn't heal while returning or docked.
 - When HP reaches 0, the drone is **destroyed and lost**. It plays a small explosion effect (particles and sound only, with no damage and no block breaking) with a plastic crunch (section 2.9) and disappears. It leaves no drop, and its upgrades are lost. This applies whether or not it has Explosive upgrades.
 - An Explosive drone that **reaches its target** explodes and is **consumed**, leaving no drop. It is a suicide drone.
 
@@ -286,7 +290,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 | **Explosive** | Yes | 4 | The drone explodes on reaching its target and is consumed. Explosion power scales with the count. | — |
 | **Siren** | Yes | 3 | Plays a siren sound when a target is spotted. More upgrades increase the audible radius (sound volume > 1.0). | — |
 | **Transmitter** | No | 1 | Sends a chat message to **all online operators** of the drone (its group, or its owner if it has no group) when a target is spotted, including the drone ID, label, target type and coordinates. The message is rate-limited per drone. | — |
-| **Energy** | Yes | 6 | Doubles max energy (FE) per upgrade. | — |
+| **Energy** | Yes | 6 | Doubles max energy (FE) per upgrade, and speeds up self-healing (section 2.5). | — |
 | **Health** | Yes | 4 | Increases max HP. | — |
 | **Player Seek** | No | 1 | Allows player names as target entries. Player-name entries use target slots like any other entry. The drone's operators (section 6.3) are still exempt. | — (names go in the Targets list) |
 
@@ -695,6 +699,9 @@ All values below are placeholders.
 | `drone.deployRestSpeed` | 0.01 blocks/tick | Below this speed the drone comes to rest |
 | `drone.waterDamage` | 1 HP | |
 | `drone.waterDamageInterval` | 20 ticks | |
+| `drone.selfHealPercentPerSecond` | 0.5% | Of the drone's max HP, before the Energy upgrade bonus; 0 disables self-healing (section 2.5) |
+| `drone.selfHealDelay` | 20 ticks | Without damage before self-healing starts |
+| `drone.selfHealEnergyPerHp` | 2 000 FE | FE per HP self-healed, no upgrade multiplier |
 | `upgrades.totalSlots` | 20 | |
 | `upgrades.<type>.maxCount` | see section 4 | |
 | `upgrades.patrol.baseRadius` / `perUpgrade` | 16 / 16 blocks | |
@@ -714,6 +721,7 @@ All values below are placeholders.
 | `upgrades.siren.baseVolume` / `perUpgrade` / `repeatInterval` | 2.0 / 2.0 / 140 ticks | The siren sound is 6.5 s long, so it doesn't overlap itself |
 | `upgrades.transmitter.cooldown` | 200 ticks | |
 | `upgrades.energy.multiplier` | 2.0 | Max energy multiplier per Energy upgrade (compounds) |
+| `upgrades.energy.selfHealBonus` | 0.5 | Self-heal rate bonus per Energy upgrade, as a fraction of the base rate (adds up) |
 | `upgrades.<type>.energyFactor` | 1.3 (Energy: 1.0) | Energy usage multiplier per upgrade of that type (compounds; the first Patrol upgrade doesn't count, section 5.1) |
 | `upgrades.health.perUpgrade` | 10 | |
 | `programmingStation.baseCost.<type>` | 10 000 FE | Multiplied by index `n` |

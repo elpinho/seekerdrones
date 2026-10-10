@@ -258,7 +258,7 @@ public class DroneStatusScreen extends PanelScreen {
 
     /**
      * The drone's current energy use in FE per tick, estimated on the client from the drain config (DESIGN.md section
-     * 5.1): the hover cost plus the distance cost at its current speed, times the upgrade multiplier. Empty for a drone
+     * 5.1): the hover cost plus the distance cost at its current speed, times the upgrade multiplier, plus the self-healing cost the server reported (section 2.5). Empty for a drone
      * item or a docked drone, which don't drain.
      */
     private OptionalDouble energyRate() {
@@ -266,7 +266,7 @@ public class DroneStatusScreen extends PanelScreen {
             return OptionalDouble.empty();
         }
         return OptionalDouble.of(DroneStats.energyUsageMultiplier(status.data()) * (ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK)
-                + averageSpeed * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK)));
+                + averageSpeed * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK)) + status.selfHealRate());
     }
 
     private Component energyRateText(double rate) {

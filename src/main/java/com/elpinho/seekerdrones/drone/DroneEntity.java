@@ -245,6 +245,10 @@ public class DroneEntity extends PathfinderMob {
     private boolean queuedThisTick;
     /** The fraction of a FE owed at the last drain, carried over so small costs add up. */
     private double drainRemainder;
+    /** Game time of the last damage taken, which delays self-healing (section 2.5). Not saved. */
+    private long lastDamageTime = Long.MIN_VALUE;
+    /** FE per tick that self-healing cost at the last drain, for the status screen's energy rate (section 2.4). Not saved. */
+    private double selfHealRate;
     /** The station being returned to or charged at. Set only while RETURNING or CHARGING. */
     @Nullable
     private BlockPos chargingStation;
@@ -1360,6 +1364,7 @@ public class DroneEntity extends PathfinderMob {
         double cost = drainRemainder + drainQueueCost + DroneStats.energyUsageMultiplier(data)
                 * (drainDistance * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK)
                         + (double) drainHoverTicks * ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK));
+        cost += selfHeal(data, drainHoverTicks, cost);
         drainDistance = 0;
         drainHoverTicks = 0;
         drainQueueCost = 0;
@@ -1373,6 +1378,43 @@ public class DroneEntity extends PathfinderMob {
         droneData = data.withEnergy((int) energy);
         updateLowPower();
         checkReturnThreshold(droneData);
+    }
+
+    /**
+     * Self-healing (section 2.5): heals for the airborne ticks being billed, once the drone hasn't taken damage for
+     * {@code drone.selfHealDelay} ticks, and returns the FE it costs. It never heals into the return threshold (section
+     * 5.2), or into 0 FE when no station is in range, and not while returning or docked.
+     */
+    private double selfHeal(DroneData data, int ticks, double drainCost) {
+        double cost = healForEnergy(data, ticks, drainCost);
+        selfHealRate = ticks > 0 ? cost / ticks : 0;
+        return cost;
+    }
+
+    private double healForEnergy(DroneData data, int ticks, double drainCost) {
+        float missing = getMaxHealth() - getHealth();
+        DroneState state = getState();
+        if (missing <= 0 || ticks == 0 || state == DroneState.RETURNING || state == DroneState.CHARGING
+                || lastDamageTime + ServerConfig.get(ServerConfig.DRONE_SELF_HEAL_DELAY) > level().getGameTime()) {
+            return 0;
+        }
+        double heal = Math.min(missing, DroneStats.selfHealPerSecond(data) * ticks / DroneStats.TICKS_PER_SECOND);
+        int perHp = ServerConfig.get(ServerConfig.DRONE_SELF_HEAL_ENERGY_PER_HP);
+        if (perHp > 0) {
+            BlockPos station = nearestStation(data);
+            double reserve = station == null ? 1
+                    : DroneStats.returnThreshold(data, Math.sqrt(distanceToSqr(ChargingStationBlockEntity.dockPosition(station))));
+            heal = Math.min(heal, (data.energy() - drainCost - reserve) / perHp);
+        }
+        if (heal <= 0) {
+            return 0;
+        }
+        setHealth(Math.min(getMaxHealth(), getHealth() + (float) heal));
+        return heal * perHp;
+    }
+
+    public double getSelfHealRate() {
+        return selfHealRate;
     }
 
     /** At 0 energy the drone drops as an item where it is, with its data intact (section 5.2). */
@@ -1694,6 +1736,16 @@ public class DroneEntity extends PathfinderMob {
             homeGoal = null;
             stopNavigating();
         }
+    }
+
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        boolean hurt = super.hurt(source, amount);
+        if (hurt) {
+            lastDamageTime = level().getGameTime();
+            selfHealRate = 0;
+        }
+        return hurt;
     }
 
     @Override

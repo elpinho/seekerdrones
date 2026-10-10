@@ -371,7 +371,7 @@
   "tooltip.seekerdrones.remote.not_linked": "Not linked",
   "tooltip.seekerdrones.upgrade.max_count": "Max per drone: %s",
   "upgrade.seekerdrones.energy": "Energy",
-  "upgrade.seekerdrones.energy.description": "Doubles max energy.",
+  "upgrade.seekerdrones.energy.description": "Doubles max energy and speeds up self-healing.",
   "upgrade.seekerdrones.explosive": "Explosive",
   "upgrade.seekerdrones.explosive.description": "Explodes on reaching its target.",
   "upgrade.seekerdrones.health": "Health",

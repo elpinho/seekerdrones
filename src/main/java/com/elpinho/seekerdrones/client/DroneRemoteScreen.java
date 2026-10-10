@@ -813,7 +813,7 @@ public class DroneRemoteScreen extends PanelScreen {
             return OptionalDouble.empty();
         }
         return OptionalDouble.of(DroneStats.energyUsageMultiplier(shown.data()) * (ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK)
-                + averageSpeed * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK)));
+                + averageSpeed * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK)) + shown.selfHealRate());
     }
 
     private Component energyRateTooltip() {

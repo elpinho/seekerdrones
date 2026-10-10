@@ -950,8 +950,10 @@ public class RemoteGameTests {
     @GameTest(template = "empty", timeoutTicks = 20)
     public static void returnToChargeIsRefusedWithoutAUsableStation(GameTestHelper helper) {
         String id = newId();
-        DroneEntity drone = spawnDrone(helper, 4, 3, 4, data(id));
-        ServerPlayer player = spawnPlayer(helper, UUID.randomUUID(), 4.5, 1, 0.5, 0);
+        // Owned, so stations other tests place within the search radius aren't usable (an unowned drone may use any).
+        UUID owner = UUID.randomUUID();
+        DroneEntity drone = spawnDrone(helper, 4, 3, 4, data(id).withOwnerId(Optional.of(owner)));
+        ServerPlayer player = spawnPlayer(helper, owner, 4.5, 1, 0.5, 0);
         linkedRemote(player, drone);
         helper.assertFalse(drone.returnToCharge(), "No station: refused");
         RemoteControl.command(player, id, RemoteCommand.CHARGE);

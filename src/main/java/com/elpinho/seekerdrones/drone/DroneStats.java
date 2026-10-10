@@ -56,6 +56,13 @@ public final class DroneStats {
         return (float) Math.min(max, MAX_HEALTH_CEILING);
     }
 
+    /** HP regained per second on its own, faster with each Energy upgrade (section 2.5). */
+    public static double selfHealPerSecond(DroneData data) {
+        double percent = ServerConfig.get(ServerConfig.DRONE_SELF_HEAL_PERCENT_PER_SECOND)
+                * (1 + data.upgradeCount(UpgradeType.ENERGY) * ServerConfig.get(ServerConfig.UPGRADES_ENERGY_SELF_HEAL_BONUS));
+        return maxHealth(data) * percent / 100;
+    }
+
     /** How far away the drone can first spot a target, in blocks (section 3.3). */
     public static double sightRange(DroneData data) {
         return ServerConfig.get(ServerConfig.DRONE_BASE_SIGHT_RANGE)
