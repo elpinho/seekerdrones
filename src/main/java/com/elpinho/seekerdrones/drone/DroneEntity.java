@@ -994,8 +994,10 @@ public class DroneEntity extends PathfinderMob {
         }
         Vec3 goal = patrolGoal;
         // Waypoints are flown through, not stopped at. The reach distance covers the drone's turning circle at patrol
-        // speed, so it can't end up circling a waypoint it keeps missing.
-        double reach = Math.max(WAYPOINT_REACH_DISTANCE, speed * speed / acceleration);
+        // speed, so it can't end up circling a waypoint it keeps missing. On a small circle it is capped at half the
+        // gap between adjacent waypoints, or every waypoint would count as reached and the drone would never fly it.
+        double halfGap = radius * Math.sin(Math.PI / count);
+        double reach = Math.min(Math.max(WAYPOINT_REACH_DISTANCE, speed * speed / acceleration), halfGap);
         boolean reached = distanceToSqr(goal) <= reach * reach;
         boolean timedOut = tickCount > waypointDeadline;
         boolean reachable = steerTowards(goal, speed, acceleration, null, staggered, false);

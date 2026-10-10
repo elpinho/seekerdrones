@@ -470,7 +470,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         speedBox.setMaxLength(5);
         speedBox.setFilter(text -> text.matches("\\d*\\.?\\d*"));
         speedBox.tooltipLines = () -> List.of(Component.translatable(KEY + "patrol_speed"),
-                Component.translatable(KEY + "patrol_speed.tooltip", formatSpeed(toSeconds(maxSpeed()))).withStyle(ChatFormatting.GRAY));
+                Component.translatable(KEY + "patrol_speed.tooltip", formatSpeed(toSeconds(DroneStats.basePatrolSpeed()))).withStyle(ChatFormatting.GRAY));
     }
 
     /** Adds a Behavior widget. It keeps its unscrolled y here, and {@link #applyBehaviorScroll} moves it. */
@@ -1052,11 +1052,11 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         return Math.max(MIN_SPEED_HUNDREDTHS, (int) Math.round(toSeconds(maxSpeed()) * 100));
     }
 
-    /** The speed the slider shows: the set one, capped at the max, or the max if none is set. */
+    /** The speed the slider shows: the set one, capped at the max, or the base speed if none is set. */
     private int currentSpeedHundredths() {
         DroneProgram program = program();
         double max = maxSpeed();
-        double speed = program != null ? program.config().patrolSpeed().map(s -> Math.min(s, max)).orElse(max) : max;
+        double speed = program != null ? program.config().patrolSpeed().map(s -> Math.min(s, max)).orElse(DroneStats.basePatrolSpeed()) : DroneStats.basePatrolSpeed();
         return (int) Math.round(toSeconds(speed) * 100);
     }
 

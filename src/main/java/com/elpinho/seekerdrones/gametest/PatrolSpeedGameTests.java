@@ -43,9 +43,25 @@ public class PatrolSpeedGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 5)
-    public static void unconfiguredPatrolSpeedIsMaxForUpgradeCount(GameTestHelper helper) {
+    public static void unconfiguredPatrolSpeedIsBaseSpeedRegardlessOfUpgrades(GameTestHelper helper) {
         helper.assertTrue(close(DroneStats.patrolSpeed(patrolData(1)), 0.5), "1 Patrol: " + DroneStats.patrolSpeed(patrolData(1)));
-        helper.assertTrue(close(DroneStats.patrolSpeed(patrolData(3)), 0.9), "3 Patrol: " + DroneStats.patrolSpeed(patrolData(3)));
+        helper.assertTrue(close(DroneStats.patrolSpeed(patrolData(3)), 0.5), "3 Patrol (base speed, not max): " + DroneStats.patrolSpeed(patrolData(3)));
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 5)
+    public static void unsetPatrolRadiusGrowsWithUpgradesAndConfiguredRadiusStaysFixed(GameTestHelper helper) {
+        int r1 = DroneStats.patrolRadius(patrolData(1));
+        int r2 = DroneStats.patrolRadius(patrolData(2));
+        int r4 = DroneStats.patrolRadius(patrolData(4));
+        helper.assertTrue(r1 < r2 && r2 < r4, "unset radius should grow: " + r1 + ", " + r2 + ", " + r4);
+        int fixed = r1 - 1;
+        helper.assertTrue(fixed >= 1, "need a radius below the 1-upgrade max: " + r1);
+        for (int count : new int[] { 1, 2, 4 }) {
+            DroneData base = patrolData(count);
+            DroneData data = base.withConfig(base.config().withPatrolRadius(Optional.of(fixed)));
+            helper.assertValueEqual(DroneStats.patrolRadius(data), fixed, "configured radius with " + count + " Patrol");
+        }
         helper.succeed();
     }
 

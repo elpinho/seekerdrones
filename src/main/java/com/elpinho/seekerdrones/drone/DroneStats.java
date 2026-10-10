@@ -134,10 +134,15 @@ public final class DroneStats {
         return Math.min(perSecond / TICKS_PER_SECOND, ServerConfig.get(ServerConfig.DRONE_MAX_SPEED));
     }
 
-    /** The speed the drone patrols at: its configured speed capped at the max, or the max if none is set. */
+    /** The patrol speed in blocks/tick of a drone with no configured speed: the base speed, whatever its upgrades. */
+    public static double basePatrolSpeed() {
+        return maxPatrolSpeed(1);
+    }
+
+    /** The speed the drone patrols at: its configured speed capped at the max, or the base speed if none is set. */
     public static double patrolSpeed(DroneData data) {
         double max = maxPatrolSpeed(data.upgradeCount(UpgradeType.PATROL));
-        return data.config().patrolSpeed().map(speed -> Math.min(speed, max)).orElse(max);
+        return data.config().patrolSpeed().map(speed -> Math.min(speed, max)).orElse(basePatrolSpeed());
     }
 
     public static boolean isExplosive(DroneData data) {

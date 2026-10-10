@@ -134,7 +134,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.programming_station.patrol_speed", "Patrol speed");
         add("screen.seekerdrones.programming_station.patrol_speed.header", "Patrol speed · max %s blocks/s");
         add("screen.seekerdrones.programming_station.patrol_speed.slider", "Drag to set it (0.2-%s blocks/second)");
-        add("screen.seekerdrones.programming_station.patrol_speed.tooltip", "Empty: the fastest the Patrol upgrades allow (%s)");
+        add("screen.seekerdrones.programming_station.patrol_speed.tooltip", "Empty: the base patrol speed (%s), however many Patrol upgrades");
         add("screen.seekerdrones.programming_station.patrol_speed.invalid", "The patrol speed must be at least 0.2 blocks/second");
         add("screen.seekerdrones.programming_station.status.insert_drone", "Insert a drone to edit it.");
         add("screen.seekerdrones.programming_station.status.insert_drone_template", "Insert a drone to program it.");
@@ -362,7 +362,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("commands.seekerdrones.config.patrolradius.set", "Set the patrol radius of %s drone(s) to %s (capped by their Patrol upgrades)");
         add("commands.seekerdrones.config.patrolradius.cleared", "%s drone(s) now patrol at the largest radius their Patrol upgrades allow");
         add("commands.seekerdrones.config.patrolspeed.set", "Set the patrol speed of %s drone(s) to %s blocks/second (capped by their Patrol upgrades)");
-        add("commands.seekerdrones.config.patrolspeed.cleared", "%s drone(s) now patrol at the fastest speed their Patrol upgrades allow");
+        add("commands.seekerdrones.config.patrolspeed.cleared", "%s drone(s) now patrol at the base patrol speed");
         add("commands.seekerdrones.config.unknown_color", "Unknown color %s");
         add("commands.seekerdrones.config.color.set", "Set the color of %s drone(s) to %s");
         add("screen.seekerdrones.drone_status.patrol_radius", "Patrol radius: %s");

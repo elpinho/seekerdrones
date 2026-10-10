@@ -224,8 +224,8 @@ public final class ConfigCommand {
     }
 
     /**
-     * Sets the wanted patrol speed in blocks/tick, or clears it so the drone patrols at the fastest speed its Patrol
-     * upgrades allow (section 3.2). A speed above that max is kept but capped at runtime. The message shows blocks/second.
+     * Sets the wanted patrol speed in blocks/tick, or clears it so the drone patrols at the base patrol speed (see
+     * section 3.2). A speed above the Patrol upgrades' max is kept but capped at runtime. The message shows blocks/second.
      */
     private static int setPatrolSpeed(CommandContext<CommandSourceStack> ctx, Collection<DroneEntity> drones, Optional<Double> speed) throws CommandSyntaxException {
         return apply(ctx.getSource(), drones, data -> data.withConfig(data.config().withPatrolSpeed(speed)),
