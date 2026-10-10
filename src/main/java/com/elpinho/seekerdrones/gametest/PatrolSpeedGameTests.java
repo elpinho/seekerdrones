@@ -44,8 +44,8 @@ public class PatrolSpeedGameTests {
 
     @GameTest(template = "empty", timeoutTicks = 5)
     public static void unconfiguredPatrolSpeedIsMaxForUpgradeCount(GameTestHelper helper) {
-        helper.assertTrue(close(DroneStats.patrolSpeed(patrolData(1)), 0.25), "1 Patrol: " + DroneStats.patrolSpeed(patrolData(1)));
-        helper.assertTrue(close(DroneStats.patrolSpeed(patrolData(3)), 0.45), "3 Patrol: " + DroneStats.patrolSpeed(patrolData(3)));
+        helper.assertTrue(close(DroneStats.patrolSpeed(patrolData(1)), 0.5), "1 Patrol: " + DroneStats.patrolSpeed(patrolData(1)));
+        helper.assertTrue(close(DroneStats.patrolSpeed(patrolData(3)), 0.9), "3 Patrol: " + DroneStats.patrolSpeed(patrolData(3)));
         helper.succeed();
     }
 
@@ -61,7 +61,7 @@ public class PatrolSpeedGameTests {
     public static void configuredPatrolSpeedAboveMaxIsClampedButStored(GameTestHelper helper) {
         DroneData base = patrolData(1);
         DroneData data = base.withConfig(base.config().withPatrolSpeed(Optional.of(0.9)));
-        helper.assertTrue(close(DroneStats.patrolSpeed(data), 0.25), "speed=" + DroneStats.patrolSpeed(data));
+        helper.assertTrue(close(DroneStats.patrolSpeed(data), 0.5), "speed=" + DroneStats.patrolSpeed(data));
         helper.assertValueEqual(data.config().patrolSpeed(), Optional.of(0.9), "stored speed");
         // With more upgrades the stored value takes effect (up to its own value).
         DroneData more = patrolData(8).withConfig(data.config());
@@ -76,7 +76,7 @@ public class PatrolSpeedGameTests {
         ServerConfig.UPGRADES_PATROL_PER_UPGRADE_SPEED.set(30.0);
         try {
             double maxSpeed = ServerConfig.get(ServerConfig.DRONE_MAX_SPEED);
-            helper.assertTrue(close(DroneStats.maxPatrolSpeed(1), 0.25), "count 1: " + DroneStats.maxPatrolSpeed(1));
+            helper.assertTrue(close(DroneStats.maxPatrolSpeed(1), 0.5), "count 1: " + DroneStats.maxPatrolSpeed(1));
             helper.assertTrue(close(DroneStats.maxPatrolSpeed(4), maxSpeed),
                     "count 4 should be capped at drone.maxSpeed=" + maxSpeed + ", was " + DroneStats.maxPatrolSpeed(4));
             DroneData data = patrolData(4).withConfig(DroneConfig.createDefault().withPatrolSpeed(Optional.of(1.5)));

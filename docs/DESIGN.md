@@ -629,8 +629,8 @@ All values below are placeholders.
 | `upgrades.totalSlots` | 20 | |
 | `upgrades.<type>.maxCount` | see section 4 | |
 | `upgrades.patrol.baseRadius` / `perUpgrade` | 16 / 16 blocks | |
-| `upgrades.patrol.speed` | 5 blocks/second | Patrol flight speed with one Patrol upgrade (the base of the max patrol speed) |
-| `upgrades.patrol.perUpgradeSpeed` | 2 blocks/second | Extra max patrol speed per additional Patrol upgrade |
+| `upgrades.patrol.speed` | 10 blocks/second | Patrol flight speed with one Patrol upgrade (the base of the max patrol speed) |
+| `upgrades.patrol.perUpgradeSpeed` | 4 blocks/second | Extra max patrol speed per additional Patrol upgrade |
 | `upgrades.patrol.waypointSpacing` | 8 blocks | Distance between patrol waypoints along the circle (at least 8 waypoints) |
 | `upgrades.patrol.maxClimb` | 16 blocks | How far above the patrol height a waypoint may be raised to clear an obstacle; beyond that it is skipped |
 | `upgrades.patrol.climbClearance` | 1.0 block | Gap kept above the obstacle under a raised waypoint |
