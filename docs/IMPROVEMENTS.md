@@ -38,7 +38,6 @@ Status: `idea` | `decided`
 
 ## Drone GUI and visuals
 
-- **Hide non-living entity types from targets** (`idea`): decide whether non-living entity types (item frames, arrows, boats, minecarts and so on) can be target entries at all, and whether the target auto-complete (DESIGN.md §7.2) suggests them. Today they are valid entries and are suggested. Hiding them makes the lists cleaner, but a player might want to target boats or minecarts.
 - **Drone size by upgrade count** (`idea`, direction agreed): a drone's **model** gets slightly bigger the more upgrades it has. It's **visual only**: the hitbox stays fixed (0.75 × 0.4 today), so path finding (the flying node size), the clear-path raycasts (§3.4 and §8.4), the fit checks at follow and patrol positions and the deploy obstruction checks are all unaffected.
   - The growth is **slight**: a fully upgraded drone must never reach 2.5× the base size.
   - The base model can be slightly smaller than it is now, to make room for the growth.

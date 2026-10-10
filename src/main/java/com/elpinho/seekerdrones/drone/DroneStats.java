@@ -86,6 +86,12 @@ public final class DroneStats {
         return upgrades.values().stream().mapToInt(Integer::intValue).sum();
     }
 
+    /** How big the drone is drawn (section 3.7): {@code 1 + sizePerUpgrade × total upgrades}, capped. Never affects the hitbox. */
+    public static float visualScale(DroneData data) {
+        double scale = 1.0 + ServerConfig.get(ServerConfig.DRONE_SIZE_PER_UPGRADE) * totalUpgrades(data.upgrades());
+        return (float) Math.min(scale, ServerConfig.get(ServerConfig.DRONE_MAX_VISUAL_SCALE));
+    }
+
     /** Whether the upgrade counts fit the per-type caps and the total slot limit (section 4). */
     public static boolean withinUpgradeLimits(Map<UpgradeType, Integer> upgrades) {
         for (Map.Entry<UpgradeType, Integer> entry : upgrades.entrySet()) {

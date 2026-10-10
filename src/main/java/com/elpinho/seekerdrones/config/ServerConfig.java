@@ -37,6 +37,8 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue DRONE_MAX_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_CHASE_ACCELERATION_K;
     public static final ModConfigSpec.DoubleValue DRONE_ACCELERATION;
+    public static final ModConfigSpec.DoubleValue DRONE_SIZE_PER_UPGRADE;
+    public static final ModConfigSpec.DoubleValue DRONE_MAX_VISUAL_SCALE;
     public static final ModConfigSpec.DoubleValue DRONE_EXPLOSIVE_ACCELERATION;
     public static final ModConfigSpec.DoubleValue DRONE_TURN_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_FACING_TOLERANCE;
@@ -206,6 +208,12 @@ public class ServerConfig {
         DRONE_CHASE_ACCELERATION_K = BUILDER
                 .comment("Exponential growth rate k in the Explosive chase speed curve.")
                 .defineInRange("chaseAccelerationK", 2.0, 0.0, 10.0);
+        DRONE_SIZE_PER_UPGRADE = BUILDER
+                .comment("How much bigger a drone is drawn per installed upgrade: scale = 1 + sizePerUpgrade x upgrades, capped at maxVisualScale. Visual only: the hitbox never changes.")
+                .defineInRange("sizePerUpgrade", 0.05, 0.0, 1.0);
+        DRONE_MAX_VISUAL_SCALE = BUILDER
+                .comment("Largest visual scale a drone can reach through upgrades (1.0 = never bigger than a bare drone).")
+                .defineInRange("maxVisualScale", 1.5, 1.0, 4.0);
         DRONE_ACCELERATION = BUILDER
                 .comment("Max change in a drone's velocity per tick (blocks/tick²). Lower is smoother but slower to turn and stop.")
                 .defineInRange("acceleration", 0.04, 0.001, 1.5);

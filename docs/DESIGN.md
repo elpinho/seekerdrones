@@ -205,6 +205,12 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 - **Drones only operate in loaded chunks.** A drone in an unloaded chunk freezes like any vanilla entity and resumes when the chunk loads again.
 - There is **no** chunk loading in v1, not even behind a config option.
 
+### 3.7 Size
+
+- A drone is drawn bigger the more upgrades it has: `scale = min(drone.maxVisualScale, 1 + drone.sizePerUpgrade × total upgrades)` (total across all types, section 4). Defaults: +0.05 per upgrade, capped at 1.5.
+- **Visual only:** the model and its shadow scale, but the hitbox stays 0.75 × 0.4. Path finding, ray checks, spawning and collisions are the same for every drone. A bigger hitbox is not in v1.
+- The server computes the scale whenever the drone's data changes and syncs it to clients with the other renderer fields (section 8).
+
 ---
 
 ## 4. Upgrades
@@ -607,6 +613,8 @@ All values below are placeholders.
 | `drone.cruiseSpeed` | 0.4 blocks/tick | |
 | `drone.maxSpeed` | 1.2 blocks/tick | Hard ceiling of about 1.5 |
 | `drone.chaseAccelerationK` | 2.0 | Explosive chase speed curve (section 3.4) |
+| `drone.sizePerUpgrade` | 0.05 | Visual scale added per installed upgrade (section 3.7) |
+| `drone.maxVisualScale` | 1.5 | Cap on the visual scale (section 3.7) |
 | `drone.acceleration` | 0.04 blocks/tick² | Max change in velocity per tick (inertia, section 3.4) |
 | `drone.explosiveAcceleration` | 0.15 blocks/tick² | Same, for an Explosive drone chasing its target |
 | `drone.turnSpeed` | 12 °/tick | Max turn rate of the drone's facing |

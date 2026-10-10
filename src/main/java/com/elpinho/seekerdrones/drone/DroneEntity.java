@@ -74,6 +74,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public class DroneEntity extends PathfinderMob {
     private static final EntityDataAccessor<String> DATA_LABEL = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.STRING);
     private static final EntityDataAccessor<Integer> DATA_COLOR = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Float> DATA_SCALE = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Integer> DATA_STATE = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.INT);
 
     private static final String TAG_DRONE_DATA = "DroneData";
@@ -293,6 +294,7 @@ public class DroneEntity extends PathfinderMob {
         super.defineSynchedData(builder);
         builder.define(DATA_LABEL, "");
         builder.define(DATA_COLOR, DroneConfig.DEFAULT_COLOR.getId());
+        builder.define(DATA_SCALE, 1.0F);
         builder.define(DATA_STATE, DroneState.IDLE.ordinal());
     }
 
@@ -333,6 +335,7 @@ public class DroneEntity extends PathfinderMob {
         navigation.setMaxVisitedNodesMultiplier(Math.max(1.0F, pursuitRange / BASE_FOLLOW_RANGE));
         entityData.set(DATA_LABEL, data.config().label());
         entityData.set(DATA_COLOR, data.config().color().getId());
+        entityData.set(DATA_SCALE, DroneStats.visualScale(data));
     }
 
     /**
@@ -380,6 +383,11 @@ public class DroneEntity extends PathfinderMob {
     /** Sets only the shown color, for client-side GUI previews of a drone that is never added to the level. */
     public void setPreviewColor(DyeColor color) {
         entityData.set(DATA_COLOR, color.getId());
+    }
+
+    /** How big the drone is drawn (section 3.7). Visual only: the hitbox stays the same. */
+    public float getVisualScale() {
+        return entityData.get(DATA_SCALE);
     }
 
     public DroneState getState() {
