@@ -77,6 +77,8 @@ runs {
     client {
         // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
         systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
+        // ZGC keeps GC pauses short, so the client doesn't stutter with dozens of drones on screen.
+        jvmArguments.addAll '-XX:+UseZGC'
     }
 
     // A second dev client for multiplayer tests (join the first one through "Open to LAN").
@@ -85,6 +87,7 @@ runs {
         runType 'client'
         workingDirectory project.file('runs/client2')
         arguments.addAll '--username', 'Dev2'
+        jvmArguments.addAll '-XX:+UseZGC'
     }
 
     server {
