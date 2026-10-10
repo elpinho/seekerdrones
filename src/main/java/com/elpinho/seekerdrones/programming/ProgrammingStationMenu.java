@@ -1,10 +1,13 @@
 package com.elpinho.seekerdrones.programming;
 
+import java.util.List;
+
 import javax.annotation.Nullable;
 
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.UpgradeType;
+import com.elpinho.seekerdrones.machine.UpgradeSlots;
 import com.elpinho.seekerdrones.network.ProgramTemplatePayload;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModItems;
@@ -49,11 +52,15 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
     public static final int INPUT_Y = 85;
     public static final int INVENTORY_X = 43;
     public static final int INVENTORY_Y = 171;
+    /** The screen's console width: the Upgrades tab's slots sit just right of it. */
+    public static final int FRAME_WIDTH = 244;
 
     private static final int PLAYER_SLOTS_START = ProgrammingStationBlockEntity.SLOT_COUNT;
     private static final int PLAYER_SLOTS_END = PLAYER_SLOTS_START + 36;
-    /** All slots, the station's and the player's. */
-    public static final int SLOT_TOTAL = PLAYER_SLOTS_END;
+    /** The station's own Upgrades tab (section 7.2), after the player's slots. */
+    private static final int UPGRADE_SLOTS_START = PLAYER_SLOTS_END;
+    /** All slots: the station's, the player's and the Upgrades tab's. */
+    public static final int SLOT_TOTAL = UPGRADE_SLOTS_START + ProgrammingStationBlockEntity.UPGRADES.size();
 
     private final ContainerLevelAccess access;
     private final BlockPos pos;
@@ -66,20 +73,23 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
     /** Client only: the latest template from the server, or null before the first one arrives. */
     @Nullable
     private DroneProgram template;
+    private final List<Slot> upgradeSlots;
+    /** Client side: whether the Upgrades tab is unfolded. The server always treats the slots as active. */
+    private boolean upgradesShown = true;
 
     /** Client side, opened from the server's extra data. */
     public ProgrammingStationMenu(int containerId, Inventory inventory, RegistryFriendlyByteBuf extraData) {
         this(containerId, inventory, extraData.readBlockPos(), null, new ItemStackHandler(ProgrammingStationBlockEntity.SLOT_COUNT),
-                new SimpleContainerData(DATA_VALUES * 2));
+                UpgradeSlots.createHandler(ProgrammingStationBlockEntity.UPGRADES, () -> {}), new SimpleContainerData(DATA_VALUES * 2));
     }
 
     /** Server side. */
     public ProgrammingStationMenu(int containerId, Inventory inventory, ProgrammingStationBlockEntity station, ContainerData data) {
-        this(containerId, inventory, station.getBlockPos(), station, station.getItems(), data);
+        this(containerId, inventory, station.getBlockPos(), station, station.getItems(), station.getUpgrades(), data);
     }
 
     private ProgrammingStationMenu(int containerId, Inventory inventory, BlockPos pos, @Nullable ProgrammingStationBlockEntity station,
-            IItemHandler items, ContainerData data) {
+            IItemHandler items, IItemHandler upgrades, ContainerData data) {
         super(ModMenuTypes.PROGRAMMING_STATION.get(), containerId);
         this.access = station != null && station.getLevel() != null ? ContainerLevelAccess.create(station.getLevel(), pos) : ContainerLevelAccess.NULL;
         this.pos = pos;
@@ -100,11 +110,22 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
         for (int column = 0; column < 9; column++) {
             addSlot(new Slot(inventory, column, INVENTORY_X + column * 18, INVENTORY_Y + 58));
         }
+        upgradeSlots = UpgradeSlots.createSlots(upgrades, ProgrammingStationBlockEntity.UPGRADES, FRAME_WIDTH, () -> upgradesShown);
+        upgradeSlots.forEach(this::addSlot);
         addDataSlots(data);
     }
 
     public BlockPos getPos() {
         return pos;
+    }
+
+    public List<Slot> getUpgradeSlots() {
+        return upgradeSlots;
+    }
+
+    /** Client side: called by the screen each frame, before slots are drawn or clicked. */
+    public void setUpgradesShown(boolean shown) {
+        this.upgradesShown = shown;
     }
 
     /** The server-side block entity, null on the client. */
@@ -193,7 +214,7 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
         }
         ItemStack stack = slot.getItem();
         ItemStack original = stack.copy();
-        if (index < PLAYER_SLOTS_START) {
+        if (index < PLAYER_SLOTS_START || index >= UPGRADE_SLOTS_START) {
             if (!moveItemStackTo(stack, PLAYER_SLOTS_START, PLAYER_SLOTS_END, true)) {
                 return ItemStack.EMPTY;
             }

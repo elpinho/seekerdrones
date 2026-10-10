@@ -3,6 +3,8 @@ package com.elpinho.seekerdrones.client;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -27,7 +29,9 @@ import com.elpinho.seekerdrones.client.gui.MachineScreen;
 import com.elpinho.seekerdrones.client.gui.SideTab;
 import com.elpinho.seekerdrones.client.gui.StatusStrip;
 import com.elpinho.seekerdrones.client.gui.Swatch;
+import com.elpinho.seekerdrones.client.gui.UpgradesTab;
 import com.elpinho.seekerdrones.config.ServerConfig;
+import com.elpinho.seekerdrones.machine.UpgradeSlots;
 import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneStats;
@@ -76,7 +80,8 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private static final String KEY = "screen.seekerdrones.programming_station.";
 
     // The stepped frame: the console, and the standard 176-wide inventory frame centered under it.
-    private static final int WIDTH = 244;
+    private static final int WIDTH = ProgrammingStationMenu.FRAME_WIDTH;
+    private static final DecimalFormat MULTIPLIER_FORMAT = new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.ROOT));
     private static final int HEIGHT = 252;
     private static final int CONSOLE_HEIGHT = 158;
     private static final int INVENTORY_FRAME_X = 34;
@@ -240,16 +245,25 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private TargetSuggestions suggestions;
     private final DronePreview dronePreview = new DronePreview();
     private final EntityPreview targetPreview = new EntityPreview();
+    private final UpgradesTab upgradesTab;
 
     public ProgrammingStationScreen(ProgrammingStationMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title, WIDTH, HEIGHT, ProgrammingStationMenu.INVENTORY_Y);
         this.inventoryLabelX = ProgrammingStationMenu.INVENTORY_X - 1;
+        // The Upgrades tab must be the top tab: its slots can't move (section 7.7). Anyone may use it (section 7.2).
+        upgradesTab = new UpgradesTab(menu.getUpgradeSlots(), () -> true, ProgrammingStationScreen::upgradeEffect);
+        sideTabs.add(upgradesTab.tab());
         sideTabs.add(SideTab.energyUnit());
         sideTabs.add(new SideTab(22, (graphics, x, y, mouseX, mouseY) -> graphics.blitSprite(Kit.ICON_INFO, x + 9, y + 7, 7, 8))
                 .tooltip(() -> List.of(
                         Component.translatable(KEY + "help"),
                         Component.translatable(KEY + "help.direct").withStyle(ChatFormatting.GRAY),
                         Component.translatable(KEY + "help.template").withStyle(ChatFormatting.GRAY))));
+    }
+
+    /** The drone charge rate and capacity multiplier from {@code count} Energy Upgrades (section 7.2). */
+    private static Component upgradeEffect(UpgradeSlots.Accepted accepted, int count) {
+        return Component.translatable(KEY + "upgrades.effect", MULTIPLIER_FORMAT.format(ProgrammingStationBlockEntity.upgradeMultiplier(count)));
     }
 
     // --- State ---
@@ -1334,6 +1348,8 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         // Nothing under the suggestions is hovered, so no tooltip shows through them.
         boolean overSuggestions = suggestions != null && suggestions.isMouseOver(mouseX, mouseY);
+        // Before the slots are drawn and hovered: the upgrade slots only exist while the tab is unfolded.
+        menu.setUpgradesShown(upgradesTab.isShown());
         super.render(graphics, overSuggestions ? -1 : mouseX, overSuggestions ? -1 : mouseY, partialTick);
         if (hoveredSlot != null && !hoveredSlot.hasItem() && hoveredSlot.index < ProgrammingStationBlockEntity.SLOT_COUNT && menu.getCarried().isEmpty()) {
             UpgradeType type = ProgrammingStationBlockEntity.inputType(hoveredSlot.index);
@@ -1345,6 +1361,9 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
                 KitWidget.showTooltip(List.of(Component.translatable(KEY + "slot.input", name),
                         Component.translatable(KEY + "slot.input.tooltip", name).withStyle(ChatFormatting.GRAY)));
             }
+        }
+        if (hoveredSlot != null && menu.getCarried().isEmpty()) {
+            KitWidget.showTooltip(upgradesTab.emptySlotTooltip(hoveredSlot));
         }
         if (suggestions != null && suggestions.isVisible()) {
             suggestions.render(graphics);
@@ -1365,6 +1384,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     @Override
     protected void renderSlotBackground(GuiGraphics graphics, Slot slot, int x, int y) {
         super.renderSlotBackground(graphics, slot, x, y);
+        upgradesTab.renderGhost(graphics, slot, x + 1, y + 1);
         if (slot.hasItem() || slot.index >= ProgrammingStationBlockEntity.SLOT_COUNT) {
             return;
         }
@@ -1612,6 +1632,9 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
             if (installing != null) {
                 return installingStatus(installing);
             }
+            if (!ProgrammingStationBlockEntity.isFull(drone)) {
+                return chargingStatus(drone);
+            }
             return status(Kit.Light.IDLE, false, Component.translatable(KEY + "status.direct_hint"));
         }
         DroneProgram template = menu.getTemplate();
@@ -1646,7 +1669,9 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
             return status(Kit.Light.WARN, false, Component.translatable(KEY + "status.missing_upgrades", names(missing)));
         }
         if (template.matches(drone)) {
-            return status(Kit.Light.OK, false, Component.translatable(KEY + "status.complete"));
+            return ProgrammingStationBlockEntity.isFull(drone)
+                    ? status(Kit.Light.OK, false, Component.translatable(KEY + "status.complete"))
+                    : chargingStatus(drone);
         }
         return status(Kit.Light.OK, false, Component.translatable(KEY + "status.working"));
     }
@@ -1659,6 +1684,16 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         }
         return status(Kit.Light.OK, false, Component.translatable(KEY + "status.installing", name, installPercent(),
                 EnergyFormat.amount(menu.getStepCost())));
+    }
+
+    /** Charging the drone (section 7.2), or waiting for FE to do it. */
+    private StatusStrip.Status chargingStatus(DroneData drone) {
+        if (menu.getEnergy() <= 0) {
+            return status(Kit.Light.WARN, false, Component.translatable(KEY + "status.no_power_charge"));
+        }
+        int max = DroneStats.maxEnergy(drone);
+        int percent = max > 0 ? (int) ((long) drone.energy() * 100 / max) : 100;
+        return status(Kit.Light.OK, false, Component.translatable(KEY + "status.charging", percent));
     }
 
     private static Component names(List<UpgradeType> types) {

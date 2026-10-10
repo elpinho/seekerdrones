@@ -115,6 +115,28 @@ public class DroneItem extends Item {
         return true;
     }
 
+    // --- Energy bar (section 2.1) ---
+
+    /** The GUI kit's energy green. */
+    private static final int ENERGY_BAR_COLOR = 0x35C25C;
+
+    @Override
+    public boolean isBarVisible(ItemStack stack) {
+        return true;
+    }
+
+    @Override
+    public int getBarWidth(ItemStack stack) {
+        DroneData data = getData(stack);
+        int max = DroneStats.maxEnergy(data);
+        return max > 0 ? Math.round(13f * Math.min(data.energy(), max) / max) : 0;
+    }
+
+    @Override
+    public int getBarColor(ItemStack stack) {
+        return ENERGY_BAR_COLOR;
+    }
+
     // --- Tooltip (section 2.1) ---
 
     @Override

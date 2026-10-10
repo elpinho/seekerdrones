@@ -78,6 +78,10 @@ public enum MachineProvider implements IBlockComponentProvider, StreamServerData
                     Component.translatable(installing.getTranslationKey())), Severity.NORMAL));
             return;
         }
+        if (station.isCharging()) {
+            lines.add(new Line(Component.translatable("jade.seekerdrones.programming_station.charging"), Severity.NORMAL));
+            return;
+        }
         Optional<DroneData> drone = station.getDrone();
         if (mode != ProgrammingMode.TEMPLATE) {
             return;
@@ -92,6 +96,8 @@ public enum MachineProvider implements IBlockComponentProvider, StreamServerData
             lines.add(new Line(Component.translatable("jade.seekerdrones.programming_station.complete"), Severity.SUCCESS));
         } else if (hasExtraUpgrades(drone.get(), station.getTemplate())) {
             lines.add(new Line(Component.translatable("jade.seekerdrones.programming_station.extra_upgrades"), Severity.DANGER));
+        } else if (station.getTemplate().matches(drone.get())) {
+            lines.add(new Line(Component.translatable("jade.seekerdrones.programming_station.no_power_charge"), Severity.WARNING));
         } else {
             lines.add(new Line(Component.translatable("jade.seekerdrones.programming_station.waiting"), Severity.WARNING));
         }

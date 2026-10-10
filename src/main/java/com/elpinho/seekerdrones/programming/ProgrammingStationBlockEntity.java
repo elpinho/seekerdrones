@@ -2,7 +2,9 @@ package com.elpinho.seekerdrones.programming;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import javax.annotation.Nullable;
@@ -15,6 +17,7 @@ import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.drone.UpgradeItem;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.machine.MachineWorkingState;
+import com.elpinho.seekerdrones.machine.UpgradeSlots;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModItems;
@@ -46,7 +49,8 @@ import net.neoforged.neoforge.items.ItemStackHandler;
 /**
  * Drone Programming Station (DESIGN.md section 7.2). In Direct mode a player edits the drone in the slot by hand. In
  * Template mode every drone in the slot is brought to the stored template, one step at a time, and automation may
- * pull it out once it matches. Upgrades are installed in timed steps that spend FE evenly.
+ * pull it out once it matches and is fully charged. Upgrades are installed in timed steps that spend FE evenly, and
+ * the drone is charged from whatever FE the steps leave.
  */
 public class ProgrammingStationBlockEntity extends BlockEntity implements MenuProvider {
     public static final int DRONE_SLOT = 0;
@@ -64,6 +68,11 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
     private static final String TAG_ENERGY_SPENT = "EnergySpent";
     private static final String TAG_STEP_COST = "StepCost";
     private static final String TAG_ACCEPTED = "Accepted";
+    private static final String TAG_UPGRADES = "Upgrades";
+
+    /** What the station's own Upgrades tab takes (section 7.2). Not the input, whose upgrades go into drones. */
+    public static final List<UpgradeSlots.Accepted> UPGRADES = List.of(
+            new UpgradeSlots.Accepted(UpgradeType.ENERGY, () -> ServerConfig.get(ServerConfig.PROGRAMMING_STATION_MAX_ENERGY_UPGRADES)));
 
     private final ItemStackHandler items = new ItemStackHandler(SLOT_COUNT) {
         @Override
@@ -89,6 +98,8 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
     /** Input items that didn't fit when an older save was sorted into the per-type slots, dropped on the next tick. */
     private final List<ItemStack> overflow = new ArrayList<>();
     private final Energy energy = new Energy();
+    /** The Upgrades tab's slots. Not part of any capability, so automation can't reach them. */
+    private final ItemStackHandler upgrades = UpgradeSlots.createHandler(UPGRADES, this::onUpgradesChanged);
     private final IItemHandler automationItems = new AutomationItemHandler();
     private final ContainerData data = new StationData();
     private final MachineWorkingState working = new MachineWorkingState();
@@ -109,6 +120,8 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
     private int progress;
     private int energySpent;
     private int stepCost;
+    /** Whether the drone was charged on the last tick, for Jade. Not saved. */
+    private boolean charging;
 
     public ProgrammingStationBlockEntity(BlockPos pos, BlockState state) {
         super(ModBlockEntities.PROGRAMMING_STATION.get(), pos, state);
@@ -144,6 +157,32 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
 
     public IEnergyStorage getEnergyStorage() {
         return energy;
+    }
+
+    public ItemStackHandler getUpgrades() {
+        return upgrades;
+    }
+
+    /** Energy Upgrades in the station's own Upgrades tab (section 7.2). */
+    public int getEnergyUpgrades() {
+        return upgrades.getStackInSlot(0).getCount();
+    }
+
+    /** {@code multiplier^count}: what the Energy Upgrades multiply the charge rate and capacity by (section 7.2). */
+    public static double upgradeMultiplier(int energyUpgrades) {
+        return Math.pow(ServerConfig.get(ServerConfig.PROGRAMMING_STATION_UPGRADE_MULTIPLIER), energyUpgrades);
+    }
+
+    /** The most FE per tick the station gives the drone in its slot (section 7.2). */
+    public int getChargeRate() {
+        return (int) Math.min(ServerConfig.get(ServerConfig.PROGRAMMING_STATION_CHARGE_RATE) * upgradeMultiplier(getEnergyUpgrades()),
+                Integer.MAX_VALUE);
+    }
+
+    /** Removing an Energy Upgrade lowers the capacity, and stored FE above it is lost (section 7.2). */
+    private void onUpgradesChanged() {
+        energy.stored = Math.min(energy.stored, energy.getMaxEnergyStored());
+        setChanged();
     }
 
     public ProgrammingMode getMode() {
@@ -190,9 +229,19 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         return DroneStats.withinUpgradeLimits(template.upgrades());
     }
 
-    /** Template mode, the drone was inserted in Template mode, and it matches the template exactly. */
+    /** Template mode, the drone was inserted in Template mode, it matches the template exactly and is fully charged. */
     public boolean isComplete() {
-        return mode == ProgrammingMode.TEMPLATE && accepted && isTemplateValid() && getDrone().map(template::matches).orElse(false);
+        return mode == ProgrammingMode.TEMPLATE && accepted && isTemplateValid()
+                && getDrone().map(drone -> template.matches(drone) && isFull(drone)).orElse(false);
+    }
+
+    public static boolean isFull(DroneData drone) {
+        return drone.energy() >= DroneStats.maxEnergy(drone);
+    }
+
+    /** Whether the drone in the slot was charged on the last tick. */
+    public boolean isCharging() {
+        return charging;
     }
 
     private boolean inputHas(UpgradeType type) {
@@ -210,8 +259,9 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         station.working.update(level, pos, station.tick());
     }
 
-    /** Returns whether an install step made progress this tick. */
+    /** Returns whether an install step made progress or the drone was charged this tick. */
     private boolean tick() {
+        charging = false;
         Optional<DroneData> current = getDrone();
         if (current.isEmpty()) {
             cancelStep();
@@ -237,7 +287,22 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
                 }
             }
         }
-        return installing != null && advanceStep(drone);
+        boolean installed = installing != null && advanceStep(drone);
+        // The step takes its FE first, and may have installed an Energy upgrade, so charge the drone as it is now.
+        charging = getDrone().map(this::charge).orElse(false);
+        return installed || charging;
+    }
+
+    /** Gives the drone up to the charge rate in FE from the buffer (section 7.2). */
+    private boolean charge(DroneData drone) {
+        int given = Math.min(Math.min(getChargeRate(), energy.stored),
+                DroneStats.maxEnergy(drone) - drone.energy());
+        if (given <= 0) {
+            return false;
+        }
+        energy.stored -= given;
+        writeDrone(drone.withEnergy(drone.energy() + given));
+        return true;
     }
 
     /** The first type (in a fixed order) the template wants more of, that is in the input and fits the caps. */
@@ -406,6 +471,7 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
             tag.putInt(TAG_STEP_COST, stepCost);
         }
         tag.putBoolean(TAG_ACCEPTED, accepted);
+        tag.put(TAG_UPGRADES, upgrades.serializeNBT(registries));
     }
 
     @Override
@@ -442,6 +508,9 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
                 items.setStackInSlot(i, sorted[i]);
             }
         }
+        if (tag.contains(TAG_UPGRADES)) {
+            upgrades.deserializeNBT(registries, tag.getCompound(TAG_UPGRADES));
+        }
         energy.stored = Math.max(0, tag.getInt(TAG_ENERGY));
         ProgrammingMode loadedMode = ProgrammingMode.CODEC.byName(tag.getString(TAG_MODE));
         mode = loadedMode != null ? loadedMode : ProgrammingMode.DIRECT;
@@ -459,7 +528,7 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         programVersion++;
     }
 
-    /** The item keeps the mode and template when the station is broken (section 7.2). */
+    /** The item keeps the mode, template and Upgrades tab when the station is broken (section 7.2). */
     @Override
     protected void applyImplicitComponents(DataComponentInput componentInput) {
         super.applyImplicitComponents(componentInput);
@@ -469,6 +538,14 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
             template = settings.template();
             programVersion++;
         }
+        Map<UpgradeType, Integer> saved = componentInput.get(ModDataComponents.MACHINE_UPGRADES);
+        if (saved != null) {
+            for (int slot = 0; slot < UPGRADES.size(); slot++) {
+                UpgradeSlots.Accepted accepted = UPGRADES.get(slot);
+                int count = saved.getOrDefault(accepted.type(), 0);
+                upgrades.setStackInSlot(slot, count > 0 ? new ItemStack(accepted.item(), count) : ItemStack.EMPTY);
+            }
+        }
     }
 
     @Override
@@ -477,6 +554,16 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         if (mode != ProgrammingMode.DIRECT || !template.equals(DroneProgram.createDefault())) {
             components.set(ModDataComponents.PROGRAMMING_STATION, new ProgrammingStationSettings(mode, template));
         }
+        Map<UpgradeType, Integer> counts = new HashMap<>();
+        for (int slot = 0; slot < UPGRADES.size(); slot++) {
+            int count = upgrades.getStackInSlot(slot).getCount();
+            if (count > 0) {
+                counts.put(UPGRADES.get(slot).type(), count);
+            }
+        }
+        if (!counts.isEmpty()) {
+            components.set(ModDataComponents.MACHINE_UPGRADES, counts);
+        }
     }
 
     @Override
@@ -484,6 +571,7 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         super.removeComponentsFromTag(tag);
         tag.remove(TAG_MODE);
         tag.remove(TAG_TEMPLATE);
+        tag.remove(TAG_UPGRADES);
     }
 
     /** All item stacks, for dropping when the block is broken. */
@@ -531,7 +619,7 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
         }
     }
 
-    /** Accepts FE on every side, never gives it out. The capacity follows the config. */
+    /** Accepts FE on every side, never gives it out. The capacity follows the config and the Energy Upgrades. */
     private class Energy implements IEnergyStorage {
         private int stored;
 
@@ -557,7 +645,8 @@ public class ProgrammingStationBlockEntity extends BlockEntity implements MenuPr
 
         @Override
         public int getMaxEnergyStored() {
-            return ServerConfig.get(ServerConfig.PROGRAMMING_STATION_ENERGY_CAPACITY);
+            return (int) Math.min(ServerConfig.get(ServerConfig.PROGRAMMING_STATION_ENERGY_CAPACITY) * upgradeMultiplier(getEnergyUpgrades()),
+                    Integer.MAX_VALUE);
         }
 
         @Override

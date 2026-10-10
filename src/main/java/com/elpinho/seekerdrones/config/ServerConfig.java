@@ -57,6 +57,7 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue DRONE_DEPLOY_REST_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_WATER_DAMAGE;
     public static final ModConfigSpec.IntValue DRONE_WATER_DAMAGE_INTERVAL;
+    public static final ModConfigSpec.IntValue DRONE_ITEM_CHARGE_RATE;
     public static final ModConfigSpec.DoubleValue DRONE_SELF_HEAL_PERCENT_PER_SECOND;
     public static final ModConfigSpec.IntValue DRONE_SELF_HEAL_DELAY;
     public static final ModConfigSpec.IntValue DRONE_SELF_HEAL_ENERGY_PER_HP;
@@ -118,6 +119,9 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_ENERGY_CAPACITY;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_INSTALL_TIME;
+    public static final ModConfigSpec.IntValue PROGRAMMING_STATION_CHARGE_RATE;
+    public static final ModConfigSpec.IntValue PROGRAMMING_STATION_MAX_ENERGY_UPGRADES;
+    public static final ModConfigSpec.DoubleValue PROGRAMMING_STATION_UPGRADE_MULTIPLIER;
 
     // === chargingStation ===
     public static final ModConfigSpec.IntValue CHARGING_STATION_CAPACITY;
@@ -314,6 +318,9 @@ public class ServerConfig {
         DRONE_WATER_DAMAGE_INTERVAL = BUILDER
                 .comment("Ticks between water damage applications.")
                 .defineInRange("waterDamageInterval", 20, 1, Integer.MAX_VALUE);
+        DRONE_ITEM_CHARGE_RATE = BUILDER
+                .comment("Max FE per tick the drone item accepts from other mods' item chargers.")
+                .defineInRange("itemChargeRate", 2000, 0, Integer.MAX_VALUE);
         DRONE_SELF_HEAL_PERCENT_PER_SECOND = BUILDER
                 .comment("Percent of its max HP a drone regains per second on its own, before the Energy upgrade bonus. 0 disables self-healing.")
                 .defineInRange("selfHealPercentPerSecond", 0.5, 0.0, 100.0);
@@ -407,6 +414,15 @@ public class ServerConfig {
         PROGRAMMING_STATION_INSTALL_TIME = BUILDER
                 .comment("Ticks one upgrade install step takes. Its FE cost is spent evenly over this time.")
                 .defineInRange("installTime", 20, 1, Integer.MAX_VALUE);
+        PROGRAMMING_STATION_CHARGE_RATE = BUILDER
+                .comment("Max FE per tick the station gives the drone in its slot, before Energy Upgrades. Install steps take their FE first.")
+                .defineInRange("chargeRate", 4000, 0, Integer.MAX_VALUE);
+        PROGRAMMING_STATION_MAX_ENERGY_UPGRADES = BUILDER
+                .comment("Energy Upgrades a Programming Station accepts in its Upgrades tab.")
+                .defineInRange("maxEnergyUpgrades", 4, 0, 64);
+        PROGRAMMING_STATION_UPGRADE_MULTIPLIER = BUILDER
+                .comment("Drone charge rate and FE capacity multiplier per Energy Upgrade in a Programming Station (compounds).")
+                .defineInRange("upgradeMultiplier", 2.0, 1.0, 16.0);
         BUILDER.pop(); // programmingStation
 
         BUILDER.push("chargingStation");

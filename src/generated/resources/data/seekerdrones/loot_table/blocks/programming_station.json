@@ -15,7 +15,8 @@
             {
               "function": "minecraft:copy_components",
               "include": [
-                "seekerdrones:programming_station"
+                "seekerdrones:programming_station",
+                "seekerdrones:machine_upgrades"
               ],
               "source": "block_entity"
             }

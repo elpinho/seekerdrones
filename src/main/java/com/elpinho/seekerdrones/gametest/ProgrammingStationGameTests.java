@@ -84,17 +84,20 @@ public class ProgrammingStationGameTests {
         int cost = UpgradeType.ENERGY.baseCost();
         helper.assertTrue(ProgramRules.installCost(UpgradeType.ENERGY, 1) == cost, "installCost(ENERGY, 1) should be baseCost x 1");
         helper.assertTrue(ProgramRules.installCost(UpgradeType.ENERGY, 3) == 3 * cost, "installCost(ENERGY, 3) should be baseCost x 3, with no capacity added");
-        station.getEnergyStorage().receiveEnergy(cost + 5_000, false);
+        // The station also charges the drone with whatever the step leaves, so account for that: spent = cost + charged.
+        int initial = cost + 100_000;
+        station.getEnergyStorage().receiveEnergy(initial, false);
 
         station.requestInstall(UpgradeType.ENERGY);
         helper.succeedWhen(() -> {
             DroneData after = station.getDrone().orElseThrow();
             helper.assertTrue(after.upgradeCount(UpgradeType.ENERGY) == 1, "Energy upgrade not installed yet");
-            helper.assertTrue(station.getEnergyStorage().getEnergyStored() == 5_000,
-                    "Energy install should cost baseCost x index = " + cost + ", stored=" + station.getEnergyStorage().getEnergyStored());
+            int charged = after.energy() - before.energy();
+            helper.assertTrue(initial - station.getEnergyStorage().getEnergyStored() == cost + charged,
+                    "Energy install should cost baseCost x index = " + cost + " (plus " + charged + " charged), stored=" + station.getEnergyStorage().getEnergyStored());
             helper.assertTrue(DroneStats.maxEnergy(after) == 2 * baseMax, "Max energy should double, was " + DroneStats.maxEnergy(after));
-            helper.assertTrue(after.energy() == before.energy(),
-                    "Drone energy should be unchanged (the extra capacity arrives empty), was " + after.energy() + " expected " + before.energy());
+            helper.assertTrue(after.energy() >= before.energy(),
+                    "Drone energy should arrive at least unchanged (the extra capacity arrives empty, then the station charges it), was " + after.energy());
         });
     }
 
@@ -104,13 +107,18 @@ public class ProgrammingStationGameTests {
         station.getItems().setStackInSlot(0, droneStack(DroneData.createNew().withUpgradeCount(UpgradeType.ENERGY, 1)));
         station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.ENERGY), new ItemStack(ModItems.upgrade(UpgradeType.ENERGY).get(), 1));
         int cost = 2 * UpgradeType.ENERGY.baseCost();
-        station.getEnergyStorage().receiveEnergy(cost + 3_000, false);
+        // The drone isn't full after the first upgrade, so the station charges it too: spent = cost + charged.
+        int initial = cost + 100_000;
+        int energyBefore = station.getDrone().orElseThrow().energy();
+        station.getEnergyStorage().receiveEnergy(initial, false);
 
         station.requestInstall(UpgradeType.ENERGY);
         helper.succeedWhen(() -> {
-            helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.ENERGY) == 2, "Second Energy upgrade not installed yet");
-            helper.assertTrue(station.getEnergyStorage().getEnergyStored() == 3_000,
-                    "Second Energy install should cost 2 x baseCost = " + cost + ", stored=" + station.getEnergyStorage().getEnergyStored());
+            DroneData after = station.getDrone().orElseThrow();
+            helper.assertTrue(after.upgradeCount(UpgradeType.ENERGY) == 2, "Second Energy upgrade not installed yet");
+            int charged = after.energy() - energyBefore;
+            helper.assertTrue(initial - station.getEnergyStorage().getEnergyStored() == cost + charged,
+                    "Second Energy install should cost 2 x baseCost = " + cost + " (plus " + charged + " charged), stored=" + station.getEnergyStorage().getEnergyStored());
         });
     }
 

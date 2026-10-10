@@ -147,6 +147,9 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.programming_station.status.complete", "Complete: ready to be taken out");
         add("screen.seekerdrones.programming_station.status.reinsert_drone", "This drone was here before Template mode. Re-insert it to program it.");
         add("screen.seekerdrones.programming_station.status.working", "Programming...");
+        add("screen.seekerdrones.programming_station.upgrades.effect", "Drone charge rate and capacity ×%s");
+        add("screen.seekerdrones.programming_station.status.charging", "Charging the drone: %s%%");
+        add("screen.seekerdrones.programming_station.status.no_power_charge", "Not enough energy to charge the drone");
         addItem(ModItems.DRONE_REMOTE, "Drone Remote");
         addItem(ModItems.DRONE_ROTOR, "Drone Rotor");
         addItem(ModItems.SEEKER_CORE, "Seeker Core");
@@ -304,6 +307,8 @@ public class ModLanguageProvider extends LanguageProvider {
         add("jade.seekerdrones.programming_station.complete", "Complete");
         add("jade.seekerdrones.programming_station.extra_upgrades", "Drone has extra upgrades");
         add("jade.seekerdrones.programming_station.waiting", "Waiting for upgrades");
+        add("jade.seekerdrones.programming_station.charging", "Charging the drone");
+        add("jade.seekerdrones.programming_station.no_power_charge", "Waiting for energy to charge the drone");
         add("jade.seekerdrones.deploying_station.auto_deploy_on", "Auto-deploy: On");
         add("jade.seekerdrones.charging_station.drone", "%s: %s");
         add("jei.seekerdrones.drone_assembly.time", "%s s");

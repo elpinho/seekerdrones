@@ -1,7 +1,9 @@
 package com.elpinho.seekerdrones.programming;
 
 import java.util.List;
+import java.util.Map;
 
+import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 
 import net.minecraft.ChatFormatting;
@@ -24,6 +26,16 @@ public class ProgrammingStationItem extends BlockItem {
         if (settings != null) {
             tooltip.add(Component.translatable("tooltip.seekerdrones.programming_station.programmed",
                     Component.translatable(settings.mode().getTranslationKey())).withStyle(ChatFormatting.GRAY));
+        }
+        Map<UpgradeType, Integer> upgrades = stack.get(ModDataComponents.MACHINE_UPGRADES);
+        if (upgrades != null) {
+            for (UpgradeType type : UpgradeType.values()) {
+                int count = upgrades.getOrDefault(type, 0);
+                if (count > 0) {
+                    tooltip.add(Component.translatable("tooltip.seekerdrones.machine_upgrades", Component.translatable(type.getTranslationKey()), count)
+                            .withStyle(ChatFormatting.GRAY));
+                }
+            }
         }
     }
 }

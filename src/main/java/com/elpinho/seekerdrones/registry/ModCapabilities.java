@@ -1,13 +1,14 @@
 package com.elpinho.seekerdrones.registry;
 
 import com.elpinho.seekerdrones.deploying.DeployingStationBlockEntity;
+import com.elpinho.seekerdrones.drone.DroneItemEnergy;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
 
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 
-/** Block capabilities of the machines (DESIGN.md section 7): exposed on every side. */
+/** Block capabilities of the machines (DESIGN.md section 7), exposed on every side, and the drone item's energy (section 2.1). */
 public final class ModCapabilities {
     private ModCapabilities() {}
 
@@ -33,5 +34,7 @@ public final class ModCapabilities {
                 (station, side) -> station.getEnergyStorage());
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.DEPLOYING_STATION.get(),
                 (station, side) -> station.getAutomationItems());
+
+        event.registerItem(Capabilities.EnergyStorage.ITEM, (stack, context) -> new DroneItemEnergy(stack), ModItems.DRONE.get());
     }
 }

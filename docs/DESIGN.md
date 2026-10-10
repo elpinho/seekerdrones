@@ -38,6 +38,8 @@ Every step accepts automation (pipes, hoppers, conveyors). None of the machines 
 - The **Drone item** carries all drone state in a custom data component (`seekerdrones:drone_data`, see section 8.2).
 - The **Drone entity** is the deployed, flying form. Converting between item and entity is lossless: energy, health, upgrades, config, operator group, persistent drone ID, label and color are all preserved.
 - **Item tooltip:** the first line is `<label> - <drone ID>` (or just the drone ID if there is no label), drawn in the drone's color using the dye's text color (`DyeColor.getTextColor`) so dark colors stay readable. There is no separate color line. The second line is `Owner: <name>` if the drone has an owner (section 6.3), shown even when the drone has a group. Below it the tooltip lists energy, health, installed upgrades (if any) and the number of target entries the drone can actually use (entries ignored by the runtime fail-safe, section 2.7, or blocked by the target blacklist, section 3.3, aren't counted).
+- **Energy bar:** the drone item always shows an item bar (like Mekanism's energized items, even when full) with its energy over its max energy, in the GUI kit's energy green. A stack without the data component (creative tab, `/give`) counts as fully charged.
+- **Chargeable:** the item exposes NeoForge's item energy capability (`Capabilities.EnergyStorage.ITEM`), backed by the component's `energy`, so any FE item charger (e.g. Mekanism Energy Cubes and Chargepads) can charge it. It accepts at most `drone.itemChargeRate` FE per tick and is **receive-only**: energy can never be pulled back out. It doesn't restore HP (repair needs the Charging Station's fluid, section 7.4). The Programming Station also charges drones (section 7.2).
 
 ### 2.2 Deploying
 
@@ -423,6 +425,7 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
 - **Slots:** one drone slot and an **upgrade input** with **one slot per upgrade type**, each accepting only its own type, up to a full stack. Automation can then always feed every type: one type can never fill the input and block the others. A slot accepts its type even when the drone in the slot can't take more of it (cap reached, or the program doesn't want it), since the input also buffers upgrades for later drones. There are no output slots: the station never pushes items out (see *Automation* below).
   - Stations saved with the older shared 9-slot input sort its stacks into the per-type slots on load. Whatever doesn't fit drops on top of the station.
 - **Energy:** an FE buffer of `programmingStation.energyCapacity`, filled on every side.
+- **Charging:** the station charges the drone in the slot from its buffer, at up to `programmingStation.chargeRate` FE per tick (times the Energy upgrade multiplier below), up to the drone's max energy (Energy upgrades installed here raise it). It never restores HP. Install steps come first: while a step runs, it takes its FE for the tick first and charging only uses what's left. It charges every drone in Direct mode, and in Template mode only a drone the template applies to (inserted in Template mode, with a valid template): a drone left alone isn't charged either.
 - **Mode** (the GUI's Direct/Template switch, default **Direct**):
   - **Direct:** the editor always shows the drone in the slot. Inserting a drone loads its upgrades and settings into the editor, and every edit applies to that drone:
     - **Left-clicking** an upgrade's tile starts installing one upgrade of that type (an install step, below). It only works while the upgrade input holds one of that type, the per-type cap and the total slot limit allow it, and no other step is running.
@@ -449,12 +452,17 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
   - The base cost is `baseCost[type] × n`, where `n` is the index of the upgrade being installed within its type (1st, 2nd…).
   - Energy upgrades cost the same as any other type. The capacity they add arrives empty (section 4).
 - **Manual removal:** a player removes installed upgrades one at a time from the GUI: with a right-click on its tile in Direct mode, or with **Shift+right-click** in Template mode on a tile where the drone has more than the program asks for. The removed upgrade goes into **that player's inventory** (a full refund), or drops at their feet if it is full. Removal is instant and costs no FE. Removing an Energy or Health upgrade lowers the max, and anything above the new max is lost. The station **never** removes upgrades on its own. In Template mode, a drone with more upgrades than the program asks for doesn't match, so it is never complete, and the GUI shows a warning.
-- **Complete:** in Template mode, a drone inserted in Template mode is complete once its upgrades and settings match the program exactly.
+- **Energy upgrades:** like the Charging Station (section 7.4), the station takes up to `programmingStation.maxEnergyUpgrades` (4) Energy Upgrade items of its own. Each one multiplies its FE capacity and drone charge rate by `programmingStation.upgradeMultiplier` (×2): 200 000 FE and 4 000 FE/tick with none, 3.2M FE and 64 000 FE/tick with 4. They don't change install steps (time or cost).
+  - They sit in the station's **Upgrades** side tab (the generic kit component, section 7.7; the top side tab), separate from the upgrade input, whose upgrades go into drones. Shift-clicking an Energy Upgrade from the inventory still goes to the input; the tab is filled by dragging.
+  - **Anyone** may change them, like the rest of the station (no access control, section 6.2). Hoppers and pipes can't reach the tab: the station's item handler doesn't expose it.
+  - Removing an upgrade lowers the capacity, and stored FE above the new capacity is lost.
+  - Breaking the station keeps them in the dropped item (`seekerdrones:machine_upgrades`, like the Charging Station), next to the mode and template. The item's tooltip lists them.
+- **Complete:** in Template mode, a drone inserted in Template mode is complete once its upgrades and settings match the program exactly **and** it is fully charged. So the station charges a drone before releasing it.
 - **Automation** (item capability, every side):
   - Drones can be inserted into the drone slot while it's empty, and upgrade items into the upgrade input.
   - The drone can be **extracted only in Template mode, and only once it is complete**. The station never pushes it out: a hopper below or an extracting pipe pulls it, like the Factory's output (section 7.1). In Direct mode automation can never extract the drone. Players can always take it out by hand.
   - The upgrade input can't be extracted by automation.
-- **Breaking the station** drops the drone and the upgrade input. The item keeps the mode and the template in a data component (`seekerdrones:programming_station`), so placing it again restores them.
+- **Breaking the station** drops the drone and the upgrade input. The item keeps the mode and the template in a data component (`seekerdrones:programming_station`), so placing it again restores them. The Upgrades tab is kept too (see *Energy upgrades*).
 - **GUI** (the machine GUI kit, 244 × 252: a wide console with the standard 176-wide inventory centered below it):
   - The left column has the energy gauge, the **drone bay** and the upgrade input under it: the per-type slots fill a 3×3 grid in the upgrade table's order (section 4), and the cell left over stays empty. Empty slots show ghosts (a drone, or the slot's upgrade), and their tooltip names the type. The bay is a client-side preview of the program's drone in its color, circling its patrol radius (scaled to the largest radius its Patrol upgrades allow), or hovering without Patrol. It never shows a real position. A ring around the drone slot fills while an install step runs.
   - The **Direct/Template switch** is in the title row. The accent color follows the mode (blue for Direct, amber for Template) on the switch, the selected tab and the editor's top edge.
@@ -463,8 +471,8 @@ The station works in two modes: **Direct** mode is for a player upgrading and co
   - **Targets:** one row per slot (see *Targets* above). Empty rows have a dashed border and say "+ add target". The kind button shows the kind as an icon (a spawn egg, a #, the player's face). Ignored entries get an amber "!" with the reason in the tooltip. Clicking a row selects it, and a preview beside the list shows the selected entry, like the drone status screen's target cards (section 2.4): entities turn, tags cycle through their members and players use their tab-list skin. Beyond 5 rows, the list scrolls with the mouse wheel.
   - **Behavior:** the follow distance as a slider with a number field. With Patrol in the program, the patrol center (x, y and z fields, **Here** and **Clear**) and the patrol radius as a slider (up to the programmed max) with a number field. A slider sets its value when it's released.
   - **Identity:** the label field, a palette of the 16 dye colors with the selected color's name, and a nameplate preview (the label in the drone's color and, with a drone in the slot, its ID).
-  - A **status strip** with a light: hints while idle (gray), installing, complete or working (green), waiting for upgrades or energy or for the drone to be re-inserted (amber), and a rejected edit, extra upgrades or a program over the limits (red; the last two blink).
-  - Side tabs: the energy unit (section 5.4) and **Help**, whose tooltip explains Direct and Template mode.
+  - A **status strip** with a light: hints while idle (gray), installing, charging (with the drone's charge percent), complete or working (green), waiting for upgrades or energy or for the drone to be re-inserted (amber), and a rejected edit, extra upgrades or a program over the limits (red; the last two blink).
+  - Side tabs, top to bottom: **Upgrades** (see *Energy upgrades*; the folded tab's tooltip gives the count and cap and, in gray, the drone charge rate and capacity multiplier), the energy unit (section 5.4) and **Help**, whose tooltip explains Direct and Template mode.
 
 ### 7.3 Drone Deploying Station
 
@@ -554,7 +562,7 @@ Upgrade and Charging Station recipes stay placeholders until the v1 balance pass
 
 - The Drone Factory, Programming Station and Charging Station have a `working` boolean block state. The server writes it **only when it changes** (one block update per start or stop, never per tick). A machine turns idle only after 20 ticks without work, so a machine that works in bursts (e.g. short on FE) doesn't flicker.
   - **Factory:** working while a build makes progress.
-  - **Programming Station:** working while an install step makes progress.
+  - **Programming Station:** working while an install step makes progress or the drone is being charged.
   - **Charging Station:** working while the docked drone takes FE or heals. It has no ticker, so the drone reports the work, and a scheduled block tick (only while working) turns the state off once the reports stop, including when the drone is picked up, destroyed or unloaded. A second state, `repairing`, is set while the drone is also being healed.
 - **Particles** are spawned on the client in `Block.animateTick`, which vanilla only calls for blocks near the player, so they cost the server nothing:
   - **Factory:** smoke rising from the top.
@@ -643,7 +651,7 @@ The drone entity saves the same data in its entity NBT. Only the fields the clie
   - Everyone: the drone ID, and its energy as Jade's energy bar (drones have no energy capability, so the plugin provides it).
   - Its operators only (the players who may open its status screen, section 2.4): the state, with the target's name while chasing or following, the owner (the group owner's name for a drone in an Operator Group) and the target entries it can actually use, like the status screen.
 - **Drone Factory:** a progress bar while building, and a line for Waiting for power, Missing fluid or Output full.
-- **Programming Station:** the mode, a progress bar and "Installing *X*" during an install step. In Template mode with a drone in the slot: Complete, Waiting for upgrades, Drone has extra upgrades, or Re-insert the drone. A template over the limits is shown even without a drone.
+- **Programming Station:** the mode, a progress bar and "Installing *X*" during an install step, and "Charging the drone" while it charges one (with no install step running). In Template mode with a drone in the slot: Complete, Waiting for upgrades, Waiting for energy to charge the drone (it matches the program but isn't full and the station has no FE), Drone has extra upgrades, or Re-insert the drone. A template over the limits is shown even without a drone.
 - **Deploying Station:** Auto-deploy On or Off, and a line for Not enough energy or Space above blocked.
 - **Charging Station:** with a drone docking or docked, its status (Drone docking, Charging, Repairing, Out of power) and the drone's label (or ID).
 
@@ -699,6 +707,7 @@ All values below are placeholders.
 | `drone.deployRestSpeed` | 0.01 blocks/tick | Below this speed the drone comes to rest |
 | `drone.waterDamage` | 1 HP | |
 | `drone.waterDamageInterval` | 20 ticks | |
+| `drone.itemChargeRate` | 2 000 FE/tick | Max FE per tick the drone item accepts from other mods' chargers |
 | `drone.selfHealPercentPerSecond` | 0.5% | Of the drone's max HP, before the Energy upgrade bonus; 0 disables self-healing (section 2.5) |
 | `drone.selfHealDelay` | 20 ticks | Without damage before self-healing starts |
 | `drone.selfHealEnergyPerHp` | 2 000 FE | FE per HP self-healed, no upgrade multiplier |
@@ -727,6 +736,9 @@ All values below are placeholders.
 | `programmingStation.baseCost.<type>` | 10 000 FE | Multiplied by index `n` |
 | `programmingStation.energyCapacity` | 200 000 FE | FE the station can store |
 | `programmingStation.installTime` | 20 ticks | Duration of one install step |
+| `programmingStation.chargeRate` | 4 000 FE/tick | Max FE per tick given to the drone in the slot, with no upgrades |
+| `programmingStation.maxEnergyUpgrades` | 4 | Energy Upgrades the station's Upgrades tab takes |
+| `programmingStation.upgradeMultiplier` | 2.0 | Charge rate and capacity multiplier per Energy Upgrade (compounds) |
 | `chargingStation.capacity` | 400 000 FE | FE the station can store with no upgrades |
 | `chargingStation.chargeRate` | 2 000 FE/tick | Charge rate with no upgrades |
 | `chargingStation.maxEnergyUpgrades` | 4 | |
