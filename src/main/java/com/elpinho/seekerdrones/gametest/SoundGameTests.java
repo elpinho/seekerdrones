@@ -27,6 +27,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.InteractionHand;
@@ -66,7 +67,10 @@ public class SoundGameTests {
             return;
         }
         SoundEvent sound = event.getSound().value();
-        if (!"seekerdrones".equals(BuiltInRegistries.SOUND_EVENT.getKey(sound).getNamespace())) {
+        // Other mods can play unregistered SoundEvents; getKey returns null for those, and an exception here would
+        // propagate into the caller's tick and crash the server.
+        ResourceLocation key = BuiltInRegistries.SOUND_EVENT.getKey(sound);
+        if (key == null || !"seekerdrones".equals(key.getNamespace())) {
             return;
         }
         PLAYED.add(new Played(sound, level, event.getPosition(), level.getGameTime()));
