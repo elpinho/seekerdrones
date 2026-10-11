@@ -1,0 +1,13 @@
+{
+  "entries": [
+    {
+      "enum": "net/minecraft/client/model/HumanoidModel$ArmPose",
+      "name": "SEEKERDRONES_DRONE_REMOTE",
+      "constructor": "(ZLnet/neoforged/neoforge/client/IArmPoseTransformer;)V",
+      "parameters": {
+        "class": "com/elpinho/seekerdrones/client/RemoteHandRenderer",
+        "field": "ARM_POSE"
+      }
+    }
+  ]
+}

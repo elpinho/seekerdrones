@@ -39,6 +39,9 @@ public class SeekerDronesClient {
         modEventBus.addListener(SeekerDronesClient::registerLayerDefinitions);
         modEventBus.addListener(SeekerDronesClient::registerItemColors);
         modEventBus.addListener(SeekerDronesClient::registerScreens);
+        // The Drone Remote is held in both hands (DESIGN.md section 2.10).
+        modEventBus.addListener(RemoteHandRenderer::registerClientExtensions);
+        NeoForge.EVENT_BUS.addListener(RemoteHandRenderer::onRenderHand);
         // The unit is saved per world/server, so forget it when leaving one (DESIGN.md section 5.4).
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> EnergyFormat.setClientUnit(EnergyUnit.AUTO));
         DeployingStationBlock.setClientDeployListener(DeployingStationScreen::onDeployed);

@@ -1,4 +1,5 @@
-"""Generates the mod's placeholder textures (until the commissioned art replaces them).
+"""Generates the mod's placeholder textures (until the commissioned art replaces them), and the 3D Drone Remote
+model, whose geometry is laid out together with its texture.
 
 Everything is drawn from scratch with a shared palette; no vanilla textures are copied. Run from anywhere:
 
@@ -19,6 +20,7 @@ from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[2]
 TEXTURES = ROOT / "src/main/resources/assets/seekerdrones/textures"
+MODELS = ROOT / "src/main/resources/assets/seekerdrones/models"
 
 # Shared palette (RGBA). Keys are single characters so pixel grids can be written as text.
 PALETTE = {
@@ -237,6 +239,126 @@ def drone_remote(tint):
         for row in REMOTE_ROWS
     ]
     return grid(rows, REMOTE_PALETTE)
+
+
+# The 3D model held in the hand and dropped on the ground (the inventory keeps the sprite above). Each element is a box
+# (from, to, texOffs) with the same UV layout as an entity model box, so the texture is painted with box_faces. The
+# controls face north (-Z), the side the player looks at. Elements in REMOTE_3D_TINTED use the tint layer's color.
+REMOTE_3D_TEXTURE_SIZE = (64, 32)
+REMOTE_3D_ELEMENTS = {
+    "body": ((1, 3, 7), (15, 7, 10), (0, 0)),
+    "grip_left": ((0, 0, 8), (3, 5, 11), (36, 0)),
+    "grip_right": ((13, 0, 8), (16, 5, 11), (36, 0)),
+    "stick_left": ((3, 4, 6), (5, 6, 7), (48, 0)),
+    "stick_right": ((11, 4, 6), (13, 6, 7), (48, 0)),
+    "led": ((7, 5, 6), (9, 6, 7), (56, 0)),
+    "clamp": ((2, 7, 8), (14, 8, 10), (0, 8)),
+    "phone": ((3, 8, 9), (13, 14, 10), (28, 8)),
+    "antenna_left": ((1, 7, 10), (2, 14, 11), (52, 8)),
+    "antenna_right": ((14, 7, 10), (15, 14, 11), (52, 8)),
+    "antenna_tip_left": ((1, 14, 10), (2, 15, 11), (56, 8)),
+    "antenna_tip_right": ((14, 14, 10), (15, 15, 11), (56, 8)),
+}
+REMOTE_3D_TINTED = {"led", "antenna_tip_left", "antenna_tip_right"}
+# The phone leans back from its clamp, away from the player, like a tablet on a stand.
+REMOTE_3D_ROTATIONS = {"phone": {"origin": [8, 8, 9.5], "axis": "x", "angle": 22.5}}
+# Item model face name -> box_faces name.
+MODEL_FACES = {"up": "top", "down": "bottom", "west": "right", "north": "front", "east": "left", "south": "back"}
+
+
+def box_size(element):
+    (x0, y0, z0), (x1, y1, z1), _ = element
+    return x1 - x0, y1 - y0, z1 - z0
+
+
+def remote_3d_faces(name):
+    w, h, d = box_size(REMOTE_3D_ELEMENTS[name])
+    return box_faces(*REMOTE_3D_ELEMENTS[name][2], w, h, d)
+
+
+def remote_3d_texture():
+    img = Image.new("RGBA", REMOTE_3D_TEXTURE_SIZE)
+    colors = PALETTE | REMOTE_PALETTE
+
+    def paint(rect, key):
+        x, y, w, h = rect
+        for i in range(x, x + w):
+            for j in range(y, y + h):
+                img.putpixel((i, j), colors[key])
+
+    def faces(name, default, **keys):
+        for face, rect in remote_3d_faces(name).items():
+            paint(rect, keys.get(face, default))
+        return remote_3d_faces(name)
+
+    # Body: a lighter top edge and two rows of buttons between the sticks on the front.
+    body = faces("body", "d", top="h", bottom="O", front="D")
+    x, y, w, h = body["front"]
+    paint((x, y, w, 1), "h")
+    for bx in (6, 8):
+        paint((x + bx - 1, y + 2, 1, 1), "w")
+
+    grip = faces("grip_left", "D", bottom="O", top="d")
+    x, y, w, h = grip["right"]
+    paint((x, y, w, 1), "h")
+    x, y, w, h = grip["left"]
+    paint((x, y, w, 1), "h")
+
+    stick = faces("stick_left", "O", front="A")
+    x, y, w, h = stick["front"]
+    paint((x, y, 1, 1), "a")
+
+    faces("led", "c")
+    faces("clamp", "O", top="D", front="h")
+
+    # Phone: the drone's camera feed on the screen, a dark back.
+    phone = faces("phone", "O", back="D")
+    x, y, w, h = phone["front"]
+    paint((x + 1, y + 1, w - 2, h - 2), "S")
+    for i in range(1, w - 1):
+        for j in range(2, h - 2):
+            if 2 <= i <= w - 3:
+                img.putpixel((x + i, y + j), colors["t" if (i + j) % 2 else "T"])
+
+    faces("antenna_left", "a", front="A", top="a")
+    faces("antenna_tip_left", "c")
+    return img
+
+
+def remote_3d_model():
+    """The item model JSON for remote_3d_texture: one element per box, faces mapped onto its box UV."""
+    tex_w, tex_h = REMOTE_3D_TEXTURE_SIZE
+    elements = []
+    for name, (start, end, _) in REMOTE_3D_ELEMENTS.items():
+        faces = {}
+        for model_face, box_face in MODEL_FACES.items():
+            x, y, w, h = remote_3d_faces(name)[box_face]
+            face = {"uv": [x * 16 / tex_w, y * 16 / tex_h, (x + w) * 16 / tex_w, (y + h) * 16 / tex_h], "texture": "#remote"}
+            if name in REMOTE_3D_TINTED:
+                face["tintindex"] = 1
+            faces[model_face] = face
+        element = {"name": name, "from": list(start), "to": list(end), "faces": faces}
+        if name in REMOTE_3D_ROTATIONS:
+            element["rotation"] = REMOTE_3D_ROTATIONS[name]
+        elements.append(element)
+    return elements
+
+
+# Display transforms of the 3D remote. The sprite model covers the GUI and item frames (see ModItemModelProvider), and
+# the first-person view while it's held in both hands is posed in code (RemoteHandRenderer).
+REMOTE_3D_DISPLAY = {
+    "thirdperson_righthand": {"rotation": [0, 180, 0], "translation": [-3.25, 2.75, 0], "scale": [0.5, 0.5, 0.5]},
+    "firstperson_righthand": {"rotation": [-35, 180, 0], "translation": [-3, 3, 0], "scale": [0.4, 0.4, 0.4]},
+    "ground": {"rotation": [90, 0, 0], "translation": [0, 2, 0], "scale": [0.4, 0.4, 0.4]},
+}
+
+
+def remote_3d_model_json():
+    return {
+        "textures": {"remote": "seekerdrones:item/drone_remote_3d", "particle": "seekerdrones:item/drone_remote"},
+        "elements": remote_3d_model(),
+        "display": REMOTE_3D_DISPLAY,
+    }
 
 
 # --- Upgrades ----------------------------------------------------------------------------------------------------
@@ -1196,6 +1318,7 @@ def outputs():
         "item/seeker_core.png": seeker_core(),
         "item/drone_remote.png": drone_remote(False),
         "item/drone_remote_tint.png": drone_remote(True),
+        "item/drone_remote_3d.png": remote_3d_texture(),
     }
     for name in UPGRADES:
         textures[f"item/{name}_upgrade.png"] = upgrade(name)
@@ -1222,7 +1345,7 @@ HOTBAR_SLOT = (19, 27, 17, 255)
 
 def contact_sheet(textures, scale=6):
     """Items on an inventory slot and on the hotbar (the drone in several colors), then the block faces."""
-    items = [img for name, img in textures.items() if name.startswith("item/") and not name.endswith("_tint.png")]
+    items = [img for name, img in textures.items() if name.startswith("item/") and not name.endswith("_tint.png") and img.size == (16, 16)]
     tint = textures["item/drone_tint.png"]
     for color in ((60, 68, 170), (180, 40, 40), (240, 240, 240), (29, 29, 33)):
         drone = textures["item/drone.png"].copy()
@@ -1263,6 +1386,10 @@ def main():
             preview = args.preview / name
             preview.parent.mkdir(parents=True, exist_ok=True)
             img.resize((img.width * 16, img.height * 16), Image.NEAREST).save(preview)
+    path = MODELS / "item/drone_remote_3d.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(remote_3d_model_json(), indent=2) + "\n")
+    print(f"wrote {path.relative_to(ROOT)}")
     if args.preview:
         contact_sheet(textures).save(args.preview / "sheet.png")
 

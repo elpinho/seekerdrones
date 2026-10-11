@@ -1,7 +1,22 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "seekerdrones:item/drone_remote",
-    "layer1": "seekerdrones:item/drone_remote_tint"
+  "base": {
+    "parent": "seekerdrones:item/drone_remote_3d"
+  },
+  "loader": "neoforge:separate_transforms",
+  "perspectives": {
+    "fixed": {
+      "parent": "minecraft:item/generated",
+      "textures": {
+        "layer0": "seekerdrones:item/drone_remote",
+        "layer1": "seekerdrones:item/drone_remote_tint"
+      }
+    },
+    "gui": {
+      "parent": "minecraft:item/generated",
+      "textures": {
+        "layer0": "seekerdrones:item/drone_remote",
+        "layer1": "seekerdrones:item/drone_remote_tint"
+      }
+    }
   }
 }
