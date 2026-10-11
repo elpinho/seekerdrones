@@ -14,6 +14,7 @@ import com.elpinho.seekerdrones.feed.FpvFeeds;
 import com.elpinho.seekerdrones.remote.DroneRemoteItem;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
 import com.elpinho.seekerdrones.registry.ModSounds;
+import com.elpinho.seekerdrones.operator.OperatorGroups;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
 import com.elpinho.seekerdrones.station.ChargingStationRegistry;
 
@@ -179,6 +180,8 @@ public class DroneEntity extends PathfinderMob {
     private UUID pendingTargetId;
     /** The tick at which line of sight to the target was first found lost, or -1 while it is visible. */
     private int lostSightSince = -1;
+    /** Whether the last scan skipped an entity only because a teammate had claimed it. Not saved. */
+    private boolean scanSkippedClaimed;
     /**
      * The target's position (feet x/z, eye y) smoothed over time, so the drone reacts to where the target is going
      * rather than to every hop (section 3.1). Null until the first pursuit tick.
@@ -573,6 +576,55 @@ public class DroneEntity extends PathfinderMob {
         return chargingStation;
     }
 
+    /**
+     * Why the drone is in its current state (section 2.4), worked out from state it already keeps. Server side only,
+     * called when a status screen or Jade asks, never per tick.
+     */
+    public DroneReason.Info resolveReason() {
+        DroneData data = getDroneData();
+        MinecraftServer server = getServer();
+        if (server != null && data.groupId().isPresent() && OperatorGroups.get(server).getGroup(data.groupId().get()).isEmpty()) {
+            return DroneReason.Info.of(DroneReason.UNKNOWN_GROUP);
+        }
+        DroneState state = getState();
+        if (state == DroneState.CHARGING || state == DroneState.RETURNING) {
+            return DroneReason.Info.of(resolveStationReason(state));
+        }
+        if (state == DroneState.CHASING || state == DroneState.FOLLOWING) {
+            if (lostSightSince >= 0) {
+                int ticksLeft = ServerConfig.get(ServerConfig.DRONE_LOST_SIGHT_TIMEOUT) - (tickCount - lostSightSince);
+                return new DroneReason.Info(DroneReason.TARGET_OUT_OF_SIGHT, Math.max(0, Mth.ceil(ticksLeft / (float) DroneStats.TICKS_PER_SECOND)));
+            }
+        } else if (state == DroneState.IDLE || state == DroneState.PATROLLING) {
+            if (data.config().targets().isEmpty()) {
+                return DroneReason.Info.of(DroneReason.NO_TARGET_ENTRIES);
+            }
+            if (TargetMatcher.targetableEntries(data).isEmpty()) {
+                return DroneReason.Info.of(DroneReason.NO_USABLE_TARGETS);
+            }
+            if (scanSkippedClaimed) {
+                return DroneReason.Info.of(DroneReason.TARGET_CLAIMED);
+            }
+        }
+        return nearestStation(data) == null ? DroneReason.Info.of(DroneReason.NO_STATION) : DroneReason.Info.NONE;
+    }
+
+    private DroneReason resolveStationReason(DroneState state) {
+        ServerLevel level = (ServerLevel) level();
+        if (chargingStation != null && level.hasChunkAt(chargingStation)
+                && level.getBlockEntity(chargingStation) instanceof ChargingStationBlockEntity station) {
+            if (state == DroneState.CHARGING) {
+                return station.getEnergy() <= 0 ? DroneReason.STATION_NO_POWER : DroneReason.NONE;
+            }
+            if (station.isClaimedByOther(getUUID())
+                    && distanceToSqr(ChargingStationBlockEntity.dockPosition(chargingStation)) <= STATION_QUEUE_DISTANCE * STATION_QUEUE_DISTANCE) {
+                return DroneReason.WAITING_FOR_STATION;
+            }
+        }
+        long now = level.getGameTime();
+        return unreachableStations.values().stream().anyMatch(until -> until > now) ? DroneReason.STATION_UNREACHABLE : DroneReason.NONE;
+    }
+
     @Nullable
     public BlockPos getRestPosition() {
         return restPosition != null ? restPosition.pos() : null;
@@ -797,15 +849,24 @@ public class DroneEntity extends PathfinderMob {
      * the nearest candidates until one is visible.
      */
     private void scanForTarget(DroneData data) {
+        scanSkippedClaimed = false;
         TargetMatcher matcher = targetMatcher();
         if (matcher.isEmpty()) {
             return;
         }
         double range = DroneStats.sightRange(data);
         double rangeSqr = range * range;
-        List<Entity> candidates = level().getEntities(this, getBoundingBox().inflate(range),
-                entity -> matcher.matches(this, entity) && distanceToSqr(entity) <= rangeSqr && !isHidden(entity)
-                        && TargetClaims.canClaim(this, entity));
+        List<Entity> candidates = level().getEntities(this, getBoundingBox().inflate(range), entity -> {
+            if (!matcher.matches(this, entity) || distanceToSqr(entity) > rangeSqr || isHidden(entity)) {
+                return false;
+            }
+            if (!TargetClaims.canClaim(this, entity)) {
+                // Remembered for the status reason (section 2.4), at no extra cost.
+                scanSkippedClaimed = true;
+                return false;
+            }
+            return true;
+        });
         if (candidates.isEmpty()) {
             return;
         }

@@ -95,6 +95,7 @@ public class DroneStatusScreen extends PanelScreen {
 
     private final int entityId;
     private DroneStatusPayload status;
+    private KitWidget.Area statePill;
     private ItemStack droneStack = ItemStack.EMPTY;
     private List<UpgradeType> upgrades = List.of();
     private List<TargetEntry> targets = List.of();
@@ -147,6 +148,11 @@ public class DroneStatusScreen extends PanelScreen {
                 .tooltip(() -> List.of(
                         Component.translatable("screen.seekerdrones.drone_status.health"),
                         healthText().copy().withStyle(ChatFormatting.GRAY)));
+        // Hovering the state pill explains why the drone is in that state (section 2.4). Moved to the pill every frame.
+        statePill = addRenderableWidget(new KitWidget.Area(leftPos + imageWidth - 8, topPos + HEADER_Y, 0, CHIP_HEIGHT + 2));
+        statePill.tooltip(() -> status.isDeployed() && status.reason().isPresent()
+                ? List.of(stateText(), status.reason().text().copy().withStyle(ChatFormatting.GRAY))
+                : List.of());
         addRenderableWidget(new KitWidget.Area(leftPos + RADAR_X, topPos + RADAR_Y, RADAR_SIZE, RADAR_SIZE)).tooltip(this::radarTooltip);
         // The sight and follow rows: the exact meaning, in blocks.
         addRenderableWidget(new KitWidget.Area(leftPos + RADAR_X, topPos + SIGHT_Y - 1, RADAR_SIZE, 8)).tooltip(() -> List.of(
@@ -357,6 +363,8 @@ public class DroneStatusScreen extends PanelScreen {
         int pillWidth = Kit.pillWidth(font, state);
         int pillX = leftPos + imageWidth - 8 - pillWidth;
         Kit.pill(graphics, font, pillX, topPos + HEADER_Y, stateLight(), state);
+        statePill.setX(pillX);
+        statePill.setWidth(pillWidth);
 
         String id = data.hasDroneId() ? "#" + data.droneId() : Kit.upper(Component.translatable("tooltip.seekerdrones.drone.unassigned"));
         int chipWidth = Kit.smallWidth(font, id) + 6;

@@ -34,10 +34,6 @@ Status: `idea` | `decided`
 
 ## Drone GUI and visuals
   - It depends on the new drone model (ROADMAP.md M10). Tell the artist so the model and animations work at any scale.
-- **Status reasons** (`idea`): the status screen (DESIGN.md §2.4) and Jade (§8.6) show a drone's state, but not why it is in it. Drones can sit idle or misbehave for reasons the player can't see, so each state should come with a short reason line, e.g. "Idle: no usable target entries" or "Returning: station unreachable, trying the next one".
-  - **Reasons to cover** (from the existing rules): no target entries, or only denylisted or unusable ones (a player entry without Player Seek, §3.3); a target in view but already claimed by a teammate (§3.3); target out of sight, with the lost-sight countdown (§3.5); no usable Charging Station in range, so it will drop at 0 energy (§5.2); waiting by a busy station (§5.3); a station skipped as unreachable (§5.2); docked at a station with no FE; an unknown Operator Group (§6.2).
-  - **Performance:** no extra syncing. The reason is worked out on the server only when a status screen or Jade asks for the drone's status (the existing on-demand payloads), from state the drone already keeps. Where a reason needs data the drone doesn't keep today (e.g. why the last scan found nothing), it's recorded cheaply during the staggered scan, not by an extra check.
-  - **Still open:** the exact list and wording, whether operators only see the reasons (like the rest of the Jade details, §8.6), and whether recent events are shown too (e.g. "Lost target 12 s ago").
 
 ## Sounds
 

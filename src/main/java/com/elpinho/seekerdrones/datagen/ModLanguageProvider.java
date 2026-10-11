@@ -2,6 +2,7 @@ package com.elpinho.seekerdrones.datagen;
 
 import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.deploying.DeployingStatus;
+import com.elpinho.seekerdrones.drone.DroneReason;
 import com.elpinho.seekerdrones.drone.DroneState;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.energy.EnergyUnit;
@@ -221,6 +222,16 @@ public class ModLanguageProvider extends LanguageProvider {
         add(DroneState.CHARGING.getTranslationKey(), "Charging");
         add(DroneState.HOLDING.getTranslationKey(), "Holding");
         add(DroneState.RECALLED.getTranslationKey(), "Recalled");
+
+        add(DroneReason.NO_TARGET_ENTRIES.getTranslationKey(), "No target entries set");
+        add(DroneReason.NO_USABLE_TARGETS.getTranslationKey(), "No usable target entries");
+        add(DroneReason.TARGET_CLAIMED.getTranslationKey(), "Target already claimed by a teammate");
+        add(DroneReason.TARGET_OUT_OF_SIGHT.getTranslationKey(), "Target out of sight, giving up in %ss");
+        add(DroneReason.NO_STATION.getTranslationKey(), "No usable Charging Station in range, drops at 0 energy");
+        add(DroneReason.WAITING_FOR_STATION.getTranslationKey(), "Waiting for a busy Charging Station");
+        add(DroneReason.STATION_UNREACHABLE.getTranslationKey(), "Station unreachable, trying the next one");
+        add(DroneReason.STATION_NO_POWER.getTranslationKey(), "Charging Station has no FE");
+        add(DroneReason.UNKNOWN_GROUP.getTranslationKey(), "Operator Group not found, no operators");
 
         add("screen.seekerdrones.drone_status", "Drone Status");
         add("screen.seekerdrones.drone_status.health", "Health");

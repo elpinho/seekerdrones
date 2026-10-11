@@ -163,6 +163,7 @@ public class DroneRemoteScreen extends PanelScreen {
     private RemoteStatusPayload status;
     /** The latest values of the drone, or what is known from the link while none has arrived. */
     private DroneStatusPayload shown;
+    private KitWidget.Area statePill;
     /** The settings shown and edited. Replaced by each status, and by an edit as soon as it is sent. */
     private DroneConfig config;
     @Nullable
@@ -282,6 +283,11 @@ public class DroneRemoteScreen extends PanelScreen {
                 .tooltip(() -> List.of(
                         Component.translatable("screen.seekerdrones.drone_status.health"),
                         healthText().copy().withStyle(ChatFormatting.GRAY)));
+        // Hovering the state pill explains why the drone is in that state (section 2.4). Moved to the pill every frame.
+        statePill = addRenderableWidget(new KitWidget.Area(leftPos + imageWidth - 8, topPos + HEADER_Y, 0, CHIP_HEIGHT + 2));
+        statePill.tooltip(() -> controls() && shown.reason().isPresent()
+                ? List.of(pillText(), shown.reason().text().copy().withStyle(ChatFormatting.GRAY))
+                : List.of());
         addRenderableWidget(new KitWidget.Area(leftPos + RADAR_X, topPos + RADAR_Y, RADAR_SIZE, RADAR_SIZE)).tooltip(this::radarTooltip);
         addRenderableWidget(new KitWidget.Area(leftPos + RADAR_X, topPos + SIGHT_Y - 1, RADAR_SIZE, 8)).tooltip(() -> List.of(
                 Component.translatable("screen.seekerdrones.drone_status.sight.tooltip", shown.sightRange())));
@@ -921,6 +927,8 @@ public class DroneRemoteScreen extends PanelScreen {
         int pillWidth = Kit.pillWidth(font, state);
         int pillX = leftPos + imageWidth - 8 - pillWidth;
         Kit.pill(graphics, font, pillX, topPos + HEADER_Y, pillLight(), state);
+        statePill.setX(pillX);
+        statePill.setWidth(pillWidth);
 
         String id = data.hasDroneId() ? "#" + data.droneId() : Kit.upper(Component.translatable("tooltip.seekerdrones.drone.unassigned"));
         int chipWidth = Kit.smallWidth(font, id) + 6;

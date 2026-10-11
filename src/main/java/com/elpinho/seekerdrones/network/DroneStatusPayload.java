@@ -5,6 +5,7 @@ import java.util.Optional;
 import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
+import com.elpinho.seekerdrones.drone.DroneReason;
 import com.elpinho.seekerdrones.drone.DroneState;
 import com.elpinho.seekerdrones.drone.DroneStats;
 
@@ -24,9 +25,11 @@ import net.minecraft.resources.ResourceLocation;
  * @param patrolRadius the radius the drone patrols at, capped at {@code maxPatrolRadius} (section 3.2)
  * @param sightRange   the drone's sight range in blocks, including its Sight upgrades (section 3.3)
  * @param selfHealRate the FE per tick self-healing cost at the drone's last energy drain (section 2.5), 0 if it didn't heal
+ * @param reason       why the drone is in its state (section 2.4), none for a drone item
  */
 public record DroneStatusPayload(int entityId, boolean open, DroneData data, int maxEnergy, float maxHealth, DroneState state,
-        Optional<GlobalPos> patrolCenter, int patrolRadius, int maxPatrolRadius, int sightRange, double selfHealRate) implements CustomPacketPayload {
+        Optional<GlobalPos> patrolCenter, int patrolRadius, int maxPatrolRadius, int sightRange, double selfHealRate,
+        DroneReason.Info reason) implements CustomPacketPayload {
     public static final int NO_ENTITY = -1;
 
     public static final Type<DroneStatusPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "drone_status"));
@@ -47,6 +50,7 @@ public record DroneStatusPayload(int entityId, boolean open, DroneData data, int
                 ByteBufCodecs.VAR_INT.encode(buf, payload.maxPatrolRadius());
                 ByteBufCodecs.VAR_INT.encode(buf, payload.sightRange());
                 ByteBufCodecs.DOUBLE.encode(buf, payload.selfHealRate());
+                DroneReason.Info.STREAM_CODEC.encode(buf, payload.reason());
             },
             buf -> new DroneStatusPayload(
                     ByteBufCodecs.VAR_INT.decode(buf),
@@ -59,20 +63,21 @@ public record DroneStatusPayload(int entityId, boolean open, DroneData data, int
                     ByteBufCodecs.VAR_INT.decode(buf),
                     ByteBufCodecs.VAR_INT.decode(buf),
                     ByteBufCodecs.VAR_INT.decode(buf),
-                    ByteBufCodecs.DOUBLE.decode(buf)));
+                    ByteBufCodecs.DOUBLE.decode(buf),
+                    DroneReason.Info.STREAM_CODEC.decode(buf)));
 
     public static DroneStatusPayload of(DroneEntity drone, boolean open) {
         DroneData data = drone.snapshotData();
         return new DroneStatusPayload(drone.getId(), open, data, DroneStats.maxEnergy(data), drone.getMaxHealth(), drone.getState(),
                 Optional.ofNullable(drone.getPatrolCenter()), DroneStats.patrolRadius(data), DroneStats.maxPatrolRadius(data),
-                (int) DroneStats.sightRange(data), drone.getSelfHealRate());
+                (int) DroneStats.sightRange(data), drone.getSelfHealRate(), drone.resolveReason());
     }
 
     /** Opens the screen for a drone item in the player's hand. Its state is ignored. */
     public static DroneStatusPayload ofItem(DroneData data) {
         return new DroneStatusPayload(NO_ENTITY, true, data, DroneStats.maxEnergy(data), DroneStats.maxHealth(data), DroneState.IDLE,
                 data.config().patrolCenter(), DroneStats.patrolRadius(data), DroneStats.maxPatrolRadius(data),
-                (int) DroneStats.sightRange(data), 0);
+                (int) DroneStats.sightRange(data), 0, DroneReason.Info.NONE);
     }
 
     public boolean isDeployed() {

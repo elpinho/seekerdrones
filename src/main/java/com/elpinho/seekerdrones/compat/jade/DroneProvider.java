@@ -6,12 +6,14 @@ import java.util.Optional;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.drone.DronePermissions;
+import com.elpinho.seekerdrones.drone.DroneReason;
 import com.elpinho.seekerdrones.drone.DroneState;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.drone.TargetMatcher;
 import com.elpinho.seekerdrones.network.StationStatusPayload;
 import com.elpinho.seekerdrones.operator.OperatorGroups;
 
+import net.minecraft.ChatFormatting;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -52,7 +54,7 @@ public enum DroneProvider implements IEntityComponentProvider, StreamServerDataP
         if (DronePermissions.canInteract(accessor.getPlayer(), data)) {
             Entity target = drone.getSeekTarget();
             details = Optional.of(new Details(ownerName(accessor.getLevel().getServer(), data), TargetMatcher.targetableEntries(data),
-                    Optional.ofNullable(target).map(Entity::getName)));
+                    Optional.ofNullable(target).map(Entity::getName), drone.resolveReason()));
         }
         return new Data(data.droneId(), details);
     }
@@ -87,6 +89,9 @@ public enum DroneProvider implements IEntityComponentProvider, StreamServerDataP
             tooltip.add(details.target().isPresent() && (state == DroneState.CHASING || state == DroneState.FOLLOWING)
                     ? Component.translatable("jade.seekerdrones.drone.state_target", stateName, details.target().get())
                     : Component.translatable("jade.seekerdrones.drone.state", stateName));
+            if (details.reason().isPresent()) {
+                tooltip.add(details.reason().text().copy().withStyle(ChatFormatting.GRAY));
+            }
             if (!details.owner().isEmpty()) {
                 tooltip.add(Component.translatable("jade.seekerdrones.drone.owner", details.owner()));
             }
@@ -127,12 +132,14 @@ public enum DroneProvider implements IEntityComponentProvider, StreamServerDataP
     /**
      * @param owner  the owner's name, empty for an unowned drone
      * @param target the name of the entity being chased or followed
+     * @param reason why the drone is in its state (DESIGN.md section 2.4)
      */
-    public record Details(String owner, List<TargetEntry> targets, Optional<Component> target) {
+    public record Details(String owner, List<TargetEntry> targets, Optional<Component> target, DroneReason.Info reason) {
         static final StreamCodec<RegistryFriendlyByteBuf, Details> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.STRING_UTF8, Details::owner,
                 TargetEntry.STREAM_CODEC.apply(ByteBufCodecs.list()), Details::targets,
                 ByteBufCodecs.optional(ComponentSerialization.STREAM_CODEC), Details::target,
+                DroneReason.Info.STREAM_CODEC, Details::reason,
                 Details::new);
     }
 }
