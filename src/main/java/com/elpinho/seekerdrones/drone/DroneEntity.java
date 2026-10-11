@@ -10,6 +10,7 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
+import com.elpinho.seekerdrones.feed.FpvFeeds;
 import com.elpinho.seekerdrones.remote.DroneRemoteItem;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
 import com.elpinho.seekerdrones.registry.ModSounds;
@@ -241,6 +242,12 @@ public class DroneEntity extends PathfinderMob {
      * without the upgrade multiplier (section 5.1). Kept apart from the distance and hover above, which are multiplied.
      */
     private double drainQueueCost;
+    /** FE owed since the last drain for ticks watched through the FPV feed (section 2.12), without the upgrade multiplier. Not saved. */
+    private double drainFeedCost;
+    /** Ticks billed by the next drain, docked ticks excluded, to turn its cost into a rate. Not saved. */
+    private int drainTicks;
+    /** FE per tick the last drain cost, for the FPV HUD (section 2.12). Not saved. */
+    private double drainRate;
     /** Set while the drone waits at a busy station this tick (section 5.3), read and cleared by the energy drain. */
     private boolean queuedThisTick;
     /** The fraction of a FE owed at the last drain, carried over so small costs add up. */
@@ -1362,6 +1369,10 @@ public class DroneEntity extends PathfinderMob {
         boolean queued = queuedThisTick;
         queuedThisTick = false;
         if (!docked) {
+            drainTicks++;
+            if (FpvFeeds.isWatched(this)) {
+                drainFeedCost += ServerConfig.get(ServerConfig.CAMERA_FEED_ENERGY_PER_TICK);
+            }
             if (queued) {
                 drainQueueCost += ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK);
             } else {
@@ -1373,18 +1384,21 @@ public class DroneEntity extends PathfinderMob {
             }
         }
         boolean settleOnDocking = getState() == DroneState.CHARGING;
-        boolean nothingOwed = drainHoverTicks == 0 && drainDistance == 0 && drainQueueCost == 0;
+        boolean nothingOwed = drainHoverTicks == 0 && drainDistance == 0 && drainQueueCost == 0 && drainFeedCost == 0;
         if (settleOnDocking ? nothingOwed : !isStaggeredTick(ServerConfig.get(ServerConfig.DRONE_ENERGY_DRAIN_INTERVAL))) {
             return;
         }
         DroneData data = getDroneData();
-        double cost = drainRemainder + drainQueueCost + DroneStats.energyUsageMultiplier(data)
+        double cost = drainRemainder + drainQueueCost + drainFeedCost + DroneStats.energyUsageMultiplier(data)
                 * (drainDistance * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK)
                         + (double) drainHoverTicks * ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK));
         cost += selfHeal(data, drainHoverTicks, cost);
         drainDistance = 0;
         drainHoverTicks = 0;
         drainQueueCost = 0;
+        drainFeedCost = 0;
+        drainRate = drainTicks > 0 ? (cost - drainRemainder) / drainTicks : 0;
+        drainTicks = 0;
         long whole = (long) cost;
         drainRemainder = cost - whole;
         long energy = data.energy() - whole;
@@ -1432,6 +1446,11 @@ public class DroneEntity extends PathfinderMob {
 
     public double getSelfHealRate() {
         return selfHealRate;
+    }
+
+    /** FE per tick the last energy drain cost, everything included (section 2.12). */
+    public double getDrainRate() {
+        return drainRate;
     }
 
     /** At 0 energy the drone drops as an item where it is, with its data intact (section 5.2). */

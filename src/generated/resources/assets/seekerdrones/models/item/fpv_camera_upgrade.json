@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "seekerdrones:item/fpv_camera_upgrade"
+  }
+}

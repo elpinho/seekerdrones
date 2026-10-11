@@ -49,9 +49,10 @@ description='''${mod_description}'''
 # Adds the Drone Remote's two-handed arm pose (see RemoteHandRenderer).
 enumExtensions="META-INF/enumextensions.json"
 
-# The [[mixins]] block allows you to declare your mixin config to FML so that it gets loaded.
-#[[mixins]]
-#config="${mod_id}.mixins.json"
+# The FPV feed (DESIGN.md section 2.12): chunk and entity tracking around the watched drone, the camera gimbal and night vision.
+[[mixins]]
+config="${mod_id}.mixins.json"
+
 
 # The [[accessTransformers]] block allows you to declare where your AT file is.
 # If this block is omitted, a fallback attempt will be made to load an AT from META-INF/accesstransformer.cfg

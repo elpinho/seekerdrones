@@ -199,6 +199,11 @@ public final class DroneStats {
         return data.upgradeCount(UpgradeType.TRANSMITTER) > 0;
     }
 
+    /** Whether the drone streams an FPV feed (section 2.12). */
+    public static boolean hasFpvCamera(DroneData data) {
+        return data.upgradeCount(UpgradeType.FPV_CAMERA) > 0;
+    }
+
     /**
      * Top speed in blocks/tick of a non-Explosive drone chasing or following (section 3.4): the cruise speed plus the
      * target's own speed, so it keeps up with fast targets, capped at maxSpeed.

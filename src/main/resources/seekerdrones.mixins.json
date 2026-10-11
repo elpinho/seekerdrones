@@ -1,0 +1,21 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.elpinho.seekerdrones.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "ChunkMapAccessor",
+    "ChunkMapMixin",
+    "PlayerChunkSenderMixin",
+    "PlayerListMixin",
+    "ServerLevelMixin",
+    "TrackedEntityMixin"
+  ],
+  "client": [
+    "client.LightTextureMixin",
+    "client.MouseHandlerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

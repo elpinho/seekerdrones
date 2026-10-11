@@ -174,6 +174,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.ENERGY.getTranslationKey(), "Energy");
         add(UpgradeType.HEALTH.getTranslationKey(), "Health");
         add(UpgradeType.PLAYER_SEEK.getTranslationKey(), "Player Seek");
+        add(UpgradeType.FPV_CAMERA.getTranslationKey(), "FPV Camera");
 
         addItem(ModItems.upgrade(UpgradeType.PATROL), "Patrol Upgrade");
         addItem(ModItems.upgrade(UpgradeType.SIGHT), "Sight Upgrade");
@@ -183,6 +184,7 @@ public class ModLanguageProvider extends LanguageProvider {
         addItem(ModItems.upgrade(UpgradeType.ENERGY), "Energy Upgrade");
         addItem(ModItems.upgrade(UpgradeType.HEALTH), "Health Upgrade");
         addItem(ModItems.upgrade(UpgradeType.PLAYER_SEEK), "Player Seek Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.FPV_CAMERA), "FPV Camera Upgrade");
 
         add(UpgradeType.PATROL.getTranslationKey() + ".description", "Patrols in a circle around its patrol center.");
         add(UpgradeType.SIGHT.getTranslationKey() + ".description", "Increases the range at which targets are spotted.");
@@ -192,6 +194,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.ENERGY.getTranslationKey() + ".description", "Doubles max energy and speeds up self-healing.");
         add(UpgradeType.HEALTH.getTranslationKey() + ".description", "Increases max health.");
         add(UpgradeType.PLAYER_SEEK.getTranslationKey() + ".description", "Allows setting players as targets.");
+        add(UpgradeType.FPV_CAMERA.getTranslationKey() + ".description", "Streams a live first-person feed to the Drone Remote.");
         add("tooltip.seekerdrones.upgrade.max_count", "Max per drone: %s");
         add("tooltip.seekerdrones.upgrade.disabled", "Disabled on this server");
 
@@ -383,6 +386,24 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.drone_remote.center", "Center");
         add("screen.seekerdrones.drone_remote.center.tooltip", "Sets the patrol center to where you are looking from");
         add("screen.seekerdrones.drone_remote.center.disabled", "Needs a Patrol upgrade");
+        add("screen.seekerdrones.drone_remote.fpv", "FPV feed");
+        add("screen.seekerdrones.drone_remote.fpv.tooltip", "Watch the drone's live camera feed. Sneak to leave it");
+        add("screen.seekerdrones.drone_remote.fpv.disabled", "Needs an FPV Camera upgrade");
+        add("message.seekerdrones.feed.no_camera", "This drone has no FPV Camera upgrade");
+
+        add("hud.seekerdrones.fpv.live", "LIVE");
+        add("hud.seekerdrones.fpv.live_night", "NV  LIVE");
+        add("hud.seekerdrones.fpv.connecting", "CONNECTING");
+        add("hud.seekerdrones.fpv.signal_lost", "SIGNAL LOST");
+        add("hud.seekerdrones.fpv.altitude", "ALT");
+        add("hud.seekerdrones.fpv.altitude.value", "Y %s");
+        add("hud.seekerdrones.fpv.distance", "DIST");
+        add("hud.seekerdrones.fpv.distance.value", "%s m");
+        add("hud.seekerdrones.fpv.speed", "SPD");
+        add("hud.seekerdrones.fpv.speed.value", "%s m/s");
+        add("hud.seekerdrones.fpv.hint", "[%s] Exit   [%s] Night vision");
+        add("key.categories.seekerdrones", "Seeker Drones");
+        add("key.seekerdrones.fpv_night_vision", "FPV night vision");
 
         add("commands.seekerdrones.not_holding_drone", "You must hold a drone item in your main hand");
         add("commands.seekerdrones.no_drones", "No drones matched");
@@ -445,6 +466,11 @@ public class ModLanguageProvider extends LanguageProvider {
         add("commands.seekerdrones.limit.list", "%s has %s drone(s) deployed (limit: %s)");
         add("commands.seekerdrones.limit.no_limit", "none");
         add("commands.seekerdrones.limit.forgot", "Drone %s no longer counts against its player");
+        add("commands.seekerdrones.view.not_found", "No loaded drone with ID %s");
+        add("commands.seekerdrones.view.other_dimension", "Drone %s is in another dimension");
+        add("commands.seekerdrones.view.not_viewing", "The player isn't watching an FPV feed");
+        add("commands.seekerdrones.view.started", "%s is watching drone %s");
+        add("commands.seekerdrones.view.stopped", "%s stopped watching the FPV feed");
         add("commands.seekerdrones.limit.not_counted", "Drone %s isn't counted against anyone");
     }
 }

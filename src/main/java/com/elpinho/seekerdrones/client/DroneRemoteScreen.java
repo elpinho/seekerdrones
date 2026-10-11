@@ -38,6 +38,7 @@ import com.elpinho.seekerdrones.network.EditRemoteSettingsPayload;
 import com.elpinho.seekerdrones.network.RemoteCommandPayload;
 import com.elpinho.seekerdrones.network.RemoteStatusPayload;
 import com.elpinho.seekerdrones.network.RequestRemoteStatusPayload;
+import com.elpinho.seekerdrones.network.StartFpvFeedPayload;
 import com.elpinho.seekerdrones.programming.ProgramRules;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModItems;
@@ -67,7 +68,8 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * The Drone Remote's screen (DESIGN.md section 2.10): the drone status screen's header, radar, energy and health,
  * laid out so a dark display with Upgrades, Targets, Behavior and Identity tabs and a command bar fit in one frame.
  * Upgrades and Targets are read-only. Behavior and Identity edit the settings the remote may change, and the command
- * bar sends Recall, Hold or Resume, Return to charge and Patrol center here. Everything is checked again by the
+ * bar sends Recall, Hold or Resume, Return to charge and Patrol center here. The FPV FEED button opens the drone's live
+ * camera feed (section 2.12). Everything is checked again by the
  * server. The screen asks for fresh values about once a second, and disables its controls while the drone can't be
  * reached.
  */
@@ -132,6 +134,8 @@ public class DroneRemoteScreen extends PanelScreen {
     private static final int COMMAND_HEIGHT = 18;
     private static final int COMMAND_GAP = 3;
     private static final int SEPARATOR_Y = 149;
+    /** The FPV FEED button (section 2.12), in the left column under the Sight and Follow rows. */
+    private static final int FPV_Y = 128;
 
     private static final double SPEED_SMOOTHING = 0.15;
 
@@ -145,6 +149,7 @@ public class DroneRemoteScreen extends PanelScreen {
     private static final ResourceLocation ICON_HOLD = Kit.sprite("icon/hold");
     private static final ResourceLocation ICON_RESUME = Kit.sprite("icon/resume");
     private static final ResourceLocation ICON_PIN = Kit.sprite("icon/pin");
+    private static final ResourceLocation ICON_FPV = Kit.sprite("icon/fpv");
 
     private enum Tab {
         UPGRADES, TARGETS, BEHAVIOR, IDENTITY
@@ -397,16 +402,16 @@ public class DroneRemoteScreen extends PanelScreen {
         int total = 4 * COMMAND_WIDTH + 3 * COMMAND_GAP;
         int x = leftPos + (WIDTH - total) / 2;
         int y = topPos + COMMAND_Y;
-        addCommand(x, y, () -> ICON_RECALL, 9, 9, () -> Component.translatable(KEY + "recall"), () -> controls(),
+        addCommand(x, y, COMMAND_WIDTH, () -> ICON_RECALL, 9, 9, () -> Component.translatable(KEY + "recall"), () -> controls(),
                 () -> send(RemoteCommand.RECALL), () -> List.of(Component.translatable(KEY + "recall"),
                         Component.translatable(KEY + "recall.tooltip").withStyle(ChatFormatting.GRAY)));
-        addCommand(x + (COMMAND_WIDTH + COMMAND_GAP), y, () -> passive() ? ICON_RESUME : ICON_HOLD, 6, 7,
+        addCommand(x + (COMMAND_WIDTH + COMMAND_GAP), y, COMMAND_WIDTH, () -> passive() ? ICON_RESUME : ICON_HOLD, 6, 7,
                 () -> Component.translatable(KEY + (passive() ? "resume" : "hold")), () -> controls(),
                 () -> send(passive() ? RemoteCommand.RESUME : RemoteCommand.HOLD),
                 () -> passive()
                         ? List.of(Component.translatable(KEY + "resume"), Component.translatable(KEY + "resume.tooltip").withStyle(ChatFormatting.GRAY))
                         : List.of(Component.translatable(KEY + "hold"), Component.translatable(KEY + "hold.tooltip").withStyle(ChatFormatting.GRAY)));
-        addCommand(x + 2 * (COMMAND_WIDTH + COMMAND_GAP), y, () -> Kit.ICON_ENERGY, 6, 8, () -> Component.translatable(KEY + "charge"),
+        addCommand(x + 2 * (COMMAND_WIDTH + COMMAND_GAP), y, COMMAND_WIDTH, () -> Kit.ICON_ENERGY, 6, 8, () -> Component.translatable(KEY + "charge"),
                 () -> controls() && !returning(), () -> send(RemoteCommand.CHARGE), () -> {
                     List<Component> lines = new ArrayList<>();
                     lines.add(Component.translatable(KEY + "charge"));
@@ -416,7 +421,7 @@ public class DroneRemoteScreen extends PanelScreen {
                     }
                     return lines;
                 });
-        addCommand(x + 3 * (COMMAND_WIDTH + COMMAND_GAP), y, () -> ICON_PIN, 7, 7, () -> Component.translatable(KEY + "center"),
+        addCommand(x + 3 * (COMMAND_WIDTH + COMMAND_GAP), y, COMMAND_WIDTH, () -> ICON_PIN, 7, 7, () -> Component.translatable(KEY + "center"),
                 () -> controls() && patrol(), () -> send(RemoteCommand.CENTER), () -> {
                     List<Component> lines = new ArrayList<>();
                     lines.add(Component.translatable(KEY + "center"));
@@ -426,6 +431,20 @@ public class DroneRemoteScreen extends PanelScreen {
                     }
                     return lines;
                 });
+        addCommand(leftPos + RADAR_X, topPos + FPV_Y, RADAR_SIZE, () -> ICON_FPV, 9, 7, () -> Component.translatable(KEY + "fpv"),
+                () -> controls() && fpvCamera(), () -> PacketDistributor.sendToServer(new StartFpvFeedPayload(droneId)), () -> {
+                    List<Component> lines = new ArrayList<>();
+                    lines.add(Component.translatable(KEY + "fpv"));
+                    lines.add(Component.translatable(KEY + "fpv.tooltip").withStyle(ChatFormatting.GRAY));
+                    if (controls() && !fpvCamera()) {
+                        lines.add(Component.translatable(KEY + "fpv.disabled").withStyle(ChatFormatting.RED));
+                    }
+                    return lines;
+                });
+    }
+
+    private boolean fpvCamera() {
+        return DroneStats.hasFpvCamera(shown.data());
     }
 
     private boolean returning() {
@@ -433,17 +452,17 @@ public class DroneRemoteScreen extends PanelScreen {
     }
 
     /** One button of the command bar: an icon and a small label, centered together. */
-    private void addCommand(int x, int y, Supplier<ResourceLocation> icon, int iconWidth, int iconHeight,
+    private void addCommand(int x, int y, int width, Supplier<ResourceLocation> icon, int iconWidth, int iconHeight,
             Supplier<Component> label, BooleanSupplier enabled, Runnable onPress,
             Supplier<List<Component>> tooltip) {
         SideTab.Drawer content = (graphics, bx, by, mouseX, mouseY) -> {
             String text = Kit.upper(label.get());
             int textWidth = Kit.smallWidth(font, text);
-            int start = bx + (COMMAND_WIDTH - (iconWidth + 3 + textWidth)) / 2;
+            int start = bx + (width - (iconWidth + 3 + textWidth)) / 2;
             graphics.blitSprite(icon.get(), start, by + (COMMAND_HEIGHT - iconHeight) / 2, iconWidth, iconHeight);
             Kit.smallText(graphics, font, text, start + iconWidth + 3, by + (COMMAND_HEIGHT - 6) / 2F, enabled.getAsBoolean() ? Kit.WHITE : Kit.CHIP_TEXT, true);
         };
-        addRenderableWidget(new KitButton(x, y, COMMAND_WIDTH, COMMAND_HEIGHT, KitButton.Style.PANEL, content, onPress)
+        addRenderableWidget(new KitButton(x, y, width, COMMAND_HEIGHT, KitButton.Style.PANEL, content, onPress)
                 .enabledWhen(enabled)).tooltip(tooltip);
     }
 

@@ -503,6 +503,22 @@ UPGRADES = {
 }
 
 
+# The FPV Camera: a camcorder with a teal lens and a red REC light.
+UPGRADES["fpv_camera"] = {
+    "colors": {"1": (36, 44, 56), "2": (170, 180, 192), "3": (244, 72, 64)},
+    "symbol": [
+        "3.......",
+        "........",
+        "22222..2",
+        "2ee22.22",
+        "2eE22222",
+        "22222.22",
+        "22222..2",
+        "........",
+    ],
+}
+
+
 def upgrade(name):
     spec = UPGRADES[name]
     colors = {k: v + (255,) for k, v in spec["colors"].items()} | {"y": (222, 178, 60, 255)}

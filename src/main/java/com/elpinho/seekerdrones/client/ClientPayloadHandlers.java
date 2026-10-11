@@ -1,10 +1,14 @@
 package com.elpinho.seekerdrones.client;
 
+import com.elpinho.seekerdrones.client.feed.FpvFeedClient;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.factory.DroneFactoryMenu;
 import com.elpinho.seekerdrones.programming.ProgrammingStationMenu;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
 import com.elpinho.seekerdrones.network.FactoryOperatorsPayload;
+import com.elpinho.seekerdrones.network.FpvEndPayload;
+import com.elpinho.seekerdrones.network.FpvStartPayload;
+import com.elpinho.seekerdrones.network.FpvStatusPayload;
 import com.elpinho.seekerdrones.network.LinkGlowPayload;
 import com.elpinho.seekerdrones.network.ProgramTemplatePayload;
 import com.elpinho.seekerdrones.network.RemoteStatusPayload;
@@ -31,6 +35,18 @@ public final class ClientPayloadHandlers {
         } else if (minecraft.screen instanceof DroneRemoteScreen screen && screen.getDroneId().equals(payload.link().droneId())) {
             screen.update(payload);
         }
+    }
+
+    public static void handleFpvStart(FpvStartPayload payload) {
+        FpvFeedClient.start(payload);
+    }
+
+    public static void handleFpvEnd(FpvEndPayload payload) {
+        FpvFeedClient.end(payload);
+    }
+
+    public static void handleFpvStatus(FpvStatusPayload payload) {
+        FpvFeedClient.updateStatus(payload);
     }
 
     public static void handleLinkGlow(LinkGlowPayload payload) {

@@ -8,7 +8,7 @@ import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class ModNetwork {
-    private static final String PROTOCOL_VERSION = "5";
+    private static final String PROTOCOL_VERSION = "6";
 
     private ModNetwork() {}
 
@@ -41,6 +41,14 @@ public final class ModNetwork {
                 EditRemoteSettingsPayload::handle);
         registrar.playToClient(LinkGlowPayload.TYPE, LinkGlowPayload.STREAM_CODEC,
                 (payload, context) -> ClientPayloadHandlers.handleLinkGlow(payload));
+        registrar.playToServer(StartFpvFeedPayload.TYPE, StartFpvFeedPayload.STREAM_CODEC, StartFpvFeedPayload::handle);
+        registrar.playToServer(StopFpvFeedPayload.TYPE, StopFpvFeedPayload.STREAM_CODEC, StopFpvFeedPayload::handle);
+        registrar.playToClient(FpvStartPayload.TYPE, FpvStartPayload.STREAM_CODEC,
+                (payload, context) -> ClientPayloadHandlers.handleFpvStart(payload));
+        registrar.playToClient(FpvEndPayload.TYPE, FpvEndPayload.STREAM_CODEC,
+                (payload, context) -> ClientPayloadHandlers.handleFpvEnd(payload));
+        registrar.playToClient(FpvStatusPayload.TYPE, FpvStatusPayload.STREAM_CODEC,
+                (payload, context) -> ClientPayloadHandlers.handleFpvStatus(payload));
         registrar.playBidirectional(EnergyUnitPayload.TYPE, EnergyUnitPayload.STREAM_CODEC, new DirectionalPayloadHandler<>(
                 (payload, context) -> EnergyFormat.setClientUnit(payload.unit()),
                 EnergyUnitPayload::handleOnServer));

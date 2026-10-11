@@ -165,9 +165,39 @@ A handheld item for controlling one deployed drone without catching it. Upgrades
 - **Item texture:** an RC-controller-style handset: a screen on top, twin antennas and two sticks. The antenna tips and the grips are a tint layer in the linked drone's color, gray when unlinked.
 - **Recipe:** shaped crafting-table recipe, with a Mekanism variant (section 7.5). The ingredients are placeholders until M10.
 
-### 2.11 Drone Dashboard (M9, details to be designed)
+### 2.11 Drone Dashboard (later, details to be designed)
 
-A remote screen for operators that shows a drone's POV (through its Camera upgrade, section 4) and a **map of drone positions**. Whether it's a new item, a block or part of the Drone Remote, which drones it lists, and how the map and POV are synced (within the performance rules of section 8.4) are still to be decided with the user before M9. The drone ID (section 2.8) identifies drones on it.
+A remote screen for operators that shows a drone's POV (the FPV feed, section 2.12) and a **map of drone positions**. It's still planned but comes after the FPV feed, which opens only from the Drone Remote and the operator command for now. Whether it's a new item, a block or part of the Drone Remote, which drones it lists, and how the map is synced (within the performance rules of section 8.4) are still to be decided with the user. The drone ID (section 2.8) identifies drones on it. The FPV feed is built so that the dashboard can open it later.
+
+### 2.12 FPV feed
+
+A drone with the **FPV Camera Upgrade** (section 4) streams a live first-person view that its operators can watch.
+
+- **Opening it:**
+  - From the **Drone Remote** (section 2.10): an **FPV** button on the remote screen, enabled when the linked drone has the upgrade and is reachable by the remote's rules (operator check, same dimension, loaded, within `remote.range`). Server operators get the usual bypass (section 6.2). It's a wide **FPV FEED** button with a camcorder icon (gray body, teal lens, red REC light) in the left column, under the Sight and Follow rows.
+  - With the operator command `/seekerdrones view <droneId> [player]` (permission level 2, for moderation): the same feed and HUD, but without a remote, operator check, range limit or Camera upgrade. The drone must be loaded and in the viewer's dimension. `/seekerdrones view stop [player]` ends it.
+  - Several players may watch the same drone at once.
+- **The view:** the camera sits on the drone, and the drone's own model isn't drawn. It's a **free-look gimbal**: the mouse turns the camera freely (any yaw, pitch from straight down to straight up), independent of where the drone faces, so you can keep watching a target while the drone circles. The camera follows the drone's position smoothly.
+- **The viewer's body** stays where it is, frozen: movement keys, jumping, using items and switching the hotbar slot do nothing. The body is still in the world and can be hurt. These keys are kept free for piloting later (below).
+- **The feed ends**, back to the player's own view, when:
+  - the player presses **Sneak** (like vanilla spectating) or takes damage,
+  - the drone dies, is picked up or turns into an item for any other reason, or its chunk unloads,
+  - (remote feeds only) the drone goes out of `remote.range` or to another dimension, the player stops being its operator, the drone loses its FPV Camera, or the player stops holding the linked remote (in either hand, like the remote's other checks), all checked every `camera.recheckInterval` ticks,
+  - (all feeds) the player dies, changes dimension or disconnects.
+  - When the drone is lost (out of range, dead, unloaded), the screen shows a "Signal lost" static for `camera.signalLostTicks` before it switches back.
+- **Chunks and sound:** while a player watches, the server sends them the chunks around the drone, within `camera.viewDistance` chunks (capped by the server view distance), and keeps the drone tracked for them, so the feed works beyond the normal entity tracking range. Only chunks that are **already loaded** are sent (by other players, chunk loaders, other mods). The feed never loads or ticks a chunk (section 3.6), and unloaded chunks show as empty fog. The viewer's own body stays loaded as usual. The client's chunk window moves to the drone while watching, so the area around the body reloads when the feed ends (like SecurityCraft cameras). World sounds the server sends by distance are measured from the drone for the viewer, so they hear what the drone hears.
+- **HUD** (client-side, from the drone's synced fields and one status packet per `camera.hudSyncInterval` ticks, section 8.4). The vanilla HUD (hotbar, health, crosshair, held item) is hidden. Chat, titles, subtitles and the debug screen stay.
+  - **Frame:** white viewfinder corner brackets, and a small center reticle.
+  - **Top left:** the label in the drone's color with the ID chip after it, and the state pill under them (same sprites and colors as the remote screen, section 2.10).
+  - **Top center:** a compass tape with the 8 directions, a red pointer and the heading in degrees under it.
+  - **Top right:** a blinking red REC dot with "LIVE" ("NV LIVE" with night vision), and 5 signal bars under it that drop with distance as a fraction of `remote.range`. Over the last `camera.staticStart` of the range the picture gets more and more static (noise and scanlines), and the bars turn red at 1. Command feeds have no range, so they always show full signal.
+  - **Bottom left:** telemetry rows: ALT (the drone's Y), DIST (blocks to the viewer's body) and SPD (blocks per second).
+  - **Bottom right:** the energy and health bars (the kit's gauges, with their icons), and the drone's energy spend rate left of the energy icon (e.g. "-11 FE/t"). The rate is the server's real drain over the last batch (hover, flight, feed and self-healing), sent with the status.
+  - **Bottom center:** a hint line with the exit and night-vision keys.
+  - **Night vision:** a key (default N, rebindable) toggles it, client-side only: full night-vision lighting plus a green filter.
+  - **Signal lost / connecting:** full static with "SIGNAL LOST" (or "CONNECTING" while the drone's chunks are still arriving).
+- **Energy:** besides the usual upgrade factor (section 5.1), a drone pays `camera.feedEnergyPerTick` FE per tick while at least one player is watching it (once per drone, not per viewer, with no upgrade multiplier), charged with the batched drain. Like the hover cost, it isn't charged while the drone is docked. At 0 energy the drone drops (section 5.2) and the feed ends with "Signal lost".
+- **Remote piloting (the next step after the feed, to be designed):** flying the drone by hand from the FPV feed. It isn't part of the feed yet. The feed keeps the movement keys unused and its session state separate, so piloting can be added on top.
 
 ---
 
@@ -311,6 +341,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 | **Energy** | Yes | 6 | Doubles max energy (FE) per upgrade, and speeds up self-healing (section 2.5). | — |
 | **Health** | Yes | 4 | Increases max HP. | — |
 | **Player Seek** | No | 1 | Allows player names as target entries. Player-name entries use target slots like any other entry. The drone's operators (section 6.3) are still exempt. Disabled by `drone.allowPlayerTargets` (below). | — (names go in the Targets list) |
+| **FPV Camera** | No | 1 | Lets operators watch a live first-person feed from the drone through the Drone Remote (section 2.12). | — |
 
 - The default **total slot limit** is 20.
 - The caps are enforced when upgrades are installed (Programming Station, debug command). A flying drone uses its installed counts as they are, even if the config was lowered afterwards.
@@ -319,7 +350,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 - The Transmitter fires on target acquisition only (not while following). The message gives the drone's label and ID, the target's name (the player name for players, otherwise the entity type's name) and the target's block coordinates. After a message, that drone sends no other message for `upgrades.transmitter.cooldown` ticks. The cooldown isn't saved. It goes to the drone's online operators (section 6.3): the group's, or the owner if the drone has no group. An unowned drone or one with an unknown group notifies nobody.
 - **Player targets off:** with `drone.allowPlayerTargets` set to false (default true), drones never target players. Player Seek's cap becomes 0, so it can't be installed (Programming Station, debug command), and drones that already have it act as if they didn't: their player entries are kept but shown as ignored ("player targets are disabled on this server"), and new player entries are refused with that reason. The upgrade item's tooltip says "Disabled on this server". A template that asks for Player Seek is over the limits, like after lowering a cap (section 7.2).
 - Transmitter messages sent while operators are offline are **not** queued in v1 (a Transmitter log is future work, section 11).
-- **Camera upgrade (M9, details to be designed):** lets operators view through the drone's POV. Its cap, slot cost, recipe and how the view is opened (the dashboard, section 2.11, and maybe the Drone Remote) are still to be decided with the user before M9.
+- The **FPV Camera Upgrade** (`seekerdrones:fpv_camera_upgrade`) streams the FPV feed (section 2.12). It doesn't stack, uses one slot like the others and has the usual energy factor. Its recipe is a placeholder until M10, like the other upgrades (an Observer as its core). Its item texture is the usual upgrade card with a camcorder on a dark slate face.
 - **Upgrade items:** one item per type, `seekerdrones:<type>_upgrade` (e.g. `seekerdrones:player_seek_upgrade`), with placeholder recipes until the final ones (ROADMAP.md M10).
 - **Removed upgrades:** the X-ray and Multi-target upgrades were removed (line of sight is always required, and target slots are a config value). Saved drones and templates that still list them load with those entries dropped, without a refund.
 
@@ -388,6 +419,7 @@ Drone Operators control who can interact with drones. A drone's operators come f
 | Hand-deploy a drone | Yes |
 | Open the drone status GUI | Yes |
 | Link a Drone Remote, or use its commands and settings | Yes (checked on every use, section 2.10) |
+| Watch a drone's FPV feed from the Drone Remote | Yes (re-checked while watching, section 2.12) |
 | Receive Transmitter notifications | Yes (all online operators) |
 | Exempt from being targeted by Player Seek | Yes |
 | Insert/extract drones in machines (manually or by automation) | **No**. Machines never check permissions, so automation keeps working. |
@@ -626,7 +658,7 @@ Every screen (the four machines, the drone status screen and the side tab panels
 ### 8.2 Drone data component (`seekerdrones:drone_data`)
 
 The component is a record with a `Codec` and a `StreamCodec`, holding:
-- `droneId` (string): the persistent, readable ID from section 2.8. It survives item/entity conversion and is also meant for future features such as a map or the Camera upgrade.
+- `droneId` (string): the persistent, readable ID from section 2.8. It survives item/entity conversion and is also meant for the FPV feed (section 2.12) and future features such as the dashboard map.
 - `groupId` (optional UUID): the Operator Group. Empty on drones that weren't built by a Factory (e.g. creative/`/give`). See section 6.2 and 6.3 for how permission checks treat a drone without a group or with an unknown group.
 - `ownerId` (optional UUID): the player who first hand-deployed the drone (section 6.3). Only used while the drone has no group.
 - `ownerName` (string, empty if unknown): the owner's name, saved when ownership is set and refreshed when the owner redeploys the drone. It's only for the tooltip, because clients can't resolve offline players' names.
@@ -747,6 +779,12 @@ All values below are placeholders.
 | `remote.linkGlowTicks` | 40 ticks | How long a newly linked drone glows for the linking player |
 | `remote.recallDistance` | 3 blocks | Where a recalled drone stops, in front of the player |
 | `remote.recallHoverTicks` | 600 ticks | How long a recalled drone holds by the player before it goes back to patrolling on its own |
+| `camera.feedEnergyPerTick` | 40 FE (100 J) | Extra drain while at least one player watches the drone's FPV feed (section 2.12) |
+| `camera.viewDistance` | 8 chunks | Radius of already-loaded chunks sent around a watched drone, capped by the server view distance |
+| `camera.hudSyncInterval` | 10 ticks | How often a viewer gets the HUD status |
+| `camera.recheckInterval` | 20 ticks | How often a remote feed re-checks operator, range and remote in hand |
+| `camera.staticStart` | 0.25 | Fraction of `remote.range`, at its far end, over which the picture fades into static |
+| `camera.signalLostTicks` | 30 ticks | How long "Signal lost" shows before the view switches back |
 | `upgrades.sight.perUpgrade` | 8 blocks | |
 | `upgrades.explosive.basePower` / `perUpgrade` | 2.0 / 1.0 | TNT = 4.0 |
 | `upgrades.explosive.blockDamage` | NEVER | NEVER / MOB_GRIEFING / ALWAYS (section 3.1) |

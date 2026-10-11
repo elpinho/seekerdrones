@@ -102,6 +102,7 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue UPGRADES_HEALTH_PER_UPGRADE;
 
     public static final ModConfigSpec.IntValue UPGRADES_PLAYER_SEEK_MAX_COUNT;
+    public static final ModConfigSpec.IntValue UPGRADES_FPV_CAMERA_MAX_COUNT;
 
     public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_ENERGY_FACTOR;
     public static final ModConfigSpec.DoubleValue UPGRADES_SIGHT_ENERGY_FACTOR;
@@ -111,6 +112,7 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue UPGRADES_ENERGY_ENERGY_FACTOR;
     public static final ModConfigSpec.DoubleValue UPGRADES_HEALTH_ENERGY_FACTOR;
     public static final ModConfigSpec.DoubleValue UPGRADES_PLAYER_SEEK_ENERGY_FACTOR;
+    public static final ModConfigSpec.DoubleValue UPGRADES_FPV_CAMERA_ENERGY_FACTOR;
 
 
     // === programmingStation ===
@@ -122,6 +124,7 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_ENERGY;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_HEALTH;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK;
+    public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_FPV_CAMERA;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_ENERGY_CAPACITY;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_INSTALL_TIME;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_CHARGE_RATE;
@@ -153,6 +156,13 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue REMOTE_LINK_GLOW_TICKS;
     public static final ModConfigSpec.DoubleValue REMOTE_RECALL_DISTANCE;
     public static final ModConfigSpec.IntValue REMOTE_RECALL_HOVER_TICKS;
+
+    public static final ModConfigSpec.IntValue CAMERA_FEED_ENERGY_PER_TICK;
+    public static final ModConfigSpec.IntValue CAMERA_VIEW_DISTANCE;
+    public static final ModConfigSpec.IntValue CAMERA_HUD_SYNC_INTERVAL;
+    public static final ModConfigSpec.IntValue CAMERA_RECHECK_INTERVAL;
+    public static final ModConfigSpec.DoubleValue CAMERA_STATIC_START;
+    public static final ModConfigSpec.IntValue CAMERA_SIGNAL_LOST_TICKS;
 
     // === sounds ===
     public static final ModConfigSpec.IntValue SOUNDS_RESORT_INTERVAL;
@@ -416,6 +426,11 @@ public class ServerConfig {
         UPGRADES_PLAYER_SEEK_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         BUILDER.pop();
 
+        BUILDER.push("fpvCamera");
+        UPGRADES_FPV_CAMERA_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 1, 0, 64);
+        UPGRADES_FPV_CAMERA_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
+        BUILDER.pop();
+
 
         BUILDER.pop(); // upgrades
 
@@ -429,6 +444,7 @@ public class ServerConfig {
         PROGRAMMING_STATION_BASE_COST_ENERGY = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("energy", 10_000, 0, Integer.MAX_VALUE);
         PROGRAMMING_STATION_BASE_COST_HEALTH = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("health", 10_000, 0, Integer.MAX_VALUE);
         PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("playerSeek", 10_000, 0, Integer.MAX_VALUE);
+        PROGRAMMING_STATION_BASE_COST_FPV_CAMERA = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("fpvCamera", 10_000, 0, Integer.MAX_VALUE);
         BUILDER.pop();
         PROGRAMMING_STATION_ENERGY_CAPACITY = BUILDER
                 .comment("FE a Programming Station can store.")
@@ -514,6 +530,27 @@ public class ServerConfig {
         REMOTE_RECALL_HOVER_TICKS = BUILDER
                 .comment("How long (ticks) a recalled drone holds by the player before it goes back to patrolling on its own.")
                 .defineInRange("recallHoverTicks", 600, 1, Integer.MAX_VALUE);
+        BUILDER.pop();
+
+        BUILDER.push("camera");
+        CAMERA_FEED_ENERGY_PER_TICK = BUILDER
+                .comment("Extra FE per tick a drone pays while at least one player watches its FPV feed (no upgrade multiplier, not while docked).")
+                .defineInRange("feedEnergyPerTick", 40, 0, Integer.MAX_VALUE);
+        CAMERA_VIEW_DISTANCE = BUILDER
+                .comment("Radius (chunks) of already-loaded chunks sent around a watched drone, capped by the server view distance.")
+                .defineInRange("viewDistance", 8, 2, 32);
+        CAMERA_HUD_SYNC_INTERVAL = BUILDER
+                .comment("How often (ticks) a viewer gets the FPV HUD's status.")
+                .defineInRange("hudSyncInterval", 10, 1, 200);
+        CAMERA_RECHECK_INTERVAL = BUILDER
+                .comment("How often (ticks) a feed opened from a Drone Remote re-checks the operator, range, upgrade and remote in hand.")
+                .defineInRange("recheckInterval", 20, 1, 1200);
+        CAMERA_STATIC_START = BUILDER
+                .comment("Fraction of remote.range, at its far end, over which the FPV picture fades into static.")
+                .defineInRange("staticStart", 0.25, 0.0, 1.0);
+        CAMERA_SIGNAL_LOST_TICKS = BUILDER
+                .comment("How long (ticks) \"Signal lost\" shows before the view switches back to the player.")
+                .defineInRange("signalLostTicks", 30, 0, 200);
         BUILDER.pop();
 
         BUILDER.comment("Drone and machine sounds. Volumes are clamped to 1.0 by the game when played: above that they only extend",

@@ -286,7 +286,7 @@ public class DroneStatusScreen extends PanelScreen {
     }
 
     /** The state pill's light for a deployed drone: green working, amber held or going to charge, gray idle. */
-    static Kit.Light stateLight(DroneState state) {
+    public static Kit.Light stateLight(DroneState state) {
         return switch (state) {
             case IDLE -> Kit.Light.IDLE;
             case PATROLLING, CHASING, FOLLOWING, RECALLED -> Kit.Light.OK;

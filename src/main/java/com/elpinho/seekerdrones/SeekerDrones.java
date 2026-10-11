@@ -10,6 +10,7 @@ import com.elpinho.seekerdrones.drone.TargetFilter;
 import com.elpinho.seekerdrones.drone.TargetClaims;
 import com.elpinho.seekerdrones.drone.TargetMatcher;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
+import com.elpinho.seekerdrones.feed.FpvFeeds;
 import com.elpinho.seekerdrones.gametest.GameTestSelection;
 import com.elpinho.seekerdrones.network.EnergyUnitPayload;
 import com.elpinho.seekerdrones.network.ModNetwork;
@@ -85,6 +86,13 @@ public class SeekerDrones {
                 EnergyUnitPayload.sendTo(player);
             }
         });
+        // The FPV feed (DESIGN.md section 2.12): its checks, and the events that end it.
+        NeoForge.EVENT_BUS.addListener(FpvFeeds::onServerTick);
+        NeoForge.EVENT_BUS.addListener(FpvFeeds::onDamage);
+        NeoForge.EVENT_BUS.addListener(FpvFeeds::onDeath);
+        NeoForge.EVENT_BUS.addListener(FpvFeeds::onChangedDimension);
+        NeoForge.EVENT_BUS.addListener(FpvFeeds::onLoggedOut);
+        NeoForge.EVENT_BUS.addListener(FpvFeeds::onServerStopped);
         NeoForge.EVENT_BUS.addListener((RegisterCommandsEvent event) -> SeekerDronesCommand.register(event.getDispatcher(), event.getBuildContext()));
         if (GameTestHooks.isGametestServer()) {
             NeoForge.EVENT_BUS.addListener(GameTestSelection::onServerAboutToStart);

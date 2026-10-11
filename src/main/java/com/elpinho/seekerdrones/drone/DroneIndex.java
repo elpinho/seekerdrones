@@ -2,6 +2,7 @@ package com.elpinho.seekerdrones.drone;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -55,6 +56,12 @@ public final class DroneIndex {
             }
         }
         return null;
+    }
+
+    /** The IDs of the loaded drones in the level, e.g. for command suggestions. */
+    public static Set<String> ids(LevelAccessor level) {
+        Map<String, DroneEntity> levelDrones = DRONES.get(level);
+        return levelDrones != null ? Set.copyOf(levelDrones.keySet()) : Set.of();
     }
 
     /** Drops a level's drones, e.g. when it unloads. */

@@ -570,6 +570,10 @@ ICONS = {
         {"b": (126, 182, 255, 255)}),
     "hold": (["aa..aa"] * 7, {"a": (251, 191, 36, 255)}),
     "resume": (["g.....", "ggg...", "ggggg.", "gggggg", "ggggg.", "ggg...", "g....."], {"g": (74, 222, 128, 255)}),
+    # The FPV FEED button (DESIGN.md section 2.12): a camcorder with a teal lens and a red REC light.
+    "fpv": ([
+        ".R.......", "GGGGGG...", "GGGGGG..G", "GGLLGG.GG", "GGLLGGGGG", "GGGGGG.GG", "GGGGGG..G"],
+        {"G": (154, 164, 176, 255), "L": (143, 229, 214, 255), "R": (244, 91, 91, 255)}),
     "settings": ([
         ".s...s...", ".s...s.S.", "SSS..s.s.", ".s..SSSs.", ".s...s.s.", ".s...sSSS", ".s...s.s.", ".s...s.s."],
         {"s": (154, 164, 176, 255), "S": (94, 104, 116, 255)}),

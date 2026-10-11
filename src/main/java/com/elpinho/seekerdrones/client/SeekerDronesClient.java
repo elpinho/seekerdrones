@@ -1,6 +1,8 @@
 package com.elpinho.seekerdrones.client;
 
 import com.elpinho.seekerdrones.SeekerDrones;
+import com.elpinho.seekerdrones.client.feed.FpvFeedClient;
+import com.elpinho.seekerdrones.client.feed.FpvHud;
 import com.elpinho.seekerdrones.client.sound.DroneSounds;
 import com.elpinho.seekerdrones.deploying.DeployingStationBlock;
 import com.elpinho.seekerdrones.drone.DroneConfig;
@@ -49,6 +51,17 @@ public class SeekerDronesClient {
         NeoForge.EVENT_BUS.addListener(DroneSounds::onClientTick);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> DroneSounds.clear());
         DroneEntity.setClientSoundListener(DroneSounds::markDirty);
+        // The FPV feed (DESIGN.md section 2.12): the camera, the frozen body, the HUD and night vision.
+        modEventBus.addListener(FpvFeedClient::registerKeys);
+        modEventBus.addListener(FpvHud::register);
+        NeoForge.EVENT_BUS.addListener(FpvFeedClient::onClientTick);
+        NeoForge.EVENT_BUS.addListener(FpvFeedClient::onMovementInput);
+        NeoForge.EVENT_BUS.addListener(FpvFeedClient::onInteraction);
+        NeoForge.EVENT_BUS.addListener(FpvFeedClient::onMouseScroll);
+        NeoForge.EVENT_BUS.addListener(FpvFeedClient::onRenderHand);
+        NeoForge.EVENT_BUS.addListener(FpvFeedClient::onRenderGuiLayer);
+        NeoForge.EVENT_BUS.addListener(FpvFeedClient::onCameraAngles);
+        NeoForge.EVENT_BUS.addListener(FpvFeedClient::onLoggingOut);
     }
 
     private static void registerScreens(RegisterMenuScreensEvent event) {
