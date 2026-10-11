@@ -139,10 +139,13 @@ public class DroneStatusScreen extends PanelScreen {
         super.init();
         addRenderableWidget(new Gauges.Bar(leftPos + COLUMN_X, topPos + ENERGY_BAR_Y, COLUMN_WIDTH, 6, Gauges.Bar.Kind.ENERGY,
                 () -> Kit.fraction(status.data().energy(), status.maxEnergy())))
-                .tooltip(() -> List.of(
-                        Component.translatable("screen.seekerdrones.energy"),
-                        Component.literal(EnergyFormat.ratio(status.data().energy(), status.maxEnergy())).withStyle(ChatFormatting.GRAY),
-                        energyRateTooltip()));
+                .tooltip(() -> {
+                    List<Component> lines = new ArrayList<>(List.of(
+                            Component.translatable("screen.seekerdrones.energy"),
+                            Component.literal(EnergyFormat.ratio(status.data().energy(), status.maxEnergy())).withStyle(ChatFormatting.GRAY)));
+                    lines.addAll(energyRateTooltip(energyRate(), status.solarRate()));
+                    return lines;
+                });
         addRenderableWidget(new Gauges.Bar(leftPos + COLUMN_X, topPos + HEALTH_BAR_Y, COLUMN_WIDTH, 6, Gauges.Bar.Kind.HEALTH,
                 () -> Kit.fraction(status.data().health(), status.maxHealth())))
                 .tooltip(() -> List.of(
@@ -275,16 +278,20 @@ public class DroneStatusScreen extends PanelScreen {
                 + averageSpeed * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK)) + status.selfHealRate());
     }
 
-    private Component energyRateText(double rate) {
-        return Component.translatable("screen.seekerdrones.drone_status.energy_rate", EnergyFormat.rate(Math.round(rate)));
-    }
-
-    private Component energyRateTooltip() {
-        OptionalDouble rate = energyRate();
-        return rate.isPresent()
-                ? Component.translatable("screen.seekerdrones.drone_status.energy_rate.tooltip", EnergyFormat.rate(Math.round(rate.getAsDouble())))
-                        .withStyle(ChatFormatting.GRAY)
-                : Component.translatable("screen.seekerdrones.drone_status.energy_rate.none").withStyle(ChatFormatting.GRAY);
+    /** The energy bar's tooltip lines: just the use, or the net with the use and the Solar generation underneath. */
+    public static List<Component> energyRateTooltip(OptionalDouble usage, double solar) {
+        if (usage.isEmpty()) {
+            return List.of(Component.translatable("screen.seekerdrones.drone_status.energy_rate.none").withStyle(ChatFormatting.GRAY));
+        }
+        Component using = Component.translatable("screen.seekerdrones.drone_status.energy_rate.tooltip", EnergyFormat.rate(Math.round(usage.getAsDouble())))
+                .withStyle(ChatFormatting.GRAY);
+        if (solar <= 0) {
+            return List.of(using);
+        }
+        return List.of(
+                Component.translatable("screen.seekerdrones.drone_status.energy_rate.net", EnergyFormat.netRate(usage.getAsDouble(), solar)).withStyle(ChatFormatting.GRAY),
+                using,
+                Component.translatable("screen.seekerdrones.drone_status.energy_rate.solar", EnergyFormat.rate(Math.round(solar))).withStyle(ChatFormatting.GRAY));
     }
 
     private Kit.Light stateLight() {
@@ -345,7 +352,7 @@ public class DroneStatusScreen extends PanelScreen {
         int valueEnd = x + COLUMN_WIDTH;
         OptionalDouble rate = energyRate();
         if (rate.isPresent()) {
-            Component rateText = energyRateText(rate.getAsDouble());
+            Component rateText = EnergyFormat.netRate(rate.getAsDouble(), status.solarRate());
             int rateWidth = Kit.smallWidth(font, rateText);
             Kit.smallText(graphics, font, rateText, x + COLUMN_WIDTH - rateWidth, y + 2, Kit.LABEL, false);
             valueEnd -= rateWidth + 4;

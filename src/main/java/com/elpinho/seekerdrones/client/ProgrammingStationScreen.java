@@ -149,6 +149,8 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private static final int TILE_PITCH_X = 29;
     private static final int TILE_PITCH_Y = 30;
     private static final int TILE_COLUMNS = 5;
+    /** Space between the input slots and their scrollbar. */
+    private static final int INPUT_SCROLLBAR_GAP = 0;
     private static final int TILE_ROWS = 3;
     /** Up to this many pips per tile. A larger per-type cap (config) shows as a segmented bar. */
     private static final int MAX_PIPS = 8;
@@ -207,6 +209,8 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     private Tab tab = Tab.UPGRADES;
     private int targetScroll;
     private int tileScroll;
+    /** The first input row shown (the input slots scroll when there are more upgrade types than fit). */
+    private int inputScroll;
     /** The target row whose preview is shown. */
     private int selectedRow;
     @Nullable
@@ -1309,6 +1313,12 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         if (suggestions != null && suggestions.mouseScrolled(mouseX, mouseY, scrollY)) {
             return true;
         }
+        if (ProgrammingStationMenu.maxInputScroll() > 0 && isHovering(ProgrammingStationMenu.INPUT_X, ProgrammingStationMenu.INPUT_Y,
+                ProgrammingStationMenu.INPUT_COLUMNS * 18 + INPUT_SCROLLBAR_GAP + 3, ProgrammingStationMenu.INPUT_ROWS * 18, mouseX, mouseY)) {
+            inputScroll = Math.clamp(inputScroll - (int) Math.signum(scrollY), 0, ProgrammingStationMenu.maxInputScroll());
+            menu.setInputScroll(inputScroll);
+            return true;
+        }
         if (isHovering(EDITOR_X, EDITOR_Y, EDITOR_WIDTH, EDITOR_HEIGHT, mouseX, mouseY)) {
             int step = -(int) Math.signum(scrollY);
             DroneProgram program = program();
@@ -1401,6 +1411,7 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
     @Override
     protected void renderContents(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
         renderBay(graphics);
+        renderInputScrollbar(graphics);
         int x = leftPos + EDITOR_X;
         int y = topPos + EDITOR_Y;
         Kit.display(graphics, x, y, EDITOR_WIDTH, EDITOR_HEIGHT);
@@ -1417,6 +1428,23 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
             case BEHAVIOR -> renderBehavior(graphics, program, x, y);
             case IDENTITY -> renderIdentity(graphics, program, x, y);
         }
+    }
+
+    /** A thin scrollbar right of the input slots, only when there are more rows than fit. */
+    private void renderInputScrollbar(GuiGraphics graphics) {
+        int maxScroll = ProgrammingStationMenu.maxInputScroll();
+        if (maxScroll <= 0) {
+            return;
+        }
+        int rows = maxScroll + ProgrammingStationMenu.INPUT_ROWS;
+        // The slots' boxes start one pixel left of the item position (INPUT_X).
+        int trackX = leftPos + ProgrammingStationMenu.INPUT_X - 1 + ProgrammingStationMenu.INPUT_COLUMNS * 18 + INPUT_SCROLLBAR_GAP;
+        int trackY = topPos + ProgrammingStationMenu.INPUT_Y;
+        int trackHeight = ProgrammingStationMenu.INPUT_ROWS * 18 - 2;
+        graphics.fill(trackX, trackY, trackX + 3, trackY + trackHeight, TRACK_COLOR);
+        int thumbHeight = trackHeight * ProgrammingStationMenu.INPUT_ROWS / rows;
+        int thumbY = trackY + (trackHeight - thumbHeight) * inputScroll / maxScroll;
+        graphics.fill(trackX, thumbY, trackX + 3, thumbY + thumbHeight, accent());
     }
 
     private void header(GuiGraphics graphics, Tab shown, int x, int y) {

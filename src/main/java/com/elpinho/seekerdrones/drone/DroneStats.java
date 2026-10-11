@@ -4,6 +4,9 @@ import java.util.Map;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
 
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
+
 /**
  * Values derived from {@link DroneData} and the server config.
  */
@@ -197,6 +200,30 @@ public final class DroneStats {
 
     public static boolean hasTransmitter(DroneData data) {
         return data.upgradeCount(UpgradeType.TRANSMITTER) > 0;
+    }
+
+    /**
+     * FE per tick the drone's Solar upgrades generate at {@code pos} right now (section 4): {@code energyPerTick} for the
+     * first upgrade, times {@code outputFactor} for each one after it, in daylight with sky access, scaled down in rain and thunder. 0 without the upgrade, at night, under
+     * cover and in dimensions without skylight.
+     */
+    public static double solarPerTick(DroneData data, Level level, BlockPos pos) {
+        int count = data.upgradeCount(UpgradeType.SOLAR);
+        if (count <= 0 || !level.dimensionType().hasSkyLight() || !isSunUp(level) || !level.canSeeSky(pos)) {
+            return 0;
+        }
+        double weather = level.isRainingAt(pos)
+                ? level.isThundering() ? ServerConfig.get(ServerConfig.UPGRADES_SOLAR_THUNDER_MULTIPLIER) : ServerConfig.get(ServerConfig.UPGRADES_SOLAR_RAIN_MULTIPLIER)
+                : 1;
+        return ServerConfig.get(ServerConfig.UPGRADES_SOLAR_ENERGY_PER_TICK) * Math.pow(ServerConfig.get(ServerConfig.UPGRADES_SOLAR_OUTPUT_FACTOR), count - 1) * weather;
+    }
+
+    /**
+     * Whether the sun is above the horizon. {@code Level.isDay()} isn't used because rain and thunder darken the sky and
+     * make it false in the middle of the day, which would make the weather multipliers unreachable.
+     */
+    private static boolean isSunUp(Level level) {
+        return Math.cos(level.getSunAngle(1f)) > 0;
     }
 
     /** Whether the drone streams an FPV feed (section 2.12). */

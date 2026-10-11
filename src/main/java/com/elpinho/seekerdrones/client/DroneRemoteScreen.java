@@ -274,10 +274,13 @@ public class DroneRemoteScreen extends PanelScreen {
 
         addRenderableWidget(new Gauges.Bar(leftPos + COLUMN_X, topPos + ENERGY_BAR_Y, COLUMN_WIDTH, 6, Gauges.Bar.Kind.ENERGY,
                 () -> Kit.fraction(shown.data().energy(), shown.maxEnergy())))
-                .tooltip(() -> List.of(
-                        Component.translatable("screen.seekerdrones.energy"),
-                        Component.literal(EnergyFormat.ratio(shown.data().energy(), shown.maxEnergy())).withStyle(ChatFormatting.GRAY),
-                        energyRateTooltip()));
+                .tooltip(() -> {
+                    List<Component> lines = new ArrayList<>(List.of(
+                            Component.translatable("screen.seekerdrones.energy"),
+                            Component.literal(EnergyFormat.ratio(shown.data().energy(), shown.maxEnergy())).withStyle(ChatFormatting.GRAY)));
+                    lines.addAll(DroneStatusScreen.energyRateTooltip(energyRate(), shown.solarRate()));
+                    return lines;
+                });
         addRenderableWidget(new Gauges.Bar(leftPos + COLUMN_X, topPos + HEALTH_BAR_Y, COLUMN_WIDTH, 6, Gauges.Bar.Kind.HEALTH,
                 () -> Kit.fraction(shown.data().health(), shown.maxHealth())))
                 .tooltip(() -> List.of(
@@ -841,14 +844,6 @@ public class DroneRemoteScreen extends PanelScreen {
                 + averageSpeed * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK)) + shown.selfHealRate());
     }
 
-    private Component energyRateTooltip() {
-        OptionalDouble rate = energyRate();
-        return rate.isPresent()
-                ? Component.translatable("screen.seekerdrones.drone_status.energy_rate.tooltip", EnergyFormat.rate(Math.round(rate.getAsDouble())))
-                        .withStyle(ChatFormatting.GRAY)
-                : Component.translatable("screen.seekerdrones.drone_status.energy_rate.none").withStyle(ChatFormatting.GRAY);
-    }
-
     private Component pillText() {
         return controls() ? Component.translatable(state().getTranslationKey()) : Component.translatable(status.reach().getTranslationKey());
     }
@@ -913,7 +908,7 @@ public class DroneRemoteScreen extends PanelScreen {
         int valueEnd = x + COLUMN_WIDTH;
         OptionalDouble rate = energyRate();
         if (rate.isPresent()) {
-            Component rateText = Component.translatable("screen.seekerdrones.drone_status.energy_rate", EnergyFormat.rate(Math.round(rate.getAsDouble())));
+            Component rateText = EnergyFormat.netRate(rate.getAsDouble(), shown.solarRate());
             int rateWidth = Kit.smallWidth(font, rateText);
             Kit.smallText(graphics, font, rateText, x + COLUMN_WIDTH - rateWidth, y + 2, Kit.LABEL, false);
             valueEnd -= rateWidth + 4;

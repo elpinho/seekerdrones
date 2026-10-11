@@ -311,7 +311,7 @@ public final class FpvHud {
         graphics.blitSprite(Kit.ICON_ENERGY, x - 10, y, 6, 8);
         bar(graphics, Kit.FILL_ENERGY_HORIZONTAL, x, y + 1, energy);
         if (status != null) {
-            Component rate = Component.translatable("screen.seekerdrones.drone_status.energy_rate", EnergyFormat.rate(Math.round(status.drainRate())));
+            Component rate = EnergyFormat.netRate(status.drainRate(), status.solarRate());
             Kit.smallText(graphics, font, rate, x - 13 - Kit.smallWidth(font, rate), y + 1, WHITE, true);
         }
         graphics.blitSprite(Kit.ICON_HEALTH, x - 10, y + 11, 7, 6);

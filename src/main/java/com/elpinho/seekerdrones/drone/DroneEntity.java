@@ -251,6 +251,8 @@ public class DroneEntity extends PathfinderMob {
     private int drainTicks;
     /** FE per tick the last drain cost, for the FPV HUD (section 2.12). Not saved. */
     private double drainRate;
+    /** FE per tick the Solar upgrades generated at the last drain (section 4), for the energy rate displays. Not saved. */
+    private double solarRate;
     /** Set while the drone waits at a busy station this tick (section 5.3), read and cleared by the energy drain. */
     private boolean queuedThisTick;
     /** The fraction of a FE owed at the last drain, carried over so small costs add up. */
@@ -1459,10 +1461,13 @@ public class DroneEntity extends PathfinderMob {
         drainQueueCost = 0;
         drainFeedCost = 0;
         drainRate = drainTicks > 0 ? (cost - drainRemainder) / drainTicks : 0;
+        solarRate = drainTicks > 0 ? DroneStats.solarPerTick(data, level(), BlockPos.containing(getX(), getEyeY(), getZ())) : 0;
+        double solar = solarRate * drainTicks;
         drainTicks = 0;
+        cost -= solar;
         long whole = (long) cost;
         drainRemainder = cost - whole;
-        long energy = data.energy() - whole;
+        long energy = Math.min(data.energy() - whole, DroneStats.maxEnergy(data));
         if (energy <= 0) {
             runOutOfEnergy(data);
             return;
@@ -1503,6 +1508,11 @@ public class DroneEntity extends PathfinderMob {
         }
         setHealth(Math.min(getMaxHealth(), getHealth() + (float) heal));
         return heal * perHp;
+    }
+
+    /** FE per tick the Solar upgrades generated at the last energy drain (section 4), 0 without any or under cover. */
+    public double getSolarRate() {
+        return solarRate;
     }
 
     public double getSelfHealRate() {

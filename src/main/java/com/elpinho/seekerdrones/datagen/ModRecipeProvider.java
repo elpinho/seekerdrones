@@ -45,7 +45,8 @@ public class ModRecipeProvider extends RecipeProvider {
             UpgradeType.ENERGY, Items.REDSTONE_BLOCK,
             UpgradeType.HEALTH, Items.GOLDEN_APPLE,
             UpgradeType.PLAYER_SEEK, Items.ENDER_EYE,
-            UpgradeType.FPV_CAMERA, Items.OBSERVER);
+            UpgradeType.FPV_CAMERA, Items.OBSERVER,
+            UpgradeType.SOLAR, Items.DAYLIGHT_DETECTOR);
 
     static final TagKey<Item> INGOTS_STEEL = TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "ingots/steel"));
     static final TagKey<Item> ALLOYS_ULTIMATE = TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "alloys/ultimate"));
@@ -58,12 +59,14 @@ public class ModRecipeProvider extends RecipeProvider {
     protected void buildRecipes(RecipeOutput output) {
         for (UpgradeType type : UpgradeType.values()) {
             Item core = UPGRADE_CORES.get(type);
+            // Solar is meant to be very expensive (docs/IMPROVEMENTS.md): diamonds and redstone blocks instead of iron and dust.
+            boolean solar = type == UpgradeType.SOLAR;
             ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ModItems.upgrade(type).get())
                     .pattern("IRI")
                     .pattern("RCR")
                     .pattern("IRI")
-                    .define('I', Items.IRON_INGOT)
-                    .define('R', Items.REDSTONE)
+                    .define('I', solar ? Items.DIAMOND : Items.IRON_INGOT)
+                    .define('R', solar ? Items.REDSTONE_BLOCK : Items.REDSTONE)
                     .define('C', core)
                     .unlockedBy(getHasName(core), has(core))
                     .save(output);

@@ -217,7 +217,7 @@ public final class FpvFeeds {
     }
 
     private static void sendStatus(ServerPlayer player, DroneEntity drone) {
-        send(player, new FpvStatusPayload(drone.getEnergy(), DroneStats.maxEnergy(drone.snapshotData()), (float) drone.getDrainRate()));
+        send(player, new FpvStatusPayload(drone.getEnergy(), DroneStats.maxEnergy(drone.snapshotData()), (float) drone.getDrainRate(), (float) drone.getSolarRate()));
     }
 
     /** Skipped for connections that didn't negotiate the channel (e.g. GameTest fake players). */

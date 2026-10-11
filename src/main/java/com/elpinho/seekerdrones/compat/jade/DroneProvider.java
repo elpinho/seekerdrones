@@ -10,6 +10,7 @@ import com.elpinho.seekerdrones.drone.DroneReason;
 import com.elpinho.seekerdrones.drone.DroneState;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.drone.TargetMatcher;
+import com.elpinho.seekerdrones.energy.EnergyFormat;
 import com.elpinho.seekerdrones.network.StationStatusPayload;
 import com.elpinho.seekerdrones.operator.OperatorGroups;
 
@@ -54,7 +55,8 @@ public enum DroneProvider implements IEntityComponentProvider, StreamServerDataP
         if (DronePermissions.canInteract(accessor.getPlayer(), data)) {
             Entity target = drone.getSeekTarget();
             details = Optional.of(new Details(ownerName(accessor.getLevel().getServer(), data), TargetMatcher.targetableEntries(data),
-                    Optional.ofNullable(target).map(Entity::getName), drone.resolveReason()));
+                    Optional.ofNullable(target).map(Entity::getName), drone.resolveReason(), drone.getState() == DroneState.CHARGING ? 0 : (float) drone.getDrainRate(),
+                    (float) drone.getSolarRate()));
         }
         return new Data(data.droneId(), details);
     }
@@ -91,6 +93,14 @@ public enum DroneProvider implements IEntityComponentProvider, StreamServerDataP
                     : Component.translatable("jade.seekerdrones.drone.state", stateName));
             if (details.reason().isPresent()) {
                 tooltip.add(details.reason().text().copy().withStyle(ChatFormatting.GRAY));
+            }
+            if (drone.getState() != DroneState.CHARGING && (details.drain() > 0 || details.solar() > 0)) {
+                tooltip.add(Component.translatable("jade.seekerdrones.drone.energy_rate", EnergyFormat.netRate(details.drain(), details.solar()))
+                        .withStyle(ChatFormatting.GRAY));
+                if (details.solar() > 0) {
+                    tooltip.add(Component.translatable("jade.seekerdrones.drone.energy_rate.solar", EnergyFormat.rate(Math.round(details.drain())),
+                            EnergyFormat.rate(Math.round(details.solar()))).withStyle(ChatFormatting.GRAY));
+                }
             }
             if (!details.owner().isEmpty()) {
                 tooltip.add(Component.translatable("jade.seekerdrones.drone.owner", details.owner()));
@@ -133,13 +143,18 @@ public enum DroneProvider implements IEntityComponentProvider, StreamServerDataP
      * @param owner  the owner's name, empty for an unowned drone
      * @param target the name of the entity being chased or followed
      * @param reason why the drone is in its state (DESIGN.md section 2.4)
+     * @param drain  FE per tick the drone used at its last energy drain, 0 while docked
+     * @param solar  FE per tick its Solar upgrades generated then (section 4)
      */
-    public record Details(String owner, List<TargetEntry> targets, Optional<Component> target, DroneReason.Info reason) {
+    public record Details(String owner, List<TargetEntry> targets, Optional<Component> target, DroneReason.Info reason, float drain,
+            float solar) {
         static final StreamCodec<RegistryFriendlyByteBuf, Details> STREAM_CODEC = StreamCodec.composite(
                 ByteBufCodecs.STRING_UTF8, Details::owner,
                 TargetEntry.STREAM_CODEC.apply(ByteBufCodecs.list()), Details::targets,
                 ByteBufCodecs.optional(ComponentSerialization.STREAM_CODEC), Details::target,
                 DroneReason.Info.STREAM_CODEC, Details::reason,
+                ByteBufCodecs.FLOAT, Details::drain,
+                ByteBufCodecs.FLOAT, Details::solar,
                 Details::new);
     }
 }

@@ -36,7 +36,9 @@ public enum UpgradeType implements StringRepresentable {
             ServerConfig.UPGRADES_PLAYER_SEEK_ENERGY_FACTOR),
     // Last: the stream codec and the Programming Station's input slots go by ordinal.
     FPV_CAMERA("fpv_camera", ServerConfig.UPGRADES_FPV_CAMERA_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_FPV_CAMERA,
-            ServerConfig.UPGRADES_FPV_CAMERA_ENERGY_FACTOR);
+            ServerConfig.UPGRADES_FPV_CAMERA_ENERGY_FACTOR),
+    SOLAR("solar", ServerConfig.UPGRADES_SOLAR_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_SOLAR,
+            ServerConfig.UPGRADES_SOLAR_ENERGY_FACTOR);
 
     public static final StringRepresentable.EnumCodec<UpgradeType> CODEC = StringRepresentable.fromEnum(UpgradeType::values);
     private static final IntFunction<UpgradeType> BY_ID = ByIdMap.continuous(Enum::ordinal, values(), ByIdMap.OutOfBoundsStrategy.ZERO);

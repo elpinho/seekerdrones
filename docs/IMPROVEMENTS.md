@@ -19,12 +19,6 @@ Status: `idea` | `decided`
 ## Upgrades and energy
 
 - **Antiprotonic Nucleosynthesizer for late-game recipes** (`idea`): the Mekanism variants of really late-game items (e.g. the most expensive upgrades) should require the Antiprotonic Nucleosynthesizer.
-- **Solar upgrade** (`idea`, direction agreed): a drone upgrade that generates real energy (FE) from sunlight. The drone's net energy change is the solar output minus its energy usage.
-  - **Stacking:** stackable, cap 4. **One upgrade is not enough to make a drone self-sufficient.** Energy usage depends on the drone's upgrades (the upgrade multiplier, DESIGN.md §5.1), so whether a drone is self-sufficient also depends on its other upgrades.
-  - **Cost:** it should be **very expensive to craft**.
-  - **Conditions:** it only generates with sky access (a `canSeeSky` heightmap lookup, which is cheap) during the day, and generates less in rain and thunder.
-  - **Performance:** the generation is applied in the existing batched energy drain (every `drone.energyDrainInterval` ticks, DESIGN.md §8.4), so it adds no extra ticking.
-  - Output per upgrade and the weather multipliers would be config entries.
 - **Quiet upgrade** (`idea`, direction agreed; name TBD, e.g. "Stealth" or "Silencer"): a drone upgrade for silent watchers.
   - It lowers the volume of the drone's own sounds (flying, low power and so on, DESIGN.md section 2.9).
   - It **hides the drone's nameplate** (label), since a floating name tag defeats the point.

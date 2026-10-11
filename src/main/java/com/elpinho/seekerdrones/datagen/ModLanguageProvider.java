@@ -176,6 +176,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.HEALTH.getTranslationKey(), "Health");
         add(UpgradeType.PLAYER_SEEK.getTranslationKey(), "Player Seek");
         add(UpgradeType.FPV_CAMERA.getTranslationKey(), "FPV Camera");
+        add(UpgradeType.SOLAR.getTranslationKey(), "Solar");
 
         addItem(ModItems.upgrade(UpgradeType.PATROL), "Patrol Upgrade");
         addItem(ModItems.upgrade(UpgradeType.SIGHT), "Sight Upgrade");
@@ -186,6 +187,7 @@ public class ModLanguageProvider extends LanguageProvider {
         addItem(ModItems.upgrade(UpgradeType.HEALTH), "Health Upgrade");
         addItem(ModItems.upgrade(UpgradeType.PLAYER_SEEK), "Player Seek Upgrade");
         addItem(ModItems.upgrade(UpgradeType.FPV_CAMERA), "FPV Camera Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.SOLAR), "Solar Upgrade");
 
         add(UpgradeType.PATROL.getTranslationKey() + ".description", "Patrols in a circle around its patrol center.");
         add(UpgradeType.SIGHT.getTranslationKey() + ".description", "Increases the range at which targets are spotted.");
@@ -196,6 +198,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.HEALTH.getTranslationKey() + ".description", "Increases max health.");
         add(UpgradeType.PLAYER_SEEK.getTranslationKey() + ".description", "Allows setting players as targets.");
         add(UpgradeType.FPV_CAMERA.getTranslationKey() + ".description", "Streams a live first-person feed to the Drone Remote.");
+        add(UpgradeType.SOLAR.getTranslationKey() + ".description", "Generates energy from sunlight while the drone flies under open sky. Less in rain, none at night.");
         add("tooltip.seekerdrones.upgrade.max_count", "Max per drone: %s");
         add("tooltip.seekerdrones.upgrade.disabled", "Disabled on this server");
 
@@ -238,7 +241,12 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.drone_status.health_value", "%s / %s");
         add("screen.seekerdrones.drone_status.health_hp", "%s HP");
         add("screen.seekerdrones.drone_status.energy_rate", "-%s");
-        add("screen.seekerdrones.drone_status.energy_rate.tooltip", "Using about %s right now");
+        add("screen.seekerdrones.drone_status.energy_rate.tooltip", "Using: %s");
+        add("jade.seekerdrones.drone.energy_rate", "Energy: %s");
+        add("jade.seekerdrones.drone.energy_rate.solar", "Using %s, solar %s");
+        add("screen.seekerdrones.drone_status.energy_rate.gain", "+%s");
+        add("screen.seekerdrones.drone_status.energy_rate.net", "Net usage: %s");
+        add("screen.seekerdrones.drone_status.energy_rate.solar", "Generating: %s");
         add("screen.seekerdrones.drone_status.energy_rate.none", "Not using energy (not flying)");
         add("screen.seekerdrones.drone_status.sight", "Sight");
         add("screen.seekerdrones.drone_status.follow", "Follow");

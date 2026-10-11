@@ -7,6 +7,8 @@ import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.util.Locale;
 
+import net.minecraft.network.chat.Component;
+
 /**
  * Formats FE amounts in a player's chosen unit (DESIGN.md section 5.4). The short forms round to three significant
  * digits with an SI prefix ({@code 12.5 kFE}, {@code 1.25 MJ}); the exact forms keep every digit with thousands separators.
@@ -41,6 +43,16 @@ public final class EnergyFormat {
     /** "45.2 kFE / 50 kFE" */
     public static String ratio(long fe, long capacity) {
         return ratio(fe, capacity, clientUnit);
+    }
+
+    /**
+     * The net energy change next to an energy bar (DESIGN.md section 4): "-12 FE/t" while the drone loses energy, "+3 FE/t"
+     * when its Solar upgrades out-generate its use.
+     */
+    public static Component netRate(double usage, double solar) {
+        double change = usage - solar;
+        return Component.translatable(change <= 0 && Math.round(change) != 0 ? "screen.seekerdrones.drone_status.energy_rate.gain"
+                : "screen.seekerdrones.drone_status.energy_rate", rate(Math.abs(Math.round(change))));
     }
 
     /** "1 kFE/t" */

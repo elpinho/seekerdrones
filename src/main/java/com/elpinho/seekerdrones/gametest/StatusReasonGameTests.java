@@ -310,7 +310,7 @@ public class StatusReasonGameTests {
         for (DroneReason reason : DroneReason.values()) {
             DroneReason.Info info = new DroneReason.Info(reason, reason == DroneReason.TARGET_OUT_OF_SIGHT ? 37 : 0);
             DroneStatusPayload payload = new DroneStatusPayload(base.entityId(), base.open(), base.data(), base.maxEnergy(), base.maxHealth(), base.state(),
-                    base.patrolCenter(), base.patrolRadius(), base.maxPatrolRadius(), base.sightRange(), base.selfHealRate(), info);
+                    base.patrolCenter(), base.patrolRadius(), base.maxPatrolRadius(), base.sightRange(), base.selfHealRate(), base.solarRate(), info);
             ByteBuf buf = Unpooled.buffer();
             DroneStatusPayload.STREAM_CODEC.encode(buf, payload);
             DroneStatusPayload decoded = DroneStatusPayload.STREAM_CODEC.decode(buf);

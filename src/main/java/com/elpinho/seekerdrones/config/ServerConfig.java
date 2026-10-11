@@ -103,6 +103,11 @@ public class ServerConfig {
 
     public static final ModConfigSpec.IntValue UPGRADES_PLAYER_SEEK_MAX_COUNT;
     public static final ModConfigSpec.IntValue UPGRADES_FPV_CAMERA_MAX_COUNT;
+    public static final ModConfigSpec.IntValue UPGRADES_SOLAR_MAX_COUNT;
+    public static final ModConfigSpec.DoubleValue UPGRADES_SOLAR_ENERGY_PER_TICK;
+    public static final ModConfigSpec.DoubleValue UPGRADES_SOLAR_OUTPUT_FACTOR;
+    public static final ModConfigSpec.DoubleValue UPGRADES_SOLAR_RAIN_MULTIPLIER;
+    public static final ModConfigSpec.DoubleValue UPGRADES_SOLAR_THUNDER_MULTIPLIER;
 
     public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_ENERGY_FACTOR;
     public static final ModConfigSpec.DoubleValue UPGRADES_SIGHT_ENERGY_FACTOR;
@@ -113,6 +118,7 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue UPGRADES_HEALTH_ENERGY_FACTOR;
     public static final ModConfigSpec.DoubleValue UPGRADES_PLAYER_SEEK_ENERGY_FACTOR;
     public static final ModConfigSpec.DoubleValue UPGRADES_FPV_CAMERA_ENERGY_FACTOR;
+    public static final ModConfigSpec.DoubleValue UPGRADES_SOLAR_ENERGY_FACTOR;
 
 
     // === programmingStation ===
@@ -125,6 +131,7 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_HEALTH;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_FPV_CAMERA;
+    public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_SOLAR;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_ENERGY_CAPACITY;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_INSTALL_TIME;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_CHARGE_RATE;
@@ -431,6 +438,14 @@ public class ServerConfig {
         UPGRADES_FPV_CAMERA_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         BUILDER.pop();
 
+        BUILDER.push("solar");
+        UPGRADES_SOLAR_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 4, 0, 64);
+        UPGRADES_SOLAR_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.0, 0.0, 100.0);
+        UPGRADES_SOLAR_ENERGY_PER_TICK = BUILDER.comment("FE per tick the first Solar upgrade generates in full daylight with sky access.").defineInRange("energyPerTick", 16.0, 0.0, 1_000_000.0);
+        UPGRADES_SOLAR_OUTPUT_FACTOR = BUILDER.comment("Output multiplier for each Solar upgrade after the first (compounds: 16, 32, 64, 128 with the defaults).").defineInRange("outputFactor", 2.0, 1.0, 100.0);
+        UPGRADES_SOLAR_RAIN_MULTIPLIER = BUILDER.comment("Fraction of the output left while it rains.").defineInRange("rainMultiplier", 0.4, 0.0, 1.0);
+        UPGRADES_SOLAR_THUNDER_MULTIPLIER = BUILDER.comment("Fraction of the output left during a thunderstorm.").defineInRange("thunderMultiplier", 0.2, 0.0, 1.0);
+        BUILDER.pop();
 
         BUILDER.pop(); // upgrades
 
@@ -445,6 +460,7 @@ public class ServerConfig {
         PROGRAMMING_STATION_BASE_COST_HEALTH = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("health", 10_000, 0, Integer.MAX_VALUE);
         PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("playerSeek", 10_000, 0, Integer.MAX_VALUE);
         PROGRAMMING_STATION_BASE_COST_FPV_CAMERA = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("fpvCamera", 10_000, 0, Integer.MAX_VALUE);
+        PROGRAMMING_STATION_BASE_COST_SOLAR = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("solar", 10_000, 0, Integer.MAX_VALUE);
         BUILDER.pop();
         PROGRAMMING_STATION_ENERGY_CAPACITY = BUILDER
                 .comment("FE a Programming Station can store.")

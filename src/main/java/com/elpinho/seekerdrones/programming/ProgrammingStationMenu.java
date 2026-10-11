@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.programming;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.annotation.Nullable;
@@ -16,6 +17,7 @@ import com.elpinho.seekerdrones.registry.ModMenuTypes;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
@@ -50,6 +52,9 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
     public static final int DRONE_Y = 60;
     public static final int INPUT_X = 25;
     public static final int INPUT_Y = 85;
+    public static final int INPUT_COLUMNS = 3;
+    /** How many input rows show at once. The grid scrolls when there are more upgrade types. */
+    public static final int INPUT_ROWS = 3;
     public static final int INVENTORY_X = 43;
     public static final int INVENTORY_Y = 171;
     /** The screen's console width: the Upgrades tab's slots sit just right of it. */
@@ -62,6 +67,7 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
     /** All slots: the station's, the player's and the Upgrades tab's. */
     public static final int SLOT_TOTAL = UPGRADE_SLOTS_START + ProgrammingStationBlockEntity.UPGRADES.size();
 
+    private final List<StationSlot> inputSlots = new ArrayList<>();
     private final ContainerLevelAccess access;
     private final BlockPos pos;
     private final Player player;
@@ -98,10 +104,13 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
         this.data = data;
 
         addSlot(new StationSlot(items, ProgrammingStationBlockEntity.DRONE_SLOT, DRONE_X, DRONE_Y));
-        // One slot per upgrade type, filling the 3x3 grid in type order.
+        // One slot per upgrade type, in type order, in a grid that scrolls.
         for (int i = 0; i < ProgrammingStationBlockEntity.INPUT_SLOTS; i++) {
-            addSlot(new StationSlot(items, ProgrammingStationBlockEntity.INPUT_START + i, INPUT_X + i % 3 * 18, INPUT_Y + i / 3 * 18));
+            StationSlot slot = new StationSlot(items, ProgrammingStationBlockEntity.INPUT_START + i, INPUT_X + i % INPUT_COLUMNS * 18, INPUT_Y + i / INPUT_COLUMNS * 18);
+            inputSlots.add(slot);
+            addSlot(slot);
         }
+        setInputScroll(0);
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
                 addSlot(new Slot(inventory, column + row * 9 + 9, INVENTORY_X + column * 18, INVENTORY_Y + row * 18));
@@ -113,6 +122,24 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
         upgradeSlots = UpgradeSlots.createSlots(upgrades, ProgrammingStationBlockEntity.UPGRADES, FRAME_WIDTH, () -> upgradesShown);
         upgradeSlots.forEach(this::addSlot);
         addDataSlots(data);
+    }
+
+    /** How many rows the input grid can scroll down. */
+    public static int maxInputScroll() {
+        return Math.max(0, Mth.positiveCeilDiv(ProgrammingStationBlockEntity.INPUT_SLOTS, INPUT_COLUMNS) - INPUT_ROWS);
+    }
+
+    /**
+     * Shows the input rows from {@code scroll} on: moves the slots up and hides the ones outside the window. Positions
+     * only matter on the client, so the server never needs to know the scroll.
+     */
+    public void setInputScroll(int scroll) {
+        for (int i = 0; i < inputSlots.size(); i++) {
+            int row = i / INPUT_COLUMNS - scroll;
+            StationSlot slot = inputSlots.get(i);
+            slot.y = INPUT_Y + row * 18;
+            slot.visible = row >= 0 && row < INPUT_ROWS;
+        }
     }
 
     public BlockPos getPos() {
@@ -244,8 +271,16 @@ public class ProgrammingStationMenu extends AbstractContainerMenu {
 
     /** Checks the slot's item rule on the client too, where the handler is a plain copy, so clicks predict right. */
     private static class StationSlot extends SlotItemHandler {
+        /** False for an input slot scrolled out of the window (it is neither drawn nor clickable). */
+        boolean visible = true;
+
         StationSlot(IItemHandler items, int index, int x, int y) {
             super(items, index, x, y);
+        }
+
+        @Override
+        public boolean isActive() {
+            return visible;
         }
 
         @Override

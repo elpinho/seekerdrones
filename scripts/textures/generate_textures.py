@@ -519,6 +519,38 @@ UPGRADES["fpv_camera"] = {
 }
 
 
+# The Solar upgrade: a sun over a blue solar panel (placeholder art, to be reviewed in game).
+UPGRADES["solar"] = {
+    "colors": {"1": (24, 40, 92), "2": (60, 110, 200), "3": (255, 214, 64), "4": (255, 244, 170)},
+    "symbol": [
+        "3..3.3..",
+        ".3.44.3.",
+        "..3443..",
+        "3.4444.3",
+        "..3443..",
+        "22222222",
+        "21212121",
+        "22222222",
+    ],
+}
+
+
+# The Solar upgrade: a sun with eight rays on a deep blue face.
+UPGRADES["solar"] = {
+    "colors": {"1": (24, 40, 92), "2": (255, 214, 64), "3": (255, 244, 170)},
+    "symbol": [
+        "...22...",
+        ".2....2.",
+        "..2332..",
+        "2.3333.2",
+        "2.3333.2",
+        "..2332..",
+        ".2....2.",
+        "...22...",
+    ],
+}
+
+
 def upgrade(name):
     spec = UPGRADES[name]
     colors = {k: v + (255,) for k, v in spec["colors"].items()} | {"y": (222, 178, 60, 255)}
