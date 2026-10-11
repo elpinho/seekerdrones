@@ -117,7 +117,7 @@ public enum MachineProvider implements IBlockComponentProvider, StreamServerData
                 ? "jade.seekerdrones.deploying_station.auto_deploy_on"
                 : "tooltip.seekerdrones.deploying_station.auto_deploy_off"), Severity.NORMAL));
         DeployingStatus status = station.getStatus();
-        if (status == DeployingStatus.NO_ENERGY || status == DeployingStatus.BLOCKED) {
+        if (status == DeployingStatus.NO_ENERGY || status == DeployingStatus.BLOCKED || status == DeployingStatus.LIMIT) {
             lines.add(new Line(Component.translatable(status.getTranslationKey()), Severity.WARNING));
         }
     }

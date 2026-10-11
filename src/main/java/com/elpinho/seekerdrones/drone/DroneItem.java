@@ -2,6 +2,7 @@ package com.elpinho.seekerdrones.drone;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.energy.EnergyFormat;
@@ -9,11 +10,13 @@ import com.elpinho.seekerdrones.network.DroneStatusPayload;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
 import com.elpinho.seekerdrones.registry.ModItems;
+import com.mojang.authlib.GameProfile;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.TextColor;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResultHolder;
@@ -103,6 +106,11 @@ public class DroneItem extends Item {
         if (data.ownerId().isEmpty() || data.ownerId().get().equals(player.getUUID())) {
             data = data.withOwner(player.getUUID(), player.getGameProfile().getName());
         }
+        MinecraftServer server = level.getServer();
+        if (server != null && DeployedDrones.get(server).wouldExceedLimit(server, data)) {
+            sendLimitReached(player, server, data);
+            return false;
+        }
         drone.setDroneData(data);
         double throwSpeed = ServerConfig.get(ServerConfig.DRONE_DEPLOY_THROW_SPEED);
         // Server-side player velocity is unreliable, so use the movement last reported by the client.
@@ -113,6 +121,15 @@ public class DroneItem extends Item {
         }
         drone.playDeploySound();
         return true;
+    }
+
+    /** Tells the player, on the action bar, whose drone limit stops the deploy (section 2.2). */
+    private static void sendLimitReached(Player player, MinecraftServer server, DroneData data) {
+        UUID counted = DeployedDrones.countedPlayer(server, data).orElse(player.getUUID());
+        String name = server.getProfileCache() == null ? null
+                : server.getProfileCache().get(counted).map(GameProfile::getName).orElse(null);
+        player.displayClientMessage(Component.translatable("message.seekerdrones.drone_limit",
+                name != null ? name : counted.toString(), DeployedDrones.limit()), true);
     }
 
     // --- Energy bar (section 2.1) ---

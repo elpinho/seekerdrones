@@ -32,6 +32,10 @@ public class UpgradeItem extends Item {
     @Override
     public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable(type.getTranslationKey() + ".description").withStyle(ChatFormatting.GRAY));
-        tooltip.add(Component.translatable("tooltip.seekerdrones.upgrade.max_count", type.maxCount()).withStyle(ChatFormatting.DARK_GRAY));
+        if (type.isDisabled()) {
+            tooltip.add(Component.translatable("tooltip.seekerdrones.upgrade.disabled").withStyle(ChatFormatting.RED));
+        } else {
+            tooltip.add(Component.translatable("tooltip.seekerdrones.upgrade.max_count", type.maxCount()).withStyle(ChatFormatting.DARK_GRAY));
+        }
     }
 }

@@ -2,12 +2,13 @@ package com.elpinho.seekerdrones.config;
 
 import java.util.List;
 
-import com.elpinho.seekerdrones.drone.TargetBlacklist;
+import com.elpinho.seekerdrones.drone.ExplosiveBlockDamage;
+import com.elpinho.seekerdrones.drone.TargetFilter;
 
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * All values are placeholder defaults from DESIGN.md section 9, to be tuned in the M9 balance pass.
+ * All values are placeholder defaults from DESIGN.md section 9, to be tuned in the M10 balance pass.
  */
 public class ServerConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
@@ -31,7 +32,10 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue DRONE_MAX_RAYCASTS_PER_SCAN;
     public static final ModConfigSpec.IntValue DRONE_TARGET_SLOTS;
     public static final ModConfigSpec.BooleanValue DRONE_INVISIBILITY_HIDES;
-    public static final ModConfigSpec.ConfigValue<List<? extends String>> DRONE_TARGET_BLACKLIST;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> DRONE_TARGET_DENYLIST;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> DRONE_TARGET_ALLOWLIST;
+    public static final ModConfigSpec.BooleanValue DRONE_ALLOW_PLAYER_TARGETS;
+    public static final ModConfigSpec.IntValue DRONE_MAX_DEPLOYED_PER_PLAYER;
     public static final ModConfigSpec.IntValue DRONE_MAX_EXPLOSIVE_DRONES_PER_TARGET;
     public static final ModConfigSpec.DoubleValue DRONE_CRUISE_SPEED;
     public static final ModConfigSpec.DoubleValue DRONE_MAX_SPEED;
@@ -80,6 +84,7 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue UPGRADES_EXPLOSIVE_MAX_COUNT;
     public static final ModConfigSpec.DoubleValue UPGRADES_EXPLOSIVE_BASE_POWER;
     public static final ModConfigSpec.DoubleValue UPGRADES_EXPLOSIVE_PER_UPGRADE;
+    public static final ModConfigSpec.EnumValue<ExplosiveBlockDamage> UPGRADES_EXPLOSIVE_BLOCK_DAMAGE;
 
     public static final ModConfigSpec.IntValue UPGRADES_SIREN_MAX_COUNT;
     public static final ModConfigSpec.DoubleValue UPGRADES_SIREN_BASE_VOLUME;
@@ -238,10 +243,23 @@ public class ServerConfig {
         DRONE_INVISIBILITY_HIDES = BUILDER
                 .comment("Whether invisible entities are hidden from drones, unless they glow, wear armor or hold an item.")
                 .define("invisibilityHides", true);
-        DRONE_TARGET_BLACKLIST = BUILDER
+        DRONE_TARGET_DENYLIST = BUILDER
                 .comment("Entity type IDs (e.g. \"minecraft:villager\") and entity tags (e.g. \"#minecraft:raiders\") that drones never target.",
-                        "Blacklisted entries can't be added to a drone. Entries a drone already has are kept but ignored.")
-                .defineListAllowEmpty("targetBlacklist", List.of(), () -> "minecraft:villager", TargetBlacklist::isWellFormed);
+                        "Denylisted entries can't be added to a drone. Entries a drone already has are kept but ignored.")
+                .defineListAllowEmpty("targetDenylist", List.of(), () -> "minecraft:villager", TargetFilter::isWellFormed);
+        DRONE_TARGET_ALLOWLIST = BUILDER
+                .comment("If not empty, drones only target these entity type IDs and entity tags (the denylist still applies on top).",
+                        "Player targets then need \"minecraft:player\" listed. Entries that aren't allowed can't be added to a drone.",
+                        "Entries a drone already has are kept but ignored.")
+                .defineListAllowEmpty("targetAllowlist", List.of(), () -> "minecraft:zombie", TargetFilter::isWellFormed);
+        DRONE_ALLOW_PLAYER_TARGETS = BUILDER
+                .comment("Whether drones may target players. When false, the Player Seek upgrade can't be installed and does nothing",
+                        "on drones that already have it.")
+                .define("allowPlayerTargets", true);
+        DRONE_MAX_DEPLOYED_PER_PLAYER = BUILDER
+                .comment("Max deployed drones per player, including drones in unloaded chunks. A drone counts against its owner, or its",
+                        "Operator Group's owner if it has a group; unowned drones count against nobody. 0 = no limit.")
+                .defineInRange("maxDeployedPerPlayer", 0, 0, Integer.MAX_VALUE);
         DRONE_MAX_EXPLOSIVE_DRONES_PER_TARGET = BUILDER
                 .comment("Max Explosive drones of one team (Operator Group, else owner) going after the same entity. 0 = no limit.",
                         "Non-Explosive drones are always limited to one per entity and team.")
@@ -360,6 +378,10 @@ public class ServerConfig {
         UPGRADES_EXPLOSIVE_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
         UPGRADES_EXPLOSIVE_BASE_POWER = BUILDER.comment("Explosion power with one Explosive upgrade. TNT is 4.0.").defineInRange("basePower", 2.0, 0.0, 128.0);
         UPGRADES_EXPLOSIVE_PER_UPGRADE = BUILDER.comment("Extra explosion power per additional Explosive upgrade.").defineInRange("perUpgrade", 1.0, 0.0, 128.0);
+        UPGRADES_EXPLOSIVE_BLOCK_DAMAGE = BUILDER
+                .comment("Whether Explosive drones break blocks: NEVER, MOB_GRIEFING (only while the mobGriefing game rule is on, like a creeper)",
+                        "or ALWAYS (like TNT).")
+                .defineEnum("blockDamage", ExplosiveBlockDamage.NEVER);
         BUILDER.pop();
 
         BUILDER.push("siren");

@@ -362,6 +362,7 @@ public class DroneEntity extends PathfinderMob {
         } else if (droneData != null) {
             indexedId = droneData.droneId();
             DroneIndex.add(this, indexedId);
+            updateDeployedCount(droneData);
         }
     }
 
@@ -403,6 +404,9 @@ public class DroneEntity extends PathfinderMob {
             // Given its data after joining the level: index it now.
             indexedId = data.droneId();
             DroneIndex.add(this, indexedId);
+        }
+        if (isAddedToLevel()) {
+            updateDeployedCount(data);
         }
         AttributeInstance maxHealth = getAttribute(Attributes.MAX_HEALTH);
         if (maxHealth != null) {
@@ -629,12 +633,24 @@ public class DroneEntity extends PathfinderMob {
         setDeltaMovement(velocity);
     }
 
+    /** Records who the drone counts against for {@code drone.maxDeployedPerPlayer} (section 2.2). Server side only. */
+    private void updateDeployedCount(DroneData data) {
+        if (getServer() != null && !isRemoved()) {
+            DeployedDrones.get(getServer()).update(getServer(), data);
+        }
+    }
+
     /** Destroyed, picked up, exploded, unloaded with its chunk or moved to another dimension: free the target (section 3.3). */
     @Override
     public void onRemovedFromLevel() {
         super.onRemovedFromLevel();
         if (!level().isClientSide()) {
             TargetClaims.release(this);
+            // Gone for good (not unloaded or moved to another dimension): it no longer counts against its player.
+            RemovalReason reason = getRemovalReason();
+            if (reason != null && reason.shouldDestroy() && droneData != null && getServer() != null) {
+                DeployedDrones.get(getServer()).remove(droneData.droneId());
+            }
             if (indexedId != null) {
                 DroneIndex.remove(this, indexedId);
                 indexedId = null;
@@ -1039,9 +1055,10 @@ public class DroneEntity extends PathfinderMob {
                 null, staggered, true);
     }
 
-    /** The drone is consumed: no drop, and the explosion never breaks blocks in v1. */
+    /** The drone is consumed: no drop. Whether the explosion breaks blocks is up to the server config. */
     private void explode(DroneData data) {
-        level().explode(this, getX(), getY(0.5), getZ(), DroneStats.explosionPower(data), Level.ExplosionInteraction.NONE);
+        level().explode(this, getX(), getY(0.5), getZ(), DroneStats.explosionPower(data),
+                ServerConfig.get(ServerConfig.UPGRADES_EXPLOSIVE_BLOCK_DAMAGE).interaction());
         discard();
     }
 

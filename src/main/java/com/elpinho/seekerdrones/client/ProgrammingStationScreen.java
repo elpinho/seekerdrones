@@ -35,7 +35,7 @@ import com.elpinho.seekerdrones.machine.UpgradeSlots;
 import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneStats;
-import com.elpinho.seekerdrones.drone.TargetBlacklist;
+import com.elpinho.seekerdrones.drone.TargetFilter;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.energy.EnergyFormat;
@@ -913,11 +913,14 @@ public class ProgrammingStationScreen extends MachineScreen<ProgrammingStationMe
         if (index >= DroneStats.targetSlots()) {
             return Component.translatable(KEY + "target.ignored.no_slot");
         }
+        if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && UpgradeType.PLAYER_SEEK.isDisabled()) {
+            return Component.translatable(KEY + "target.ignored.players_disabled");
+        }
         if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && program.upgradeCount(UpgradeType.PLAYER_SEEK) <= 0) {
             return Component.translatable(KEY + "target.ignored.player_seek");
         }
-        if (TargetBlacklist.blocks(entry)) {
-            return Component.translatable(KEY + "target.ignored.blacklisted");
+        if (TargetFilter.blocks(entry)) {
+            return Component.translatable(KEY + "target.ignored.not_allowed");
         }
         return null;
     }

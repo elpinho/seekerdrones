@@ -5,6 +5,7 @@ import java.util.Optional;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
+import com.elpinho.seekerdrones.drone.DeployedDrones;
 import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
@@ -19,6 +20,7 @@ import net.minecraft.core.component.DataComponentMap;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
@@ -163,8 +165,13 @@ public class DeployingStationBlockEntity extends BlockEntity implements MenuProv
 
     /** Whether the drone in the slot could be deployed now, or why not. */
     private DeployingStatus check(Level level) {
-        if (items.getStackInSlot(DRONE_SLOT).isEmpty()) {
+        ItemStack stack = items.getStackInSlot(DRONE_SLOT);
+        if (stack.isEmpty()) {
             return DeployingStatus.IDLE;
+        }
+        MinecraftServer server = level.getServer();
+        if (server != null && DeployedDrones.get(server).wouldExceedLimit(server, DroneItem.getData(stack))) {
+            return DeployingStatus.LIMIT;
         }
         if (energy.stored < energyPerDeploy()) {
             return DeployingStatus.NO_ENERGY;

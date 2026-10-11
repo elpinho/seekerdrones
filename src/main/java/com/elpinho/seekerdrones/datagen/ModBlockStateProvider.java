@@ -24,7 +24,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
 
     @Override
     protected void registerStatesAndModels() {
-        // Placeholder textures from scripts/textures/generate_textures.py until the M9 art pass. All machines share
+        // Placeholder textures from scripts/textures/generate_textures.py until the M10 art pass. All machines share
         // the bottom face.
         chargingStation();
         droneFactory();

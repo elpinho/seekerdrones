@@ -11,7 +11,9 @@ public enum DeployingStatus {
     /** Auto-deploy is off and the drone can be deployed: waiting for the button or a redstone pulse. */
     READY("ready"),
     NO_ENERGY("no_energy"),
-    BLOCKED("blocked");
+    BLOCKED("blocked"),
+    /** Deploying the drone would put its player over {@code drone.maxDeployedPerPlayer} (section 2.2). */
+    LIMIT("limit");
 
     public static final IntFunction<DeployingStatus> BY_ID = ByIdMap.continuous(Enum::ordinal, values(), ByIdMap.OutOfBoundsStrategy.ZERO);
 

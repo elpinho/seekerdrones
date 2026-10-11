@@ -9,7 +9,7 @@ import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.drone.DroneState;
-import com.elpinho.seekerdrones.drone.TargetBlacklist;
+import com.elpinho.seekerdrones.drone.TargetFilter;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.drone.TargetMatcher;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
@@ -23,7 +23,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /**
  * GameTests for drones targeting other drones (DESIGN.md 3.3 Detection, "Other drones"): only enemy drones match,
  * allies (same group, or same owner without a group) never do, unowned drones are enemies to everyone, and the
- * target blacklist still applies.
+ * target denylist still applies.
  */
 @GameTestHolder("seekerdrones")
 @PrefixGameTestTemplate(false)
@@ -93,17 +93,17 @@ public class DroneVsDroneGameTests {
     }
 
     // Own batch: it changes a global config value.
-    @GameTest(template = "empty", timeoutTicks = 10, batch = "config_blacklist_drone")
-    public static void matcherSkipsBlacklistedDroneType(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 10, batch = "config_denylist_drone")
+    public static void matcherSkipsDenylistedDroneType(GameTestHelper helper) {
         DroneEntity hunter = spawn(helper, 2, 3, 2, hunterData());
         DroneEntity other = spawn(helper, 6, 3, 6, plainData());
         try {
-            helper.assertTrue(TargetMatcher.of(hunter.snapshotData()).matches(hunter, other), "Sanity: matches without blacklist");
-            withBlacklist(List.of("seekerdrones:drone"));
-            helper.assertFalse(TargetMatcher.of(hunter.snapshotData()).matches(hunter, other), "Blacklisting seekerdrones:drone should protect drones");
+            helper.assertTrue(TargetMatcher.of(hunter.snapshotData()).matches(hunter, other), "Sanity: matches without denylist");
+            withDenylist(List.of("seekerdrones:drone"));
+            helper.assertFalse(TargetMatcher.of(hunter.snapshotData()).matches(hunter, other), "Denylisting seekerdrones:drone should protect drones");
             helper.succeed();
         } finally {
-            withBlacklist(List.of());
+            withDenylist(List.of());
         }
     }
 
@@ -149,9 +149,9 @@ public class DroneVsDroneGameTests {
 
     // --- helpers ---
 
-    private static void withBlacklist(List<String> entries) {
-        ServerConfig.DRONE_TARGET_BLACKLIST.set(entries);
-        TargetBlacklist.invalidate();
+    private static void withDenylist(List<String> entries) {
+        ServerConfig.DRONE_TARGET_DENYLIST.set(entries);
+        TargetFilter.invalidate();
     }
 
     private static DroneEntity spawn(GameTestHelper helper, int x, int y, int z, DroneData data) {

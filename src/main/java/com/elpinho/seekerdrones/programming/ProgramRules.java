@@ -9,7 +9,7 @@ import javax.annotation.Nullable;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneConfig;
 import com.elpinho.seekerdrones.drone.DroneStats;
-import com.elpinho.seekerdrones.drone.TargetBlacklist;
+import com.elpinho.seekerdrones.drone.TargetFilter;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 
@@ -66,8 +66,11 @@ public final class ProgramRules {
         if (!entry.isValid()) {
             return KEY + "unknown." + entry.kind().getSerializedName();
         }
-        if (TargetBlacklist.blocks(entry)) {
-            return KEY + "blacklisted";
+        if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && UpgradeType.PLAYER_SEEK.isDisabled()) {
+            return KEY + "players_disabled";
+        }
+        if (TargetFilter.blocks(entry)) {
+            return KEY + "not_allowed";
         }
         if (index >= DroneStats.targetSlots()) {
             return KEY + "no_slot";

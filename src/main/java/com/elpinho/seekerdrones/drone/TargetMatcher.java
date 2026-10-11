@@ -109,12 +109,12 @@ public final class TargetMatcher {
     }
 
     /**
-     * The entries the drone can actually target, for display: {@link #activeEntries} minus entries the target
-     * blacklist blocks (section 3.3).
+     * The entries the drone can actually target, for display: {@link #activeEntries} minus entries the server
+     * filter blocks (section 3.3).
      */
     public static List<TargetEntry> targetableEntries(DroneData data) {
         List<TargetEntry> entries = activeEntries(data);
-        entries.removeIf(TargetBlacklist::blocks);
+        entries.removeIf(TargetFilter::blocks);
         return entries;
     }
 
@@ -135,8 +135,8 @@ public final class TargetMatcher {
             return false;
         }
         EntityType<?> type = entity.getType();
-        // Blacklisted types are never targets, whatever the entries say (section 3.3).
-        if (TargetBlacklist.isBlacklisted(type)) {
+        // Types the server filters out are never targets, whatever the entries say (section 3.3).
+        if (TargetFilter.isBlocked(type)) {
             return false;
         }
         if (entity instanceof DroneEntity other) {

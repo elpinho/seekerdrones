@@ -6,7 +6,7 @@ import com.elpinho.seekerdrones.command.SeekerDronesCommand;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
 import com.elpinho.seekerdrones.drone.DroneIndex;
-import com.elpinho.seekerdrones.drone.TargetBlacklist;
+import com.elpinho.seekerdrones.drone.TargetFilter;
 import com.elpinho.seekerdrones.drone.TargetClaims;
 import com.elpinho.seekerdrones.drone.TargetMatcher;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
@@ -64,11 +64,11 @@ public class SeekerDrones {
         modEventBus.addListener(ModCapabilities::register);
         modEventBus.addListener(ModNetwork::registerPayloads);
         modEventBus.addListener(SeekerDronesDataGenerators::gatherData);
-        // The target blacklist is resolved into a set of entity types; redo it when the config or the tags change.
+        // The target denylist is resolved into a set of entity types; redo it when the config or the tags change.
         modEventBus.addListener((ModConfigEvent.Loading event) -> onConfigChanged(event));
         modEventBus.addListener((ModConfigEvent.Reloading event) -> onConfigChanged(event));
         modEventBus.addListener((ModConfigEvent.Unloading event) -> onConfigChanged(event));
-        NeoForge.EVENT_BUS.addListener((TagsUpdatedEvent event) -> TargetBlacklist.invalidate());
+        NeoForge.EVENT_BUS.addListener((TagsUpdatedEvent event) -> TargetFilter.invalidate());
         // Shared target claims are transient and kept per level (DESIGN.md section 3.3).
         NeoForge.EVENT_BUS.addListener((LevelEvent.Unload event) -> TargetClaims.clear(event.getLevel()));
         NeoForge.EVENT_BUS.addListener((LevelEvent.Unload event) -> DroneIndex.clear(event.getLevel()));
@@ -95,7 +95,7 @@ public class SeekerDrones {
 
     private static void onConfigChanged(ModConfigEvent event) {
         if (event.getConfig().getSpec() == ServerConfig.SPEC) {
-            TargetBlacklist.invalidate();
+            TargetFilter.invalidate();
             TargetMatcher.invalidateAll();
         }
     }

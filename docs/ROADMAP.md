@@ -2,7 +2,7 @@
 
 This roadmap is broad on purpose. The behavior spec is in [`DESIGN.md`](DESIGN.md).
 
-> **Scope rule:** Milestones **M0–M9** make up **v1**. The **Post-v1** section is only an outlook. **Do not implement anything from it** unless the user explicitly asks (see DESIGN.md §11).
+> **Scope rule:** Milestones **M0–M10** make up **v1**. The **Post-v1** section is only an outlook. **Do not implement anything from it** unless the user explicitly asks (see DESIGN.md §11).
 
 Each milestone ends in something playable or testable. The drone and its AI come before the machines so gameplay can be tested and tuned early, using debug commands in place of the machines. The debug commands (`/seekerdrones ...`, permission level 2) are never removed: they stay as admin/testing tools after the machines exist. The Factory comes before the Programming Station because the Programming Station needs drones as input.
 
@@ -73,7 +73,14 @@ Each milestone ends in something playable or testable. The drone and its AI come
 - End-to-end test: Factory → Programming Station → Deploying Station through pipes, with no player involved.
 - **Done when:** the full automated pipeline works in survival.
 
-### M9 — Art and polish
+### M9 — Server safety and visibility
+- Server-safety configs (designed): Explosive block damage (NEVER / MOB_GRIEFING / ALWAYS, DESIGN.md §3.1), a target allowlist next to the denylist (§3.3), a global toggle for player targets that disables Player Seek (§4), and a deployed drone limit per player (§2.2).
+- The Camera upgrade and the dashboard are still to be designed. Settle them with the user and write them into DESIGN.md before implementing.
+- Camera upgrade (DESIGN.md §4): view through a drone's POV (operators only).
+- Drone dashboard (DESIGN.md §2.11): a remote screen with a drone's POV and a map of drone positions.
+- **Done when:** server admins can limit drones with the safety configs, and an operator can watch a drone's POV and see their drones on the dashboard map.
+
+### M10 — Art and polish
 - Commission an artist (paid) to remake the textures of every block, item and GUI.
 - Remake the drone's 3D model and textures (same artist), including animations (e.g. rotors, idle and chase states).
 - Sounds, lang, and a balance pass on the config defaults.
@@ -86,6 +93,5 @@ Each milestone ends in something playable or testable. The drone and its AI come
 
 ## Post-v1 — outlook only, DO NOT IMPLEMENT YET
 
-- **v1.x — Quality of life:** server-safety configs, queued Transmitter notifications, charging stations for multiple drones.
-- **v2 — Visibility:** Camera upgrade, drone dashboard with POV and a map of drone positions.
-- **v3 — Spectacle and depth:** 3×3×3 Drone Factory multiblock with animation, Target Tagger, Operator Group ownership transfer, and chunk loading (to be decided).
+- **v1.x — Quality of life:** a record of Transmitter spottings that operators can read later (possibly a log machine), so spottings while they were offline aren't lost.
+- **v2 — Spectacle and depth:** 3×3×3 Drone Factory multiblock with animation, Target Tagger, Operator Group ownership transfer, and chunk loading (to be decided).

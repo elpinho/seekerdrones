@@ -84,8 +84,9 @@ public final class DroneStats {
         return ServerConfig.get(ServerConfig.DRONE_TARGET_SLOTS);
     }
 
+    /** Whether the drone may target players: it has Player Seek and the server allows player targets (section 4). */
     public static boolean hasPlayerSeek(DroneData data) {
-        return data.upgradeCount(UpgradeType.PLAYER_SEEK) > 0;
+        return data.upgradeCount(UpgradeType.PLAYER_SEEK) > 0 && !UpgradeType.PLAYER_SEEK.isDisabled();
     }
 
     /** Upgrade slots used, across all types. */

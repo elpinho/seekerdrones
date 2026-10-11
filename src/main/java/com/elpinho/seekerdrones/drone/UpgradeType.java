@@ -81,9 +81,14 @@ public enum UpgradeType implements StringRepresentable {
         return "upgrade.seekerdrones." + name;
     }
 
-    /** The per-type cap (section 4). */
+    /** The per-type cap (section 4). 0 while the type is disabled. */
     public int maxCount() {
-        return ServerConfig.get(maxCount);
+        return isDisabled() ? 0 : ServerConfig.get(maxCount);
+    }
+
+    /** Player Seek is disabled while {@code drone.allowPlayerTargets} is off (section 4): it can't be installed and does nothing. */
+    public boolean isDisabled() {
+        return this == PLAYER_SEEK && !ServerConfig.get(ServerConfig.DRONE_ALLOW_PLAYER_TARGETS);
     }
 
     /** The Programming Station's base FE cost to install one, multiplied by the install index (section 7.2). */

@@ -13,8 +13,9 @@ import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.drone.DroneItem;
 import com.elpinho.seekerdrones.drone.DroneStats;
-import com.elpinho.seekerdrones.drone.TargetBlacklist;
+import com.elpinho.seekerdrones.drone.TargetFilter;
 import com.elpinho.seekerdrones.drone.TargetEntry;
+import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
@@ -25,6 +26,7 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.Dynamic2CommandExceptionType;
 import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
+import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 
 import net.minecraft.ChatFormatting;
@@ -58,8 +60,10 @@ public final class ConfigCommand {
             new DynamicCommandExceptionType(tag -> Component.translatable(KEY + "unknown_tag", String.valueOf(tag)));
     private static final DynamicCommandExceptionType DUPLICATE_TARGET =
             new DynamicCommandExceptionType(entry -> Component.translatable(KEY + "duplicate_target", String.valueOf(entry)));
-    private static final DynamicCommandExceptionType BLACKLISTED_TARGET =
-            new DynamicCommandExceptionType(entry -> Component.translatable(KEY + "blacklisted_target", String.valueOf(entry)));
+    private static final DynamicCommandExceptionType NOT_ALLOWED_TARGET =
+            new DynamicCommandExceptionType(entry -> Component.translatable(KEY + "not_allowed_target", String.valueOf(entry)));
+    private static final SimpleCommandExceptionType PLAYERS_DISABLED =
+            new SimpleCommandExceptionType(Component.translatable(KEY + "players_disabled"));
     private static final DynamicCommandExceptionType UNKNOWN_COLOR =
             new DynamicCommandExceptionType(color -> Component.translatable(KEY + "unknown_color", String.valueOf(color)));
     private static final DynamicCommandExceptionType FOLLOW_DISTANCE_TOO_LARGE =
@@ -167,8 +171,11 @@ public final class ConfigCommand {
             if (targets.stream().anyMatch(existing -> existing.sameAs(entry))) {
                 throw DUPLICATE_TARGET.create(entry.displayString());
             }
-            if (TargetBlacklist.blocks(entry)) {
-                throw BLACKLISTED_TARGET.create(entry.displayString());
+            if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && UpgradeType.PLAYER_SEEK.isDisabled()) {
+                throw PLAYERS_DISABLED.create();
+            }
+            if (TargetFilter.blocks(entry)) {
+                throw NOT_ALLOWED_TARGET.create(entry.displayString());
             }
             List<TargetEntry> updated = new ArrayList<>(targets);
             updated.add(entry);
@@ -296,10 +303,12 @@ public final class ConfigCommand {
                     Component.translatable(KEY + "target.kind." + entry.kind().getSerializedName()), entry.displayString());
             if (i >= allowed) {
                 line.append(Component.translatable(KEY + "target.list.ignored_slot").withStyle(ChatFormatting.RED));
+            } else if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && UpgradeType.PLAYER_SEEK.isDisabled()) {
+                line.append(Component.translatable(KEY + "target.list.ignored_players_disabled").withStyle(ChatFormatting.RED));
             } else if (entry.kind() == TargetEntry.Kind.PLAYER_NAME && !playerSeek) {
                 line.append(Component.translatable(KEY + "target.list.ignored_player_seek").withStyle(ChatFormatting.RED));
-            } else if (TargetBlacklist.blocks(entry)) {
-                line.append(Component.translatable(KEY + "target.list.ignored_blacklisted").withStyle(ChatFormatting.RED));
+            } else if (TargetFilter.blocks(entry)) {
+                line.append(Component.translatable(KEY + "target.list.ignored_not_allowed").withStyle(ChatFormatting.RED));
             }
             source.sendSuccess(() -> line, false);
         }

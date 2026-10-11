@@ -11,7 +11,7 @@ import javax.annotation.Nullable;
 
 import org.lwjgl.glfw.GLFW;
 
-import com.elpinho.seekerdrones.drone.TargetBlacklist;
+import com.elpinho.seekerdrones.drone.TargetFilter;
 import com.elpinho.seekerdrones.drone.TargetEntry;
 
 import net.minecraft.client.Minecraft;
@@ -66,11 +66,11 @@ final class TargetSuggestions {
 
     /**
      * Shows the suggestions for the text in {@code box}. Entries that {@code excluded} rejects (e.g. the list's other
-     * rows) aren't suggested, and neither are blacklisted ones (section 3.3).
+     * rows) aren't suggested, and neither are denylisted ones (section 3.3).
      */
     void show(EditBox box, TargetEntry.Kind kind, Predicate<TargetEntry> excluded, int screenWidth) {
         String input = box.getValue().trim();
-        List<Suggestion> found = find(kind, input, entry -> excluded.test(entry) || TargetBlacklist.blocks(entry));
+        List<Suggestion> found = find(kind, input, entry -> excluded.test(entry) || TargetFilter.blocks(entry));
         // Nothing left to complete.
         if (found.size() == 1 && found.getFirst().value().equalsIgnoreCase(input)) {
             found = List.of();

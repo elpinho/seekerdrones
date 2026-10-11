@@ -53,10 +53,12 @@ public class ModLanguageProvider extends LanguageProvider {
         add(DeployingStatus.READY.getHintKey(), "press Deploy");
         add(DeployingStatus.NO_ENERGY.getHintKey(), "needs %s per deploy");
         add(DeployingStatus.BLOCKED.getHintKey(), "clear the space above the station");
+        add(DeployingStatus.LIMIT.getHintKey(), "the owner has too many drones out");
         add(DeployingStatus.IDLE.getTranslationKey(), "No drone");
         add(DeployingStatus.READY.getTranslationKey(), "Ready");
         add(DeployingStatus.NO_ENERGY.getTranslationKey(), "Not enough energy");
         add(DeployingStatus.BLOCKED.getTranslationKey(), "Space above blocked");
+        add(DeployingStatus.LIMIT.getTranslationKey(), "Drone limit reached");
         add("tooltip.seekerdrones.programming_station.programmed", "Programmed (%s)");
         add("screen.seekerdrones.programming_station", "Programming Station");
         add("screen.seekerdrones.programming_station.mode", "Mode");
@@ -109,8 +111,10 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.programming_station.target.needs_player_seek", "Player targets need Player Seek");
         add("screen.seekerdrones.programming_station.target.ignored.no_slot", "Ignored: no free target slot");
         add("screen.seekerdrones.programming_station.target.ignored.player_seek", "Ignored: needs Player Seek");
-        add("screen.seekerdrones.programming_station.target.blacklisted", "%s is blacklisted on this server");
-        add("screen.seekerdrones.programming_station.target.ignored.blacklisted", "Ignored: blacklisted on this server");
+        add("screen.seekerdrones.programming_station.target.not_allowed", "%s can't be targeted on this server");
+        add("screen.seekerdrones.programming_station.target.ignored.not_allowed", "Ignored: not allowed on this server");
+        add("screen.seekerdrones.programming_station.target.players_disabled", "Player targets are disabled on this server");
+        add("screen.seekerdrones.programming_station.target.ignored.players_disabled", "Ignored: player targets are disabled on this server");
         add("screen.seekerdrones.programming_station.follow_distance", "Follow distance");
         add("screen.seekerdrones.programming_station.follow_distance.header", "Follow distance (blocks)");
         add("screen.seekerdrones.programming_station.follow_distance.tooltip", "Blocks kept from the target while following (%s-%s)");
@@ -189,6 +193,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.HEALTH.getTranslationKey() + ".description", "Increases max health.");
         add(UpgradeType.PLAYER_SEEK.getTranslationKey() + ".description", "Allows setting players as targets.");
         add("tooltip.seekerdrones.upgrade.max_count", "Max per drone: %s");
+        add("tooltip.seekerdrones.upgrade.disabled", "Disabled on this server");
 
         add("subtitles.seekerdrones.drone_siren", "Drone siren blares");
         add("subtitles.seekerdrones.drone_fly", "Drone whirs");
@@ -342,6 +347,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.energy_unit.tooltip", "Energy unit: %s\nClick to change. Saved for you in this world.");
 
         add("message.seekerdrones.not_operator", "You are not an operator of this drone");
+        add("message.seekerdrones.drone_limit", "Drone limit reached: %s already has %s drones deployed");
 
         // Drone Remote (DESIGN.md section 2.10).
         add("tooltip.seekerdrones.remote.not_linked", "Not linked");
@@ -396,7 +402,8 @@ public class ModLanguageProvider extends LanguageProvider {
 
         add("commands.seekerdrones.config.unknown_tag", "Unknown entity tag #%s");
         add("commands.seekerdrones.config.duplicate_target", "%s is already a target");
-        add("commands.seekerdrones.config.blacklisted_target", "%s is blacklisted on this server");
+        add("commands.seekerdrones.config.not_allowed_target", "%s can't be targeted on this server");
+        add("commands.seekerdrones.config.players_disabled", "Player targets are disabled on this server");
         add("commands.seekerdrones.config.no_such_index", "There is no target #%s (the drone has %s)");
         add("commands.seekerdrones.config.target.added", "Added target %s to %s drone(s)");
         add("commands.seekerdrones.config.target.removed", "Removed target #%s from %s drone(s)");
@@ -406,7 +413,8 @@ public class ModLanguageProvider extends LanguageProvider {
         add("commands.seekerdrones.config.target.list.entry", "  %s. %s %s");
         add("commands.seekerdrones.config.target.list.ignored_slot", " (ignored: no free target slot)");
         add("commands.seekerdrones.config.target.list.ignored_player_seek", " (ignored: needs Player Seek)");
-        add("commands.seekerdrones.config.target.list.ignored_blacklisted", " (ignored: blacklisted)");
+        add("commands.seekerdrones.config.target.list.ignored_not_allowed", " (ignored: not allowed on this server)");
+        add("commands.seekerdrones.config.target.list.ignored_players_disabled", " (ignored: player targets disabled)");
         add("commands.seekerdrones.config.target.kind.entity_type", "Entity");
         add("commands.seekerdrones.config.target.kind.tag", "Tag");
         add("commands.seekerdrones.config.target.kind.player_name", "Player");
@@ -434,5 +442,9 @@ public class ModLanguageProvider extends LanguageProvider {
 
         add("commands.seekerdrones.energy.set", "Set the energy of %s drone(s)");
         add("commands.seekerdrones.energy.get", "%s - %s");
+        add("commands.seekerdrones.limit.list", "%s has %s drone(s) deployed (limit: %s)");
+        add("commands.seekerdrones.limit.no_limit", "none");
+        add("commands.seekerdrones.limit.forgot", "Drone %s no longer counts against its player");
+        add("commands.seekerdrones.limit.not_counted", "Drone %s isn't counted against anyone");
     }
 }

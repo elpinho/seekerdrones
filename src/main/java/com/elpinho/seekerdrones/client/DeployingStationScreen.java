@@ -165,7 +165,7 @@ public class DeployingStationScreen extends MachineScreen<DeployingStationMenu> 
             case IDLE -> Kit.Light.IDLE;
             case READY -> Kit.Light.OK;
             case NO_ENERGY -> Kit.Light.WARN;
-            case BLOCKED -> Kit.Light.BAD;
+            case BLOCKED, LIMIT -> Kit.Light.BAD;
         };
         Component hint = status == DeployingStatus.NO_ENERGY
                 ? Component.translatable(status.getHintKey(), EnergyFormat.amount(menu.getEnergyPerDeploy()))
@@ -210,6 +210,8 @@ public class DeployingStationScreen extends MachineScreen<DeployingStationMenu> 
                 color = millis / 500 % 2 == 0 ? LIGHT_BAD : LIGHT_OFF;
             } else if (status == DeployingStatus.NO_ENERGY) {
                 color = i == 0 ? LIGHT_WARN : LIGHT_OFF;
+            } else if (status == DeployingStatus.LIMIT) {
+                color = i == 0 ? LIGHT_BAD : LIGHT_OFF;
             } else if (menu.hasDrone()) {
                 color = millis / 140 % LIGHTS_PER_RAIL == i ? LIGHT_OK : LIGHT_OFF;
             }
