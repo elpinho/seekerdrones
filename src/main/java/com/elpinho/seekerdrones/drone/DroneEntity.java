@@ -1,23 +1,19 @@
 package com.elpinho.seekerdrones.drone;
 
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
-import com.elpinho.seekerdrones.feed.FpvFeeds;
 import com.elpinho.seekerdrones.feed.PilotInput;
 import com.elpinho.seekerdrones.remote.DroneRemoteItem;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
 import com.elpinho.seekerdrones.registry.ModSounds;
 import com.elpinho.seekerdrones.operator.OperatorGroups;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
-import com.elpinho.seekerdrones.station.ChargingStationRegistry;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
@@ -41,7 +37,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
@@ -64,7 +59,6 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.ServerLevelAccessor;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.pathfinder.Path;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.HitResult;
@@ -94,13 +88,6 @@ public class DroneEntity extends PathfinderMob {
     private static final String TAG_REST_POSITION = "RestPosition";
     private static final String TAG_STATE = "State";
     private static final String TAG_TARGET = "Target";
-    private static final String TAG_CHARGING_STATION = "ChargingStation";
-    private static final String TAG_DEPARTURE_POSITION = "DeparturePosition";
-    private static final String TAG_HOME_GOAL = "HomeGoal";
-    private static final String TAG_DRAIN_DISTANCE = "DrainDistance";
-    private static final String TAG_DRAIN_REMAINDER = "DrainRemainder";
-    private static final String TAG_DRAIN_HOVER_TICKS = "DrainHoverTicks";
-    private static final String TAG_DRAIN_QUEUE_COST = "DrainQueueCost";
     private static final String TAG_RECALL_PLAYER = "RecallPlayer";
     private static final String TAG_RECALL_HOVER_LEFT = "RecallHoverLeft";
     private static final String TAG_RECALL_HOME = "RecallHome";
@@ -108,24 +95,8 @@ public class DroneEntity extends PathfinderMob {
     /** The follow range the path finder's node budget was sized for (vanilla's default follow range). */
     private static final float BASE_FOLLOW_RANGE = 16.0F;
 
-    /** At least this many patrol waypoints, however small the circle (section 3.2). */
-    private static final int MIN_PATROL_WAYPOINTS = 8;
-    /** How close (blocks) the drone must get to a patrol waypoint before heading for the next one. */
-    private static final double WAYPOINT_REACH_DISTANCE = 1.0;
-    /** Distance (blocks) between the points checked for obstacles along a patrol leg; less than the drone's width. */
-    private static final double LEG_SAMPLE_SPACING = 0.5;
-    /** Extra ticks on top of twice the straight flight time before a patrol waypoint is given up. */
-    private static final int WAYPOINT_GRACE_TICKS = 60;
-    /** {@link #patrolWaypoint} value: no waypoint is usable, so the drone hovers at the patrol center. */
-    private static final int NO_FREE_WAYPOINT = -2;
-
-    /**
-     * Bearing turns (degrees) tried in order when the follow position is blocked (section 3.1): the current bearing
-     * first, then ever further around the target.
-     */
-    private static final double[] FOLLOW_BEARING_TURNS = {0, 45, -45, 90, -90, 135, -135, 180};
     /** Min ticks between free-space and clear-path re-checks triggered by bumping into blocks. */
-    private static final int COLLISION_RECHECK_TICKS = 5;
+    static final int COLLISION_RECHECK_TICKS = 5;
     /** Shrinks the drone's box for the clear-path check, so merely touching a block doesn't count as blocked. */
     private static final double CLEAR_PATH_MARGIN = 0.01;
     /** Fraction of the remaining angle turned each tick, so turns ease in and out. */
@@ -135,22 +106,6 @@ public class DroneEntity extends PathfinderMob {
     /** Below this horizontal speed (blocks/tick), a drone that faces its direction of travel keeps its facing. */
     private static final double FACE_MOVEMENT_MIN_SPEED = 0.03;
 
-    /** A single-tick move longer than this (blocks) is a teleport, not flight, and costs no energy. */
-    private static final double MAX_DRAIN_STEP = 4.0;
-    /** How long (ticks) the result of a charging station search is reused (section 8.4). */
-    private static final int STATION_SEARCH_CACHE_TICKS = 100;
-    /** Flights to a station farther than this (blocks) are split into legs, so path finding stays short. */
-    private static final double STATION_LEG_LENGTH = 32;
-    /** Within this distance (blocks) of the dock, the drone claims the station or queues for it (section 5.3). */
-    private static final double STATION_QUEUE_DISTANCE = 4.0;
-    /** How close (blocks) to the dock point the drone must get to dock. */
-    private static final double DOCK_REACH_DISTANCE = 0.3;
-    /** How far (blocks) from the dock point a queued drone waits. */
-    private static final double QUEUE_OFFSET = 1.5;
-    /** A returning drone that gets no block closer to its station for this many ticks gives up on it (section 5.2). */
-    private static final int STATION_PROGRESS_TIMEOUT = 200;
-    /** How close (blocks) a drone without Patrol must get to where it left to charge before hovering there. */
-    private static final double HOME_REACH_DISTANCE = 0.5;
     /** How close (blocks) a recalled drone must get to its spot by the player before it hovers there (section 2.10). */
     private static final double RECALL_REACH_DISTANCE = 0.75;
 
@@ -183,28 +138,6 @@ public class DroneEntity extends PathfinderMob {
     private int lostSightSince = -1;
     /** Whether the last scan skipped an entity only because a teammate had claimed it. Not saved. */
     private boolean scanSkippedClaimed;
-    /**
-     * The target's position (feet x/z, eye y) smoothed over time, so the drone reacts to where the target is going
-     * rather than to every hop (section 3.1). Null until the first pursuit tick.
-     */
-    @Nullable
-    private Vec3 targetAnchor;
-    /** How far the smoothed target position moved on the last tick (blocks/tick). */
-    private double targetAnchorSpeed;
-    /** Horizontal unit vector from the target to the follow position (section 3.1). */
-    private Vec3 followBearing = new Vec3(1, 0, 0);
-    /** True while {@link #followBearing} was turned to get around an obstacle, so it isn't re-derived each tick. */
-    private boolean followBearingLocked;
-    /** Horizontal distance (blocks) from the target to the follow position, shortened if the full distance is blocked. */
-    private double followRange;
-    /** Height (blocks) of the follow position above the target's eyes, lowered if blocked (e.g. under a ceiling). */
-    private double followHeight;
-    /** The tick of the last free-space check of the follow position. */
-    private int followSlotCheckTick;
-    /** Forces a free-space check of the follow position on the next tick. */
-    private boolean followSlotStale = true;
-    /** True while a following drone holds still, until the follow position moves more than the slack away. */
-    private boolean followHolding;
     /** Whether the straight line to the goal was clear at the last check, so no path is needed. */
     private boolean directPathClear;
     /** Forces a direct-path check on the next tick instead of waiting for the staggered tick. */
@@ -217,75 +150,17 @@ public class DroneEntity extends PathfinderMob {
     @Nullable
     private Vec3 pathGoal;
 
-    // --- Upgrades (server only, not saved) ---
-    /** The patrol waypoint being flown to, -1 to pick the nearest one, or {@link #NO_FREE_WAYPOINT}. */
-    private int patrolWaypoint = -1;
-    /** Where the drone flies for the current patrol waypoint, raised over any obstacle. Null if none is selected. */
-    @Nullable
-    private Vec3 patrolGoal;
-    /** The patrol circle's center (at the patrol height) and radius when the waypoint was picked. */
-    @Nullable
-    private Vec3 patrolCircleCenter;
-    private double patrolCircleRadius;
-    /** The tick after which the current patrol waypoint is given up. */
-    private int waypointDeadline;
-    /** Patrol waypoints skipped in a row because no path reached them. */
-    private int unreachableWaypoints;
+    // --- Siren and Transmitter (server only, not saved) ---
     /** The tick at which the siren repeats while a target is held. */
     private int nextSirenTick;
     /** Game time of the last Transmitter message, or -1 if none was sent yet. */
     private long lastTransmitTime = -1;
 
-    // --- Energy and charging (server only) ---
-    /** Distance flown (blocks) since the last energy drain (section 5.1). */
-    private double drainDistance;
-    /** Ticks spent airborne (not docked) since the last energy drain (section 5.1). */
-    private int drainHoverTicks;
-    /**
-     * FE owed since the last drain for ticks spent waiting at a busy station, which pay only the base hover cost
-     * without the upgrade multiplier (section 5.1). Kept apart from the distance and hover above, which are multiplied.
-     */
-    private double drainQueueCost;
-    /** FE owed since the last drain for ticks watched through the FPV feed (section 2.12), without the upgrade multiplier. Not saved. */
-    private double drainFeedCost;
-    /** Ticks billed by the next drain, docked ticks excluded, to turn its cost into a rate. Not saved. */
-    private int drainTicks;
-    /** FE per tick the last drain cost, for the FPV HUD (section 2.12). Not saved. */
-    private double drainRate;
-    /** FE per tick the Solar upgrades generated at the last drain (section 4), for the energy rate displays. Not saved. */
-    private double solarRate;
-    /** Set while the drone waits at a busy station this tick (section 5.3), read and cleared by the energy drain. */
-    private boolean queuedThisTick;
-    /** The fraction of a FE owed at the last drain, carried over so small costs add up. */
-    private double drainRemainder;
-    /** Game time of the last damage taken, which delays self-healing (section 2.5). Not saved. */
-    private long lastDamageTime = Long.MIN_VALUE;
-    /** FE per tick that self-healing cost at the last drain, for the status screen's energy rate (section 2.4). Not saved. */
-    private double selfHealRate;
-    /** The station being returned to or charged at. Set only while RETURNING or CHARGING. */
-    @Nullable
-    private BlockPos chargingStation;
-    /** Where the drone was when it left to charge (section 5.3). */
-    @Nullable
-    private GlobalPos departurePosition;
-    /** Where a drone without Patrol flies back to after charging, before it hovers. */
-    @Nullable
-    private Vec3 homeGoal;
-    /** Stations skipped until the given game time because the drone couldn't reach them (section 5.2). Not saved. */
-    private final Map<BlockPos, Long> unreachableStations = new HashMap<>();
-    /** The nearest usable station at the last search, or null if there was none. Reused until the expiry. */
-    @Nullable
-    private BlockPos cachedStation;
-    private long stationSearchExpiry = Long.MIN_VALUE;
-    /** Where the drone flies for the current leg of a long flight to its station, or null. */
-    @Nullable
-    private Vec3 stationLeg;
-    private int stationLegDeadline;
-    /** The closest the drone got to its station, and the tick when it last got a block closer. */
-    private double stationBestDistance;
-    private int stationProgressTick;
-    /** Set when loaded docked: re-docking after a reload plays no dock clunk. Not saved. */
-    private boolean silentRedock;
+    // --- Behavior helpers (server only) ---
+    private final DroneEnergy energy = new DroneEnergy(this);
+    private final DroneCharging charging = new DroneCharging(this);
+    private final DronePatrol patrol = new DronePatrol(this);
+    private final DronePursuit pursuit = new DronePursuit(this);
 
     // --- Drone Remote (server only, section 2.10) ---
     /** The player a RECALLED drone flies to. */
@@ -395,7 +270,7 @@ public class DroneEntity extends PathfinderMob {
 
     // --- Drone data ---
 
-    private DroneData getDroneData() {
+    DroneData getDroneData() {
         if (droneData == null) {
             setDroneData(DroneData.createNew());
         }
@@ -408,6 +283,14 @@ public class DroneEntity extends PathfinderMob {
             targetMatcher = TargetMatcher.of(getDroneData());
         }
         return targetMatcher;
+    }
+
+    /**
+     * Replaces the data without the side effects of {@link #setDroneData}, for changes that only touch the energy
+     * (draining and charging).
+     */
+    void replaceData(DroneData data) {
+        droneData = data;
     }
 
     /** Replaces the drone's data, including its current health. */
@@ -505,7 +388,7 @@ public class DroneEntity extends PathfinderMob {
         return DroneState.BY_ID.apply(entityData.get(DATA_STATE));
     }
 
-    private void setState(DroneState state) {
+    void setState(DroneState state) {
         entityData.set(DATA_STATE, state.ordinal());
         updateLowPower();
     }
@@ -541,7 +424,7 @@ public class DroneEntity extends PathfinderMob {
      * Re-derives the synced low-power level from the state and energy: none while docked, critical while undocked with
      * little energy left (in any state), else returning while RETURNING.
      */
-    private void updateLowPower() {
+    void updateLowPower() {
         if (level().isClientSide() || droneData == null) {
             return;
         }
@@ -558,7 +441,7 @@ public class DroneEntity extends PathfinderMob {
     }
 
     /** Plays one of the drone's own one-shot sounds, louder and lower with more upgrades. */
-    private void playDroneSound(SoundEvent sound, double volume, double pitch) {
+    void playDroneSound(SoundEvent sound, double volume, double pitch) {
         level().playSound(null, getX(), getY(), getZ(), sound, SoundSource.NEUTRAL,
                 (float) volume * getSoundVolumeMultiplier(), (float) pitch * getSoundPitchMultiplier());
     }
@@ -585,7 +468,7 @@ public class DroneEntity extends PathfinderMob {
     /** The station being returned to or charged at, if any. Server side only. */
     @Nullable
     public BlockPos getChargingStation() {
-        return chargingStation;
+        return charging.station();
     }
 
     /**
@@ -600,7 +483,7 @@ public class DroneEntity extends PathfinderMob {
         }
         DroneState state = getState();
         if (state == DroneState.CHARGING || state == DroneState.RETURNING) {
-            return DroneReason.Info.of(resolveStationReason(state));
+            return DroneReason.Info.of(charging.stationReason(state));
         }
         if (state == DroneState.CHASING || state == DroneState.FOLLOWING) {
             if (lostSightSince >= 0) {
@@ -618,23 +501,7 @@ public class DroneEntity extends PathfinderMob {
                 return DroneReason.Info.of(DroneReason.TARGET_CLAIMED);
             }
         }
-        return nearestStation(data) == null ? DroneReason.Info.of(DroneReason.NO_STATION) : DroneReason.Info.NONE;
-    }
-
-    private DroneReason resolveStationReason(DroneState state) {
-        ServerLevel level = (ServerLevel) level();
-        if (chargingStation != null && level.hasChunkAt(chargingStation)
-                && level.getBlockEntity(chargingStation) instanceof ChargingStationBlockEntity station) {
-            if (state == DroneState.CHARGING) {
-                return station.getEnergy() <= 0 ? DroneReason.STATION_NO_POWER : DroneReason.NONE;
-            }
-            if (station.isClaimedByOther(getUUID())
-                    && distanceToSqr(ChargingStationBlockEntity.dockPosition(chargingStation)) <= STATION_QUEUE_DISTANCE * STATION_QUEUE_DISTANCE) {
-                return DroneReason.WAITING_FOR_STATION;
-            }
-        }
-        long now = level.getGameTime();
-        return unreachableStations.values().stream().anyMatch(until -> until > now) ? DroneReason.STATION_UNREACHABLE : DroneReason.NONE;
+        return charging.nearestStation(data) == null ? DroneReason.Info.of(DroneReason.NO_STATION) : DroneReason.Info.NONE;
     }
 
     @Nullable
@@ -741,12 +608,12 @@ public class DroneEntity extends PathfinderMob {
             }
         }
         if (!level().isClientSide() && isAlive() && !isRemoved()) {
-            tickEnergy(docked);
+            energy.tick(docked);
         }
     }
 
     /** Spreads periodic work over different ticks per drone (section 3.3). */
-    private boolean isStaggeredTick(int interval) {
+    boolean isStaggeredTick(int interval) {
         return (tickCount + getId()) % interval == 0;
     }
 
@@ -765,7 +632,7 @@ public class DroneEntity extends PathfinderMob {
         }
         if (state == DroneState.RETURNING || state == DroneState.CHARGING) {
             // Returning overrides everything else, and the drone doesn't scan for targets (section 5.2).
-            tickReturning(data, staggered);
+            charging.tick(data, staggered);
             updateFacing(null);
             return;
         }
@@ -783,19 +650,22 @@ public class DroneEntity extends PathfinderMob {
                 scanForTarget(data);
             }
             if (target == null && !drifting) {
-                if (homeGoal != null) {
-                    flyHome(data, staggered);
+                if (charging.hasHomeGoal()) {
+                    charging.flyHome(data, staggered);
                 } else {
-                    patrolOrHover(data, staggered);
+                    patrol.tick(data, staggered);
                 }
             }
         } else if (isTargetLost(data, staggered)) {
             loseTarget();
         } else {
-            pursue(data, staggered);
+            if (tickCount >= nextSirenTick) {
+                playSiren(data);
+            }
+            pursuit.pursue(data, staggered);
         }
         // A following drone keeps an eye on its target; any other drone faces where it is flying.
-        updateFacing(target != null && !DroneStats.isExplosive(data) ? targetAnchor : null);
+        updateFacing(target != null && !DroneStats.isExplosive(data) ? pursuit.targetAnchor() : null);
     }
 
     /**
@@ -852,7 +722,7 @@ public class DroneEntity extends PathfinderMob {
             }
             lostSightSince = -1;
             recheckDirectPath = true;
-            resetFollow();
+            pursuit.reset();
             // Not a new acquisition: no Transmitter message, and the siren keeps its repeat interval.
             nextSirenTick = tickCount + ServerConfig.get(ServerConfig.UPGRADES_SIREN_REPEAT_INTERVAL);
         } else if (staggered) {
@@ -904,14 +774,14 @@ public class DroneEntity extends PathfinderMob {
         TargetClaims.claim(this);
         lostSightSince = -1;
         recheckDirectPath = true;
-        resetFollow();
+        pursuit.reset();
         // A drifting drone that spots a target starts chasing at once (section 2.2). It never comes to rest, so where
         // it spotted the target becomes its rest position (patrol center fallback, section 3.2).
         if (drifting) {
             stopDrifting();
         }
-        patrolWaypoint = -1;
-        homeGoal = null;
+        patrol.reset();
+        charging.setHomeGoal(null);
         setState(DroneState.CHASING);
         playDroneSound(ModSounds.DRONE_LOCK_ON.get(), ServerConfig.get(ServerConfig.SOUNDS_LOCK_ON_VOLUME), ServerConfig.get(ServerConfig.SOUNDS_LOCK_ON_PITCH));
         DroneData data = getDroneData();
@@ -978,170 +848,41 @@ public class DroneEntity extends PathfinderMob {
         TargetClaims.release(this);
         target = null;
         lostSightSince = -1;
-        resetFollow();
+        pursuit.reset();
         stopNavigating();
         setState(DroneState.IDLE);
         playDroneSound(ModSounds.DRONE_TARGET_LOST.get(), ServerConfig.get(ServerConfig.SOUNDS_TARGET_LOST_VOLUME),
                 ServerConfig.get(ServerConfig.SOUNDS_TARGET_LOST_PITCH));
     }
 
-    /** Forgets the smoothed target position and the follow position chosen for the previous target. */
-    private void resetFollow() {
-        targetAnchor = null;
-        targetAnchorSpeed = 0;
-        followBearingLocked = false;
-        followHolding = false;
-        followRange = getDroneData().config().followDistance();
-        followHeight = ServerConfig.get(ServerConfig.DRONE_FOLLOW_HEIGHT_OFFSET);
-        // Check the follow position for free space on the first pursuit tick.
-        followSlotStale = true;
-    }
-
-    private void stopNavigating() {
+    void stopNavigating() {
         pathGoal = null;
         navigation.stop();
     }
 
-    private void pursue(DroneData data, boolean staggered) {
-        if (tickCount >= nextSirenTick) {
-            playSiren(data);
-        }
-        if (DroneStats.isExplosive(data)) {
-            pursueExplosive(data, staggered);
-            return;
-        }
-        updateTargetAnchor();
-        Vec3 goal = followPosition(data, staggered);
-        double goalDistance = Math.sqrt(distanceToSqr(goal));
-        // The exit distance is kept above the enter distance so the state can't flip back and forth (hysteresis).
-        double enter = ServerConfig.get(ServerConfig.DRONE_FOLLOW_ENTER_DISTANCE);
-        double exit = Math.max(enter, ServerConfig.get(ServerConfig.DRONE_FOLLOW_EXIT_DISTANCE));
-        DroneState state = getState();
-        if (state != DroneState.FOLLOWING && goalDistance <= enter) {
-            setState(DroneState.FOLLOWING);
-        } else if (state != DroneState.CHASING && goalDistance > exit) {
-            setState(DroneState.CHASING);
-        }
-        // Leash: once there, the drone holds still until the follow position has moved more than the slack away.
-        double slack = Math.max(enter, ServerConfig.get(ServerConfig.DRONE_FOLLOW_SLACK));
-        if (goalDistance <= enter) {
-            followHolding = true;
-        } else if (goalDistance > slack) {
-            followHolding = false;
-        }
-        double acceleration = ServerConfig.get(ServerConfig.DRONE_ACCELERATION);
-        if (followHolding) {
-            if (pathGoal != null) {
-                stopNavigating();
-            }
-            ((DroneMoveControl) moveControl).hold(acceleration);
-        } else {
-            steerTowards(goal, DroneStats.followSpeed(targetAnchorSpeed), acceleration, goal, staggered, true);
-        }
+    /** Whether the drone is following a navigation path. */
+    boolean hasPathGoal() {
+        return pathGoal != null;
     }
 
-    /** Moves the smoothed target position a fraction of the way toward the target (section 3.1). */
-    private void updateTargetAnchor() {
-        Vec3 actual = new Vec3(target.getX(), target.getEyeY(), target.getZ());
-        if (targetAnchor == null) {
-            targetAnchor = actual;
-            targetAnchorSpeed = 0;
-            return;
-        }
-        Vec3 next = targetAnchor.lerp(actual, ServerConfig.get(ServerConfig.DRONE_FOLLOW_SMOOTHING));
-        targetAnchorSpeed = next.distanceTo(targetAnchor);
-        targetAnchor = next;
+    /** Forces a direct-path check on the next {@link #steerTowards} instead of waiting for the staggered tick. */
+    void requestPathRecheck() {
+        recheckDirectPath = true;
     }
 
-    /**
-     * Where the drone wants to be (section 3.1): {@link #followRange} from the smoothed target position along the
-     * bearing, and {@link #followHeight} above its eyes. Chasing drones fly toward this position too. The spot is
-     * checked for free space on the staggered tick, and soon after bumping into a block.
-     */
-    private Vec3 followPosition(DroneData data, boolean staggered) {
-        if (!followBearingLocked) {
-            followBearing = bearingFromAnchor();
-        }
-        boolean bumped = (horizontalCollision || verticalCollision) && tickCount - followSlotCheckTick >= COLLISION_RECHECK_TICKS;
-        if (staggered || followSlotStale || bumped) {
-            chooseFollowSlot(data);
-        }
-        return followSlot(followBearing, followRange, followHeight);
-    }
-
-    /** The horizontal direction from the smoothed target position to the drone, or the last one if right above it. */
-    private Vec3 bearingFromAnchor() {
-        double dx = getX() - targetAnchor.x;
-        double dz = getZ() - targetAnchor.z;
-        double horizontal = Math.sqrt(dx * dx + dz * dz);
-        return horizontal > 1.0E-3 ? new Vec3(dx / horizontal, 0, dz / horizontal) : followBearing;
-    }
-
-    private Vec3 followSlot(Vec3 bearing, double range, double height) {
-        return new Vec3(targetAnchor.x + bearing.x * range, targetAnchor.y + height, targetAnchor.z + bearing.z * range);
-    }
-
-    /**
-     * Picks a follow position with room for the drone (section 3.1). The ideal one comes first. If it's blocked, the
-     * drone tries lower heights (under a ceiling), then half the distance (against a wall), then other bearings
-     * around the target. If nothing is free, it aims for the ideal spot and path finding gets as close as it can.
-     */
-    private void chooseFollowSlot(DroneData data) {
-        followSlotStale = false;
-        followSlotCheckTick = tickCount;
-        double distance = data.config().followDistance();
-        double[] heights = {ServerConfig.get(ServerConfig.DRONE_FOLLOW_HEIGHT_OFFSET), 0, -target.getEyeHeight() / 2};
-        double[] ranges = {distance, distance / 2};
-        Vec3 base = bearingFromAnchor();
-        for (double turn : FOLLOW_BEARING_TURNS) {
-            Vec3 bearing = base.yRot((float) Math.toRadians(turn));
-            for (double range : ranges) {
-                for (double height : heights) {
-                    if (hasRoomAt(followSlot(bearing, range, height))) {
-                        followBearing = bearing;
-                        followBearingLocked = turn != 0;
-                        followRange = range;
-                        followHeight = height;
-                        return;
-                    }
-                }
-            }
-        }
-        followBearing = base;
-        followBearingLocked = false;
-        followRange = distance;
-        followHeight = heights[0];
+    DroneMoveControl droneMoveControl() {
+        return (DroneMoveControl) moveControl;
     }
 
     /** Whether the drone fits at {@code pos} (its feet position) without touching any block, in a loaded chunk. */
-    private boolean hasRoomAt(Vec3 pos) {
+    boolean hasRoomAt(Vec3 pos) {
         return level().hasChunkAt(BlockPos.containing(pos)) && level().noBlockCollision(this, getDimensions(getPose()).makeBoundingBox(pos));
     }
 
     // --- Explosive (section 3.1) ---
 
-    /**
-     * Explosive drones never follow: they fly straight at the target's center and explode once close enough. They
-     * track the target's actual position with a higher acceleration and never brake (section 3.4).
-     */
-    private void pursueExplosive(DroneData data, boolean staggered) {
-        Vec3 targetCenter = target.getBoundingBox().getCenter();
-        double halfHeight = getBbHeight() / 2;
-        double trigger = ServerConfig.get(ServerConfig.DRONE_EXPLOSION_TRIGGER_DISTANCE);
-        if (position().add(0, halfHeight, 0).distanceToSqr(targetCenter) <= trigger * trigger) {
-            explode(data);
-            return;
-        }
-        if (getState() != DroneState.CHASING) {
-            setState(DroneState.CHASING);
-        }
-        double speed = DroneStats.chaseSpeed(distanceTo(target), DroneStats.sightRange(data));
-        steerTowards(targetCenter.subtract(0, halfHeight, 0), speed, ServerConfig.get(ServerConfig.DRONE_EXPLOSIVE_ACCELERATION),
-                null, staggered, true);
-    }
-
     /** The drone is consumed: no drop. Whether the explosion breaks blocks is up to the server config. */
-    private void explode(DroneData data) {
+    void explode(DroneData data) {
         level().explode(this, getX(), getY(0.5), getZ(), DroneStats.explosionPower(data),
                 ServerConfig.get(ServerConfig.UPGRADES_EXPLOSIVE_BLOCK_DAMAGE).interaction());
         discard();
@@ -1184,8 +925,14 @@ public class DroneEntity extends PathfinderMob {
 
     // --- Patrol (section 3.2) ---
 
-    private GlobalPos currentPosition() {
+    GlobalPos currentPosition() {
         return GlobalPos.of(level().dimension(), blockPosition());
+    }
+
+    /** Makes where the drone is now its rest position (patrol center fallback 4, section 3.2), and returns it. */
+    GlobalPos restHere() {
+        restPosition = currentPosition();
+        return restPosition;
     }
 
     /**
@@ -1205,166 +952,6 @@ public class DroneEntity extends PathfinderMob {
         return null;
     }
 
-    /** With no target: a Patrol drone flies its circle, any other drone hovers where it is. */
-    private void patrolOrHover(DroneData data, boolean staggered) {
-        if (!DroneStats.isPatrolling(data)) {
-            if (getState() == DroneState.PATROLLING) {
-                // The Patrol upgrades were removed mid-patrol.
-                stopNavigating();
-                patrolWaypoint = -1;
-                setState(DroneState.IDLE);
-            }
-            return;
-        }
-        GlobalPos center = getPatrolCenter();
-        if (center == null) {
-            // Fallback 4: e.g. a summoned drone. Wherever it is now becomes its rest position.
-            restPosition = currentPosition();
-            center = restPosition;
-        }
-        if (getState() != DroneState.PATROLLING) {
-            setState(DroneState.PATROLLING);
-            patrolWaypoint = -1;
-        }
-        // The drone patrols at the center's own height (section 3.2).
-        Vec3 centerPos = Vec3.atBottomCenterOf(center.pos());
-        double radius = DroneStats.patrolRadius(data);
-        if (!centerPos.equals(patrolCircleCenter) || radius != patrolCircleRadius) {
-            // A new center or radius: start over from the nearest waypoint of the new circle.
-            patrolCircleCenter = centerPos;
-            patrolCircleRadius = radius;
-            patrolWaypoint = -1;
-        }
-        int count = patrolWaypointCount(radius);
-        double speed = DroneStats.patrolSpeed(data);
-        double acceleration = ServerConfig.get(ServerConfig.DRONE_ACCELERATION);
-        if (patrolWaypoint < 0 || patrolWaypoint >= count) {
-            if (!staggered && patrolWaypoint == NO_FREE_WAYPOINT) {
-                // Every waypoint was skipped: hover at the center and look again on the next staggered tick.
-                steerTowards(centerPos, speed, acceleration, centerPos, false, false);
-                return;
-            }
-            selectWaypoint(nearestWaypoint(centerPos, count), centerPos, radius, count, speed);
-        }
-        if (patrolWaypoint == NO_FREE_WAYPOINT) {
-            steerTowards(centerPos, speed, acceleration, centerPos, staggered, false);
-            return;
-        }
-        Vec3 goal = patrolGoal;
-        // Waypoints are flown through, not stopped at. The reach distance covers the drone's turning circle at patrol
-        // speed, so it can't end up circling a waypoint it keeps missing. On a small circle it is capped at half the
-        // gap between adjacent waypoints, or every waypoint would count as reached and the drone would never fly it.
-        double halfGap = radius * Math.sin(Math.PI / count);
-        double reach = Math.min(Math.max(WAYPOINT_REACH_DISTANCE, speed * speed / acceleration), halfGap);
-        boolean reached = distanceToSqr(goal) <= reach * reach;
-        boolean timedOut = tickCount > waypointDeadline;
-        boolean reachable = steerTowards(goal, speed, acceleration, null, staggered, false);
-        if (reached) {
-            unreachableWaypoints = 0;
-        } else if (!reachable || timedOut) {
-            // Each unreachable waypoint costs a path search, so stop trying once a full lap has failed.
-            if (++unreachableWaypoints >= count) {
-                unreachableWaypoints = 0;
-                patrolWaypoint = NO_FREE_WAYPOINT;
-                patrolGoal = null;
-                return;
-            }
-        } else {
-            return;
-        }
-        selectWaypoint((patrolWaypoint + 1) % count, centerPos, radius, count, speed);
-    }
-
-    private static int patrolWaypointCount(double radius) {
-        double spacing = ServerConfig.get(ServerConfig.UPGRADES_PATROL_WAYPOINT_SPACING);
-        return Math.max(MIN_PATROL_WAYPOINTS, (int) Math.ceil(2 * Math.PI * radius / spacing));
-    }
-
-    /** Waypoint positions go counter-clockwise seen from above (east, then north). */
-    private static Vec3 waypoint(Vec3 center, double radius, int count, int index) {
-        double angle = 2 * Math.PI * index / count;
-        return new Vec3(center.x + radius * Math.cos(angle), center.y, center.z - radius * Math.sin(angle));
-    }
-
-    private int nearestWaypoint(Vec3 center, int count) {
-        double angle = Math.atan2(-(getZ() - center.z), getX() - center.x);
-        return Math.floorMod((int) Math.round(angle / (2 * Math.PI) * count), count);
-    }
-
-    /**
-     * Picks the first usable waypoint from {@code start} on, skipping spots in unloaded chunks and obstacles too tall
-     * to climb over. Sets {@link #NO_FREE_WAYPOINT} if none is usable.
-     */
-    private void selectWaypoint(int start, Vec3 center, double radius, int count, double speed) {
-        for (int i = 0; i < count; i++) {
-            int index = (start + i) % count;
-            Vec3 spot = waypoint(center, radius, count, index);
-            Vec3 goal = patrolHeightAt(spot);
-            if (goal != null) {
-                // Climb before an obstacle on the legs to either neighbor and come down after it, so the drone
-                // crosses it level instead of flying into its face.
-                double legTop = Math.max(legClimbHeight(waypoint(center, radius, count, index - 1), spot),
-                        legClimbHeight(spot, waypoint(center, radius, count, index + 1)));
-                if (legTop > goal.y && hasRoomAt(new Vec3(goal.x, legTop, goal.z))) {
-                    goal = new Vec3(goal.x, legTop, goal.z);
-                }
-                patrolWaypoint = index;
-                patrolGoal = goal;
-                recheckDirectPath = true;
-                // Give up on a waypoint that takes far longer than a straight flight would, e.g. when stuck.
-                waypointDeadline = tickCount + (int) (2 * Math.sqrt(distanceToSqr(goal)) / speed) + WAYPOINT_GRACE_TICKS;
-                return;
-            }
-        }
-        patrolWaypoint = NO_FREE_WAYPOINT;
-        patrolGoal = null;
-    }
-
-    /**
-     * The height the drone must fly at to clear every obstacle on the straight leg between two waypoints at the
-     * patrol height (section 3.2), sampled every {@link #LEG_SAMPLE_SPACING} blocks. Obstacles too tall to climb are
-     * left to path finding.
-     */
-    private double legClimbHeight(Vec3 from, Vec3 to) {
-        double top = from.y;
-        int steps = Math.max(1, Mth.ceil(from.distanceTo(to) / LEG_SAMPLE_SPACING));
-        for (int step = 1; step < steps; step++) {
-            Vec3 raised = patrolHeightAt(from.lerp(to, (double) step / steps));
-            if (raised != null) {
-                top = Math.max(top, raised.y);
-            }
-        }
-        return top;
-    }
-
-    /**
-     * Where the drone flies for a waypoint at {@code spot} (section 3.2): the spot itself if the drone fits there,
-     * otherwise raised over the obstacle to {@code upgrades.patrol.climbClearance} above the highest block under the
-     * drone. It never drops below the spot, so it climbs over hills and buildings rather than diving into caves. Null
-     * if the chunk isn't loaded or the climb would be more than {@code upgrades.patrol.maxClimb}.
-     */
-    @Nullable
-    private Vec3 patrolHeightAt(Vec3 spot) {
-        if (!level().hasChunkAt(BlockPos.containing(spot))) {
-            return null;
-        }
-        EntityDimensions dimensions = getDimensions(getPose());
-        AABB box = dimensions.makeBoundingBox(spot);
-        if (level().noBlockCollision(this, box)) {
-            return spot;
-        }
-        int top = level().getMinBuildHeight();
-        for (int x = Mth.floor(box.minX); x <= Mth.floor(box.maxX); x++) {
-            for (int z = Mth.floor(box.minZ); z <= Mth.floor(box.maxZ); z++) {
-                top = Math.max(top, level().getHeight(Heightmap.Types.MOTION_BLOCKING, x, z));
-            }
-        }
-        Vec3 raised = new Vec3(spot.x, top + ServerConfig.get(ServerConfig.UPGRADES_PATROL_CLIMB_CLEARANCE), spot.z);
-        if (raised.y <= spot.y || raised.y - spot.y > ServerConfig.get(ServerConfig.UPGRADES_PATROL_MAX_CLIMB)) {
-            return null;
-        }
-        return level().noBlockCollision(this, dimensions.makeBoundingBox(raised)) ? raised : null;
-    }
 
     /**
      * Flies straight at the goal while the line to it is clear, otherwise follows a path. The straight line is
@@ -1377,7 +964,7 @@ public class DroneEntity extends PathfinderMob {
      * @param stopAt       where the drone should come to rest, or null to fly through the goal at full speed
      * @return false if a path was computed this tick and it can't reach the goal
      */
-    private boolean steerTowards(Vec3 goal, double speed, double acceleration, @Nullable Vec3 stopAt, boolean staggered, boolean movingGoal) {
+    boolean steerTowards(Vec3 goal, double speed, double acceleration, @Nullable Vec3 stopAt, boolean staggered, boolean movingGoal) {
         ((DroneMoveControl) moveControl).configure(acceleration, stopAt);
         boolean bumped = directPathClear && (horizontalCollision || verticalCollision)
                 && tickCount - directPathCheckTick >= COLLISION_RECHECK_TICKS;
@@ -1435,441 +1022,60 @@ public class DroneEntity extends PathfinderMob {
 
     // --- Energy and charging (section 5) ---
 
-    /**
-     * Adds up the distance flown and the ticks spent airborne, and applies the drain in a batch every
-     * {@code drone.energyDrainInterval} ticks (section 5.1): the distance cost plus the hover cost for those ticks,
-     * times the drone's upgrade multiplier. Ticks spent waiting at a busy station only pay the base hover cost. Docked
-     * ticks don't count. What a drone owes when it docks is applied right away, before it starts charging, so
-     * nothing from before charging is billed after it: a drone leaves its station at full energy. The return threshold
-     * is checked right after each drain.
-     */
-    private void tickEnergy(boolean docked) {
-        boolean queued = queuedThisTick;
-        queuedThisTick = false;
-        if (!docked) {
-            drainTicks++;
-            if (FpvFeeds.isWatched(this)) {
-                drainFeedCost += ServerConfig.get(ServerConfig.CAMERA_FEED_ENERGY_PER_TICK);
-            }
-            if (getState() == DroneState.PILOTED) {
-                drainFeedCost += ServerConfig.get(ServerConfig.PILOT_ENERGY_PER_TICK);
-            }
-            if (queued) {
-                drainQueueCost += ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK);
-            } else {
-                double step = Math.sqrt(Mth.lengthSquared(getX() - xo, getY() - yo, getZ() - zo));
-                if (step <= MAX_DRAIN_STEP) {
-                    drainDistance += boosting ? step * ServerConfig.get(ServerConfig.PILOT_BOOST_DISTANCE_FACTOR) : step;
-                }
-                drainHoverTicks++;
-            }
-        }
-        boolean settleOnDocking = getState() == DroneState.CHARGING;
-        boolean nothingOwed = drainHoverTicks == 0 && drainDistance == 0 && drainQueueCost == 0 && drainFeedCost == 0;
-        if (settleOnDocking ? nothingOwed : !isStaggeredTick(ServerConfig.get(ServerConfig.DRONE_ENERGY_DRAIN_INTERVAL))) {
-            return;
-        }
-        DroneData data = getDroneData();
-        double cost = drainRemainder + drainQueueCost + drainFeedCost + DroneStats.energyUsageMultiplier(data)
-                * (drainDistance * ServerConfig.get(ServerConfig.DRONE_ENERGY_PER_BLOCK)
-                        + (double) drainHoverTicks * ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK));
-        cost += selfHeal(data, drainHoverTicks, cost);
-        drainDistance = 0;
-        drainHoverTicks = 0;
-        drainQueueCost = 0;
-        drainFeedCost = 0;
-        drainRate = drainTicks > 0 ? (cost - drainRemainder) / drainTicks : 0;
-        solarRate = drainTicks > 0 ? DroneStats.solarPerTick(data, level(), BlockPos.containing(getX(), getEyeY(), getZ())) : 0;
-        double solar = solarRate * drainTicks;
-        drainTicks = 0;
-        cost -= solar;
-        long whole = (long) cost;
-        drainRemainder = cost - whole;
-        long energy = Math.min(data.energy() - whole, DroneStats.maxEnergy(data));
-        if (energy <= 0) {
-            runOutOfEnergy(data);
-            return;
-        }
-        droneData = data.withEnergy((int) energy);
-        updateLowPower();
-        checkReturnThreshold(droneData);
+    DroneEnergy energy() {
+        return energy;
     }
 
-    /**
-     * Self-healing (section 2.5): heals for the airborne ticks being billed, once the drone hasn't taken damage for
-     * {@code drone.selfHealDelay} ticks, and returns the FE it costs. It never heals into the return threshold (section
-     * 5.2), or into 0 FE when no station is in range, and not while returning or docked.
-     */
-    private double selfHeal(DroneData data, int ticks, double drainCost) {
-        double cost = healForEnergy(data, ticks, drainCost);
-        selfHealRate = ticks > 0 ? cost / ticks : 0;
-        return cost;
+    DroneCharging charging() {
+        return charging;
     }
 
-    private double healForEnergy(DroneData data, int ticks, double drainCost) {
-        float missing = getMaxHealth() - getHealth();
-        DroneState state = getState();
-        if (missing <= 0 || ticks == 0 || state == DroneState.RETURNING || state == DroneState.CHARGING
-                || lastDamageTime + ServerConfig.get(ServerConfig.DRONE_SELF_HEAL_DELAY) > level().getGameTime()) {
-            return 0;
-        }
-        double heal = Math.min(missing, DroneStats.selfHealPerSecond(data) * ticks / DroneStats.TICKS_PER_SECOND);
-        int perHp = ServerConfig.get(ServerConfig.DRONE_SELF_HEAL_ENERGY_PER_HP);
-        if (perHp > 0) {
-            BlockPos station = nearestStation(data);
-            double reserve = station == null ? 1
-                    : DroneStats.returnThreshold(data, Math.sqrt(distanceToSqr(ChargingStationBlockEntity.dockPosition(station))));
-            heal = Math.min(heal, (data.energy() - drainCost - reserve) / perHp);
-        }
-        if (heal <= 0) {
-            return 0;
-        }
-        setHealth(Math.min(getMaxHealth(), getHealth() + (float) heal));
-        return heal * perHp;
+    DronePatrol patrol() {
+        return patrol;
     }
 
     /** FE per tick the Solar upgrades generated at the last energy drain (section 4), 0 without any or under cover. */
     public double getSolarRate() {
-        return solarRate;
+        return energy.solarRate();
     }
 
     public double getSelfHealRate() {
-        return selfHealRate;
+        return energy.selfHealRate();
     }
 
     /** FE per tick the last energy drain cost, everything included (section 2.12). */
     public double getDrainRate() {
-        return drainRate;
+        return energy.drainRate();
     }
 
-    /** At 0 energy the drone drops as an item where it is, with its data intact (section 5.2). */
-    private void runOutOfEnergy(DroneData data) {
-        releaseStation();
-        ItemEntity item = new ItemEntity(level(), getX(), getY(), getZ(), DroneItem.createStack(data.withEnergy(0).withHealth(getHealth())));
-        item.setDefaultPickUpDelay();
-        level().addFreshEntity(item);
-        discard();
+    /** Whether the drone holds a target or has one loaded from NBT still to look up. */
+    boolean hasOrAwaitsTarget() {
+        return target != null || pendingTargetId != null;
     }
 
     /**
-     * Starts returning once the energy left is what it takes to reach the nearest usable station and wait there
-     * (section 5.2). An Explosive drone chasing a target keeps chasing, since it will be consumed anyway.
+     * Drops any target, recall, drift and patrol, and heads for the station. Where the drone is now is where it comes
+     * back to (section 5.3).
      */
-    private void checkReturnThreshold(DroneData data) {
-        DroneState state = getState();
-        if (state == DroneState.RETURNING || state == DroneState.CHARGING || state == DroneState.PILOTED) {
-            // A piloted drone only warns: the pilot decides when to head home (section 2.13).
-            return;
-        }
-        if (DroneStats.isExplosive(data) && (target != null || pendingTargetId != null)) {
-            return;
-        }
-        BlockPos station = nearestStation(data);
-        if (station == null) {
-            return;
-        }
-        double distance = Math.sqrt(distanceToSqr(ChargingStationBlockEntity.dockPosition(station)));
-        if (data.energy() <= DroneStats.returnThreshold(data, distance)) {
-            startReturning(station);
-        }
-    }
-
-    /** The nearest usable station in range, searched at most every {@link #STATION_SEARCH_CACHE_TICKS} (section 8.4). */
-    @Nullable
-    private BlockPos nearestStation(DroneData data) {
-        long now = level().getGameTime();
-        if (now >= stationSearchExpiry) {
-            cachedStation = findStation(data, position(), ServerConfig.get(ServerConfig.DRONE_CHARGING_SEARCH_RADIUS), null, false);
-            stationSearchExpiry = now + STATION_SEARCH_CACHE_TICKS;
-        }
-        return cachedStation;
-    }
-
-    /**
-     * The usable station nearest to the drone among those within {@code radius} of {@code around}, from the
-     * dimension's station registry (section 8.3). Stations the drone couldn't reach recently are skipped.
-     *
-     * @param exclude     a station to leave out, or null
-     * @param requireFree only stations in loaded chunks that no other drone holds
-     */
-    @Nullable
-    private BlockPos findStation(DroneData data, Vec3 around, double radius, @Nullable BlockPos exclude, boolean requireFree) {
-        ServerLevel level = (ServerLevel) level();
-        long now = level.getGameTime();
-        unreachableStations.values().removeIf(until -> until <= now);
-        double radiusSqr = radius * radius;
-        double bestSqr = Double.MAX_VALUE;
-        BlockPos best = null;
-        for (Map.Entry<BlockPos, Optional<UUID>> entry : ChargingStationRegistry.get(level).getStations().entrySet()) {
-            BlockPos pos = entry.getKey();
-            Vec3 center = Vec3.atCenterOf(pos);
-            if (pos.equals(exclude) || center.distanceToSqr(around) > radiusSqr || unreachableStations.containsKey(pos)) {
-                continue;
-            }
-            double distanceSqr = distanceToSqr(center);
-            if (distanceSqr >= bestSqr || !DronePermissions.canUseStation(level.getServer(), data, entry.getValue())) {
-                continue;
-            }
-            if (requireFree && !(level.hasChunkAt(pos) && level.getBlockEntity(pos) instanceof ChargingStationBlockEntity station
-                    && !station.isClaimedByOther(getUUID()))) {
-                continue;
-            }
-            bestSqr = distanceSqr;
-            best = pos;
-        }
-        return best;
-    }
-
-    /** Drops any target and heads for the station. Where the drone is now is where it comes back to (section 5.3). */
-    private void startReturning(BlockPos station) {
+    void startReturning(BlockPos station) {
         clearRecall();
         TargetClaims.release(this);
         target = null;
         pendingTargetId = null;
         lostSightSince = -1;
-        resetFollow();
+        pursuit.reset();
         if (drifting) {
             stopDrifting();
         }
-        patrolWaypoint = -1;
-        homeGoal = null;
-        departurePosition = currentPosition();
-        setStation(station);
-    }
-
-    /** Heads for another station, releasing any claim on the previous one. */
-    private void setStation(BlockPos station) {
-        if (!station.equals(chargingStation)) {
-            releaseStation();
-        }
-        chargingStation = station;
-        stationLeg = null;
-        stationBestDistance = Double.MAX_VALUE;
-        stationProgressTick = tickCount;
-        recheckDirectPath = true;
-        stopNavigating();
-        setState(DroneState.RETURNING);
-    }
-
-    /** Releases the claim on the current station, if its chunk is loaded (otherwise the claim lapses on its own). */
-    private void releaseStation() {
-        if (chargingStation != null && level().hasChunkAt(chargingStation)
-                && level().getBlockEntity(chargingStation) instanceof ChargingStationBlockEntity station) {
-            station.release(getUUID());
-        }
-        chargingStation = null;
-        stationLeg = null;
-    }
-
-    /**
-     * RETURNING and CHARGING (sections 5.2 and 5.3). The drone flies to its station, claims it once close, and docks.
-     * If another drone holds it, the drone looks for a free station nearby, or else waits next to it. A station that
-     * is gone, no longer usable or unreachable is replaced by the next nearest one.
-     */
-    private void tickReturning(DroneData data, boolean staggered) {
-        if (chargingStation == null) {
-            endReturn(data);
-            return;
-        }
-        BlockPos pos = chargingStation;
-        ServerLevel level = (ServerLevel) level();
-        ChargingStationBlockEntity station = null;
-        if (level.hasChunkAt(pos)) {
-            if (!(level.getBlockEntity(pos) instanceof ChargingStationBlockEntity found)) {
-                // Removed without unregistering (e.g. replaced by a command): forget it.
-                ChargingStationRegistry.get(level).remove(pos);
-                redirect(data);
-                return;
-            }
-            station = found;
-            if (staggered && !DronePermissions.canUseStation(level.getServer(), data, station.getOwner())) {
-                redirect(data);
-                return;
-            }
-        }
-        Vec3 dock = ChargingStationBlockEntity.dockPosition(pos);
-        double distance = Math.sqrt(distanceToSqr(dock));
-        if (getState() == DroneState.CHARGING) {
-            charge(data, station, dock, distance, staggered);
-            return;
-        }
-        double speed = ServerConfig.get(ServerConfig.DRONE_CRUISE_SPEED);
-        double acceleration = ServerConfig.get(ServerConfig.DRONE_ACCELERATION);
-        if (station != null && distance <= STATION_QUEUE_DISTANCE) {
-            if (!station.claim(getUUID())) {
-                queue(data, pos, dock, staggered);
-                return;
-            }
-            if (distance <= DOCK_REACH_DISTANCE) {
-                stopNavigating();
-                setState(DroneState.CHARGING);
-                if (!silentRedock) {
-                    level.playSound(null, pos, ModSounds.CHARGING_STATION_DOCK.get(), SoundSource.BLOCKS,
-                            ServerConfig.get(ServerConfig.SOUNDS_DOCK_VOLUME).floatValue(), ServerConfig.get(ServerConfig.SOUNDS_DOCK_PITCH).floatValue());
-                }
-                silentRedock = false;
-                ((DroneMoveControl) moveControl).hold(acceleration);
-                return;
-            }
-        }
-        if (distance < stationBestDistance - 1) {
-            stationBestDistance = distance;
-            stationProgressTick = tickCount;
-        } else if (tickCount - stationProgressTick > STATION_PROGRESS_TIMEOUT) {
-            markUnreachable(data, pos);
-            return;
-        }
-        if (distance <= STATION_LEG_LENGTH) {
-            stationLeg = null;
-            steerTowards(dock, speed, acceleration, dock, staggered, false);
-            return;
-        }
-        // Too far for one path search: fly legs toward the station, raised over obstacles like patrol waypoints.
-        double reach = Math.max(WAYPOINT_REACH_DISTANCE, speed * speed / acceleration);
-        if (stationLeg == null || distanceToSqr(stationLeg) <= reach * reach || tickCount > stationLegDeadline) {
-            Vec3 spot = position().add(dock.subtract(position()).normalize().scale(STATION_LEG_LENGTH));
-            Vec3 raised = patrolHeightAt(spot);
-            stationLeg = raised != null ? raised : spot;
-            stationLegDeadline = tickCount + (int) (2 * STATION_LEG_LENGTH / speed) + WAYPOINT_GRACE_TICKS;
-            recheckDirectPath = true;
-        }
-        steerTowards(stationLeg, speed, acceleration, null, staggered, false);
-    }
-
-    /**
-     * The station is held by another drone (section 5.3): switch to a free usable station near it if there is one,
-     * otherwise wait right next to it. Waiting doesn't count against the progress timeout.
-     */
-    private void queue(DroneData data, BlockPos pos, Vec3 dock, boolean staggered) {
-        stationProgressTick = tickCount;
-        queuedThisTick = true;
-        if (staggered) {
-            BlockPos alternate = findStation(data, Vec3.atCenterOf(pos), ServerConfig.get(ServerConfig.DRONE_CHARGING_ALTERNATE_RADIUS), pos, true);
-            if (alternate != null) {
-                setStation(alternate);
-                return;
-            }
-        }
-        Vec3 away = new Vec3(getX() - dock.x, 0, getZ() - dock.z);
-        Vec3 direction = away.lengthSqr() > 1.0E-4 ? away.normalize() : new Vec3(1, 0, 0);
-        Vec3 spot = dock.add(direction.scale(QUEUE_OFFSET));
-        if (!hasRoomAt(spot)) {
-            spot = dock.add(0, QUEUE_OFFSET, 0);
-        }
-        double acceleration = ServerConfig.get(ServerConfig.DRONE_ACCELERATION);
-        if (hasRoomAt(spot)) {
-            steerTowards(spot, ServerConfig.get(ServerConfig.DRONE_CRUISE_SPEED), acceleration, spot, staggered, false);
-        } else {
-            stopNavigating();
-            ((DroneMoveControl) moveControl).hold(acceleration);
-        }
-    }
-
-    /**
-     * Docked (section 5.3): renews the claim, takes up to the station's charge rate in FE per tick, and heals
-     * {@code healPercentPerSecond} of its max HP per second while the station has FE and repair fluid. With no FE it waits. Done at full energy and either full health or no
-     * repair fluid left: a drone is never held just to wait for fluid.
-     */
-    private void charge(DroneData data, @Nullable ChargingStationBlockEntity station, Vec3 dock, double distance, boolean staggered) {
-        if (station == null || !station.claim(getUUID())) {
-            setState(DroneState.RETURNING);
-            return;
-        }
-        double acceleration = ServerConfig.get(ServerConfig.DRONE_ACCELERATION);
-        if (distance > DOCK_REACH_DISTANCE) {
-            steerTowards(dock, ServerConfig.get(ServerConfig.DRONE_CRUISE_SPEED), acceleration, dock, staggered, false);
-        } else {
-            if (pathGoal != null) {
-                stopNavigating();
-            }
-            ((DroneMoveControl) moveControl).hold(acceleration);
-        }
-        int maxEnergy = DroneStats.maxEnergy(data);
-        if (station.getEnergy() > 0) {
-            int missing = maxEnergy - data.energy();
-            int taken = 0;
-            if (missing > 0) {
-                taken = station.drainForDrone(Math.min(missing, station.getChargeRate()));
-                data = data.withEnergy(data.energy() + taken);
-                droneData = data;
-            }
-            float healed = 0;
-            if (getHealth() < getMaxHealth() && station.canRepair()) {
-                float perTick = (float) (getMaxHealth() * ServerConfig.get(ServerConfig.CHARGING_STATION_HEAL_PERCENT_PER_SECOND) / 100 / 20);
-                float heal = Math.min(getMaxHealth() - getHealth(), perTick);
-                healed = station.useRepairFluid(heal);
-                setHealth(Math.min(getMaxHealth(), getHealth() + healed));
-            }
-            if (taken > 0 || healed > 0) {
-                station.markWorking(healed > 0);
-            }
-        }
-        if (data.energy() >= maxEnergy && (getHealth() >= getMaxHealth() || !station.canRepair())) {
-            playDroneSound(ModSounds.DRONE_CHARGED.get(), ServerConfig.get(ServerConfig.SOUNDS_CHARGED_VOLUME), ServerConfig.get(ServerConfig.SOUNDS_CHARGED_PITCH));
-            endReturn(data);
-        }
-    }
-
-    /** Skips a station for {@code drone.unreachableStationCooldown} ticks and heads for the next one (section 5.2). */
-    private void markUnreachable(DroneData data, BlockPos pos) {
-        unreachableStations.put(pos, level().getGameTime() + ServerConfig.get(ServerConfig.DRONE_UNREACHABLE_STATION_COOLDOWN));
-        redirect(data);
-    }
-
-    /** Picks the next nearest usable station, or carries on without one until the energy runs out. */
-    private void redirect(DroneData data) {
-        releaseStation();
-        stationSearchExpiry = Long.MIN_VALUE;
-        BlockPos next = nearestStation(data);
-        if (next != null) {
-            setStation(next);
-        } else {
-            endReturn(data);
-        }
-    }
-
-    /**
-     * Done charging, or no station left to go to. A Patrol drone resumes patrolling from the nearest waypoint. Any
-     * other drone flies back to where it left and hovers there (section 5.3).
-     */
-    private void endReturn(DroneData data) {
-        silentRedock = false;
-        releaseStation();
-        stopNavigating();
-        if (!DroneStats.isPatrolling(data) && departurePosition != null && departurePosition.dimension() == level().dimension()) {
-            homeGoal = Vec3.atBottomCenterOf(departurePosition.pos());
-        }
-        departurePosition = null;
-        patrolWaypoint = -1;
-        recheckDirectPath = true;
-        setState(DroneState.IDLE);
-    }
-
-    /** A drone without Patrol flies back to where it left to charge, then hovers there. */
-    private void flyHome(DroneData data, boolean staggered) {
-        if (DroneStats.isPatrolling(data)) {
-            homeGoal = null;
-            return;
-        }
-        if (distanceToSqr(homeGoal) <= HOME_REACH_DISTANCE * HOME_REACH_DISTANCE) {
-            homeGoal = null;
-            stopNavigating();
-            return;
-        }
-        if (!steerTowards(homeGoal, ServerConfig.get(ServerConfig.DRONE_CRUISE_SPEED), ServerConfig.get(ServerConfig.DRONE_ACCELERATION),
-                homeGoal, staggered, false)) {
-            // Can't get back: hover where it is.
-            homeGoal = null;
-            stopNavigating();
-        }
+        patrol.reset();
+        charging.startReturning(station);
     }
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
         boolean hurt = super.hurt(source, amount);
         if (hurt) {
-            lastDamageTime = level().getGameTime();
-            selfHealRate = 0;
+            energy.onHurt();
         }
         return hurt;
     }
@@ -2053,19 +1259,8 @@ public class DroneEntity extends PathfinderMob {
         if (targetId != null) {
             tag.putUUID(TAG_TARGET, targetId);
         }
-        if (chargingStation != null) {
-            BlockPos.CODEC.encodeStart(NbtOps.INSTANCE, chargingStation).result().ifPresent(pos -> tag.put(TAG_CHARGING_STATION, pos));
-        }
-        if (departurePosition != null) {
-            GlobalPos.CODEC.encodeStart(NbtOps.INSTANCE, departurePosition).result().ifPresent(pos -> tag.put(TAG_DEPARTURE_POSITION, pos));
-        }
-        if (homeGoal != null) {
-            Vec3.CODEC.encodeStart(NbtOps.INSTANCE, homeGoal).result().ifPresent(pos -> tag.put(TAG_HOME_GOAL, pos));
-        }
-        tag.putDouble(TAG_DRAIN_DISTANCE, drainDistance);
-        tag.putDouble(TAG_DRAIN_REMAINDER, drainRemainder);
-        tag.putInt(TAG_DRAIN_HOVER_TICKS, drainHoverTicks);
-        tag.putDouble(TAG_DRAIN_QUEUE_COST, drainQueueCost);
+        charging.save(tag);
+        energy.save(tag);
         if (isPassive()) {
             if (recallPlayer != null) {
                 tag.putUUID(TAG_RECALL_PLAYER, recallPlayer);
@@ -2091,33 +1286,23 @@ public class DroneEntity extends PathfinderMob {
         target = null;
         DroneState state = DroneState.bySerializedName(tag.getString(TAG_STATE));
         pendingTargetId = null;
-        chargingStation = tag.contains(TAG_CHARGING_STATION)
-                ? BlockPos.CODEC.parse(NbtOps.INSTANCE, tag.get(TAG_CHARGING_STATION)).result().orElse(null)
-                : null;
-        departurePosition = tag.contains(TAG_DEPARTURE_POSITION)
-                ? GlobalPos.CODEC.parse(NbtOps.INSTANCE, tag.get(TAG_DEPARTURE_POSITION)).result().orElse(null)
-                : null;
-        homeGoal = tag.contains(TAG_HOME_GOAL) ? Vec3.CODEC.parse(NbtOps.INSTANCE, tag.get(TAG_HOME_GOAL)).result().orElse(null) : null;
-        drainDistance = tag.getDouble(TAG_DRAIN_DISTANCE);
-        drainRemainder = tag.getDouble(TAG_DRAIN_REMAINDER);
-        drainHoverTicks = tag.getInt(TAG_DRAIN_HOVER_TICKS);
-        drainQueueCost = tag.getDouble(TAG_DRAIN_QUEUE_COST);
+        charging.load(tag);
+        energy.load(tag);
         if (tag.hasUUID(TAG_TARGET) && (state == DroneState.CHASING || state == DroneState.FOLLOWING)) {
             pendingTargetId = tag.getUUID(TAG_TARGET);
             setState(state);
-        } else if (chargingStation != null && (state == DroneState.RETURNING || state == DroneState.CHARGING)) {
+        } else if (charging.station() != null && (state == DroneState.RETURNING || state == DroneState.CHARGING)) {
             // Claims aren't saved: a docked drone claims its station again and re-docks, without a second dock clunk.
-            silentRedock = state == DroneState.CHARGING;
-            setStation(chargingStation);
+            charging.resumeAfterLoad(state == DroneState.CHARGING);
         } else if (state == DroneState.HOLDING || state == DroneState.RECALLED) {
-            chargingStation = null;
+            charging.forgetStation();
             recallPlayer = tag.hasUUID(TAG_RECALL_PLAYER) ? tag.getUUID(TAG_RECALL_PLAYER) : null;
             recallHoverLeft = tag.contains(TAG_RECALL_HOVER_LEFT) ? tag.getInt(TAG_RECALL_HOVER_LEFT) : -1;
             recallHome = tag.contains(TAG_RECALL_HOME) ? Vec3.CODEC.parse(NbtOps.INSTANCE, tag.get(TAG_RECALL_HOME)).result().orElse(null) : null;
             recallRange = -1;
             setState(state);
         } else {
-            chargingStation = null;
+            charging.forgetStation();
             setState(DroneState.IDLE);
         }
     }
@@ -2142,20 +1327,18 @@ public class DroneEntity extends PathfinderMob {
     private void dropActivity() {
         DroneState state = getState();
         if (state == DroneState.RETURNING || state == DroneState.CHARGING) {
-            releaseStation();
-            departurePosition = null;
-            silentRedock = false;
+            charging.abandon();
         }
         TargetClaims.release(this);
         target = null;
         pendingTargetId = null;
         lostSightSince = -1;
-        resetFollow();
+        pursuit.reset();
         if (drifting) {
             stopDrifting();
         }
-        patrolWaypoint = -1;
-        homeGoal = null;
+        patrol.reset();
+        charging.setHomeGoal(null);
         stopNavigating();
     }
 
@@ -2212,8 +1395,8 @@ public class DroneEntity extends PathfinderMob {
         if (state == DroneState.RETURNING || state == DroneState.CHARGING) {
             return false;
         }
-        stationSearchExpiry = Long.MIN_VALUE;
-        BlockPos station = nearestStation(getDroneData());
+        charging.invalidateStationCache();
+        BlockPos station = charging.nearestStation(getDroneData());
         if (station == null) {
             return false;
         }
@@ -2289,9 +1472,9 @@ public class DroneEntity extends PathfinderMob {
      * where it is after a plain Hold).
      */
     private void endRecall() {
-        homeGoal = recallHome;
+        charging.setHomeGoal(recallHome);
         clearRecall();
-        patrolWaypoint = -1;
+        patrol.reset();
         recheckDirectPath = true;
         setState(DroneState.IDLE);
     }
@@ -2326,10 +1509,10 @@ public class DroneEntity extends PathfinderMob {
         if (!DroneStats.isPatrolling(data)) {
             restPosition = currentPosition();
         }
-        patrolWaypoint = -1;
+        patrol.reset();
         recheckDirectPath = true;
         setState(DroneState.IDLE);
-        checkReturnThreshold(data);
+        charging.checkReturnThreshold(data);
     }
 
     /** The pilot's movement keys, ignored unless the drone is piloted. */
@@ -2359,7 +1542,7 @@ public class DroneEntity extends PathfinderMob {
      */
     public boolean isBelowReturnThreshold() {
         DroneData data = getDroneData();
-        BlockPos station = nearestStation(data);
+        BlockPos station = charging.nearestStation(data);
         if (station == null) {
             return DroneStats.isCriticalEnergy(data);
         }
