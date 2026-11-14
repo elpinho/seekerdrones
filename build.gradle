@@ -2,7 +2,6 @@ plugins {
     id 'java-library'
     id 'eclipse'
     id 'idea'
-    id 'maven-publish'
     id 'net.neoforged.gradle.userdev' version '7.0.170'
 }
 
@@ -45,7 +44,23 @@ base {
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 minecraft.accessTransformers.file rootProject.file('src/main/resources/META-INF/accesstransformer.cfg')
-//minecraft.accessTransformers.entry public net.minecraft.client.Minecraft textureManager # textureManager
+
+// GameTests and their structure templates. Not part of the jar: only the dev runs below load them.
+sourceSets {
+    gametest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    gametestImplementation.extendsFrom implementation
+    gametestCompileOnly.extendsFrom compileOnly
+    gametestRuntimeOnly.extendsFrom runtimeOnly
+}
+
+// `build` compiles the GameTests too, so a change that breaks them fails fast without booting the GameTest server.
+tasks.named('check') { dependsOn tasks.named('gametestClasses') }
 
 // Default run configurations.
 // These can be tweaked, removed, or duplicated as needed.
@@ -75,6 +90,8 @@ runs {
     }
 
     client {
+        // The GameTests are a separate source set (above) loaded as part of the same mod.
+        modSource project.sourceSets.gametest
         // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
         systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
         // ZGC keeps GC pauses short, so the client doesn't stutter with dozens of drones on screen.
@@ -91,6 +108,8 @@ runs {
     }
 
     server {
+        // The GameTests are a separate source set (above) loaded as part of the same mod.
+        modSource project.sourceSets.gametest
         systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
         argument '--nogui'
     }
@@ -99,6 +118,8 @@ runs {
     // By default, the server will crash when no gametests are provided.
     // The gametest system is also enabled by default for other run configs under the /test command.
     gameTestServer {
+        // The GameTests are a separate source set (above) loaded as part of the same mod.
+        modSource project.sourceSets.gametest
         systemProperty 'forge.enabledGameTestNamespaces', project.mod_id
         // Run a subset of the tests, or repeat them: -PgametestFilter=<regex> -PgametestRepeat=<N> (see GameTestSelection).
         systemProperty 'seekerdrones.gametest.filter', project.findProperty('gametestFilter') ?: ''
@@ -106,9 +127,6 @@ runs {
     }
 
     data {
-        // example of overriding the workingDirectory set in configureEach above, uncomment if you want to use it
-        // workingDirectory project.file('run-data')
-
         // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
         arguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
     }
@@ -123,6 +141,7 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 // "optional", meaning it will not be pulled by dependents of this mod.
 configurations {
     runtimeClasspath.extendsFrom localRuntime
+    gametestRuntimeClasspath.extendsFrom localRuntime
 }
 
 dependencies {
@@ -148,21 +167,6 @@ dependencies {
     // Jade is optional too: the plugin in compat.jade only loads when Jade is installed. Jade ships no separate API jar,
     // so the full mod is compile-only. To use Jade in the dev client, put the Jade jar in runs/client/mods.
     compileOnly "maven.modrinth:jade:${jade_version}"
-
-    // Example mod dependency using a mod jar from ./libs with a flat dir repository
-    // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
-    // The group id is ignored when searching -- in this case, it is "blank"
-    // implementation "blank:coolmod-${mc_version}:${coolmod_version}"
-
-    // Example mod dependency using a file as dependency
-    // implementation files("libs/coolmod-${mc_version}-${coolmod_version}.jar")
-
-    // Example project dependency using a sister or child project:
-    // implementation project(":myproject")
-
-    // For more info:
-    // http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
-    // http://www.gradle.org/docs/current/userguide/dependency_management.html
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
@@ -187,20 +191,6 @@ tasks.withType(ProcessResources).configureEach {
 
     filesMatching(['META-INF/neoforge.mods.toml']) {
         expand replaceProperties
-    }
-}
-
-// Example configuration to allow publishing using the maven-publish plugin
-publishing {
-    publications {
-        register('mavenJava', MavenPublication) {
-            from components.java
-        }
-    }
-    repositories {
-        maven {
-            url "file://${project.projectDir}/repo"
-        }
     }
 }
 
