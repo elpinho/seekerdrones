@@ -16,6 +16,9 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
  * Drone upgrade types (DESIGN.md section 4).
+ * <p>
+ * Add new types at the end only: the stream codec and the Programming Station's input slots go by ordinal. Saves use
+ * the serialized name, so they are safe either way.
  */
 public enum UpgradeType implements StringRepresentable {
     PATROL("patrol", ServerConfig.UPGRADES_PATROL_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_PATROL,
@@ -34,7 +37,6 @@ public enum UpgradeType implements StringRepresentable {
             ServerConfig.UPGRADES_HEALTH_ENERGY_FACTOR),
     PLAYER_SEEK("player_seek", ServerConfig.UPGRADES_PLAYER_SEEK_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK,
             ServerConfig.UPGRADES_PLAYER_SEEK_ENERGY_FACTOR),
-    // Last: the stream codec and the Programming Station's input slots go by ordinal.
     FPV_CAMERA("fpv_camera", ServerConfig.UPGRADES_FPV_CAMERA_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_FPV_CAMERA,
             ServerConfig.UPGRADES_FPV_CAMERA_ENERGY_FACTOR),
     SOLAR("solar", ServerConfig.UPGRADES_SOLAR_MAX_COUNT, ServerConfig.PROGRAMMING_STATION_BASE_COST_SOLAR,

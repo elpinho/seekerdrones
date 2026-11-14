@@ -1,5 +1,11 @@
 package com.elpinho.seekerdrones.client;
 
+import static com.elpinho.seekerdrones.client.gui.FieldValues.formatSpeed;
+import static com.elpinho.seekerdrones.client.gui.FieldValues.parseDouble;
+import static com.elpinho.seekerdrones.client.gui.FieldValues.parseInt;
+import static com.elpinho.seekerdrones.client.gui.FieldValues.toSeconds;
+import static com.elpinho.seekerdrones.client.gui.FieldValues.toTicks;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -730,35 +736,6 @@ public class DroneRemoteScreen extends PanelScreen {
 
     private void setColor(DyeColor color) {
         sendSettings(config.withColor(color));
-    }
-
-    /** Shows a speed in blocks/second, to two decimals. */
-    private static String formatSpeed(double blocksPerSecond) {
-        return String.format(Locale.ROOT, "%.2f", blocksPerSecond);
-    }
-
-    private static double toSeconds(double blocksPerTick) {
-        return blocksPerTick * DroneStats.TICKS_PER_SECOND;
-    }
-
-    private static double toTicks(double blocksPerSecond) {
-        return blocksPerSecond / DroneStats.TICKS_PER_SECOND;
-    }
-
-    private static int parseInt(String text, int fallback) {
-        try {
-            return Integer.parseInt(text.trim());
-        } catch (NumberFormatException e) {
-            return fallback;
-        }
-    }
-
-    private static double parseDouble(String text, double fallback) {
-        try {
-            return Double.parseDouble(text.trim());
-        } catch (NumberFormatException e) {
-            return fallback;
-        }
     }
 
     // --- Ticking ---

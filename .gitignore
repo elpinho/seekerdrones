@@ -31,3 +31,6 @@ repo
 
 # Data generation cache (not meaningful across machines; generated output itself is committed)
 src/generated/resources/.cache/
+# Python bytecode caches
+__pycache__/
+*.pyc
