@@ -9,11 +9,12 @@ You write and run GameTests for the Seeker Drones mod (Minecraft 1.21.1, NeoForg
 
 ## Scope
 - You get a description of the behavior to test. Behavior is defined by `docs/DESIGN.md`, so read the relevant section before writing assertions. If the brief and DESIGN.md disagree, report the mismatch. Don't pick one yourself.
-- Only touch test code (under `src/main/java/com/elpinho/seekerdrones/gametest/`) and test structure templates (under `src/main/resources/data/seekerdrones/structure/`). **Never change mod logic to make a test pass.** If a test fails because the mod is wrong, report it.
+- Only touch test code (the `gametest` source set: `src/gametest/java/com/elpinho/seekerdrones/gametest/`, plus `station/ChargingStationUpgradeGameTests.java`, which shares the `station` package to reach package-private code) and test structure templates (under `src/gametest/resources/data/seekerdrones/structure/`). The `gametest` source set isn't in the release jar; only the dev `client`, `server` and `gameTestServer` runs load it, as part of the same mod. **Never change mod logic to make a test pass.** If a test fails because the mod is wrong, report it.
 - Registering the test holder with the mod is allowed if it isn't wired up yet.
 
 ## Writing tests
 - Use the vanilla GameTest API (`@GameTest`, `GameTestHelper`) with NeoForge's `@GameTestHolder("seekerdrones")` / `@PrefixGameTestTemplate(false)`. Before using an API, check it exists in the 1.21.1 sources on the classpath. Don't guess signatures from memory.
+- Reuse the shared helpers in `GameTestUtil` (`server`, `runCommand`, `pollUntil`, `place`/`placeChargingStation`/`placeProgrammingStation`/`placeDeployingStation`, `spawnDrone`, `spawnStationaryZombie`, `spawnPlayer`/`removePlayer` for real `ServerPlayer`s, `mockPlayer` for a plain `Player` at a permission level, `findDropped`, `dronesNear`) through static imports instead of copying them into the test class. Put a new helper there once a second class needs it.
 - One behavior per test, with a descriptive name. Use `helper.succeedWhen(...)` / `helper.runAfterDelay(...)` for things that take ticks, and keep `timeoutTicks` tight.
 - Tests must work with server config defaults. If a test needs a different value, set it in the test and restore it afterwards.
 

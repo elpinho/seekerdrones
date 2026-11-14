@@ -1,0 +1,754 @@
+package com.elpinho.seekerdrones.gametest;
+
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.findDropped;
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.placeProgrammingStation;
+
+import java.util.List;
+import java.util.Optional;
+
+import com.elpinho.seekerdrones.config.ServerConfig;
+import com.elpinho.seekerdrones.drone.DroneConfig;
+import com.elpinho.seekerdrones.drone.DroneData;
+import com.elpinho.seekerdrones.drone.DroneItem;
+import com.elpinho.seekerdrones.drone.DroneStats;
+import com.elpinho.seekerdrones.drone.TargetEntry;
+import com.elpinho.seekerdrones.drone.UpgradeType;
+import com.elpinho.seekerdrones.programming.ProgramRules;
+import com.elpinho.seekerdrones.programming.ProgrammingMode;
+import com.elpinho.seekerdrones.programming.ProgrammingStationBlockEntity;
+import com.elpinho.seekerdrones.programming.ProgrammingStationSettings;
+import com.elpinho.seekerdrones.registry.ModBlocks;
+import com.elpinho.seekerdrones.registry.ModDataComponents;
+import com.elpinho.seekerdrones.registry.ModItems;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.GlobalPos;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestAssertException;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.neoforged.neoforge.items.IItemHandler;
+
+/**
+ * M7 (Drone Programming Station) GameTests, DESIGN.md sections 4, 7.2 and 9. They drive the block entity directly
+ * (and the automation {@link IItemHandler}); no GUI. All tests use config defaults (install time 20 ticks, base cost
+ * 10 000 FE, station capacity 200 000 FE) and the {@code seekerdrones:empty} structure template.
+ */
+@GameTestHolder("seekerdrones")
+@PrefixGameTestTemplate(false)
+public class ProgrammingStationGameTests {
+    private static final BlockPos REL = new BlockPos(4, 3, 4);
+
+    // --- 1. Install step cost (sections 4, 7.2) ---
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void directInstallSecondSightCostsTwiceBaseCostSpentOverInstallTime(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.getItems().setStackInSlot(0, droneStack(DroneData.createNew().withUpgradeCount(UpgradeType.SIGHT, 1)));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.SIGHT), new ItemStack(ModItems.upgrade(UpgradeType.SIGHT).get(), 1));
+        station.getEnergyStorage().receiveEnergy(50_000, false);
+        int cost = 2 * UpgradeType.SIGHT.baseCost();
+        helper.assertTrue(cost == ProgramRules.installCost(UpgradeType.SIGHT, 2), "installCost(SIGHT, 2) should be baseCost x 2");
+
+        station.requestInstall(UpgradeType.SIGHT);
+        helper.assertTrue(station.getInstalling() == UpgradeType.SIGHT, "requestInstall should start a step");
+
+        helper.runAfterDelay(8, () -> {
+            helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.SIGHT) == 1, "Upgrade shouldn't be installed halfway");
+            int stored = station.getEnergyStorage().getEnergyStored();
+            helper.assertTrue(stored < 50_000 && stored > 50_000 - cost, "FE should be partly spent halfway, stored=" + stored);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.SIGHT) == 2,
+                    "Second Sight upgrade not installed yet");
+            helper.assertTrue(station.getEnergyStorage().getEnergyStored() == 50_000 - cost,
+                    "Station should have spent exactly " + cost + " FE, stored=" + station.getEnergyStorage().getEnergyStored());
+            helper.assertTrue(station.getInstalling() == null, "Step should be finished");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void energyUpgradeCostsBaseCostTimesIndexAndEnergyArrivesEmpty(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        DroneData before = DroneData.createNew();
+        int baseMax = DroneStats.maxEnergy(before);
+        station.getItems().setStackInSlot(0, droneStack(before));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.ENERGY), new ItemStack(ModItems.upgrade(UpgradeType.ENERGY).get(), 1));
+        int cost = UpgradeType.ENERGY.baseCost();
+        helper.assertTrue(ProgramRules.installCost(UpgradeType.ENERGY, 1) == cost, "installCost(ENERGY, 1) should be baseCost x 1");
+        helper.assertTrue(ProgramRules.installCost(UpgradeType.ENERGY, 3) == 3 * cost, "installCost(ENERGY, 3) should be baseCost x 3, with no capacity added");
+        // The station also charges the drone with whatever the step leaves, so account for that: spent = cost + charged.
+        int initial = cost + 100_000;
+        station.getEnergyStorage().receiveEnergy(initial, false);
+
+        station.requestInstall(UpgradeType.ENERGY);
+        helper.succeedWhen(() -> {
+            DroneData after = station.getDrone().orElseThrow();
+            helper.assertTrue(after.upgradeCount(UpgradeType.ENERGY) == 1, "Energy upgrade not installed yet");
+            int charged = after.energy() - before.energy();
+            helper.assertTrue(initial - station.getEnergyStorage().getEnergyStored() == cost + charged,
+                    "Energy install should cost baseCost x index = " + cost + " (plus " + charged + " charged), stored=" + station.getEnergyStorage().getEnergyStored());
+            helper.assertTrue(DroneStats.maxEnergy(after) == 2 * baseMax, "Max energy should double, was " + DroneStats.maxEnergy(after));
+            helper.assertTrue(after.energy() >= before.energy(),
+                    "Drone energy should arrive at least unchanged (the extra capacity arrives empty, then the station charges it), was " + after.energy());
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void secondEnergyUpgradeCostsTwiceBaseCost(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.getItems().setStackInSlot(0, droneStack(DroneData.createNew().withUpgradeCount(UpgradeType.ENERGY, 1)));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.ENERGY), new ItemStack(ModItems.upgrade(UpgradeType.ENERGY).get(), 1));
+        int cost = 2 * UpgradeType.ENERGY.baseCost();
+        // The drone isn't full after the first upgrade, so the station charges it too: spent = cost + charged.
+        int initial = cost + 100_000;
+        int energyBefore = station.getDrone().orElseThrow().energy();
+        station.getEnergyStorage().receiveEnergy(initial, false);
+
+        station.requestInstall(UpgradeType.ENERGY);
+        helper.succeedWhen(() -> {
+            DroneData after = station.getDrone().orElseThrow();
+            helper.assertTrue(after.upgradeCount(UpgradeType.ENERGY) == 2, "Second Energy upgrade not installed yet");
+            int charged = after.energy() - energyBefore;
+            helper.assertTrue(initial - station.getEnergyStorage().getEnergyStored() == cost + charged,
+                    "Second Energy install should cost 2 x baseCost = " + cost + " (plus " + charged + " charged), stored=" + station.getEnergyStorage().getEnergyStored());
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void removingEnergyUpgradeClampsDroneEnergyToNewMax(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        DroneData withUpgrade = DroneData.createNew().withUpgradeCount(UpgradeType.ENERGY, 1);
+        DroneData full = withUpgrade.withEnergy(DroneStats.maxEnergy(withUpgrade));
+        station.getItems().setStackInSlot(0, droneStack(full));
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+
+        station.removeUpgrade(UpgradeType.ENERGY, player);
+        DroneData after = station.getDrone().orElseThrow();
+        helper.assertTrue(after.upgradeCount(UpgradeType.ENERGY) == 0, "Energy upgrade should be removed");
+        helper.assertTrue(after.energy() == DroneStats.maxEnergy(after),
+                "Energy should be clamped to the new max " + DroneStats.maxEnergy(after) + ", was " + after.energy());
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void healthUpgradeArrivesFull(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        DroneData damaged = DroneData.createNew().withHealth(5f);
+        station.getItems().setStackInSlot(0, droneStack(damaged));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.HEALTH), new ItemStack(ModItems.upgrade(UpgradeType.HEALTH).get(), 1));
+        station.getEnergyStorage().receiveEnergy(UpgradeType.HEALTH.baseCost(), false);
+
+        station.requestInstall(UpgradeType.HEALTH);
+        helper.succeedWhen(() -> {
+            DroneData after = station.getDrone().orElseThrow();
+            helper.assertTrue(after.upgradeCount(UpgradeType.HEALTH) == 1, "Health upgrade not installed yet");
+            float extra = DroneStats.maxHealth(after) - DroneStats.maxHealth(damaged);
+            helper.assertTrue(Math.abs(after.health() - (5f + extra)) < 0.001f,
+                    "Health should rise by the extra max (" + extra + "), was " + after.health());
+        });
+    }
+
+    // --- 2. Pause on low FE ---
+
+    @GameTest(template = "empty", timeoutTicks = 80)
+    public static void installStepPausesWithoutEnoughEnergyAndContinuesWhenAdded(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.getItems().setStackInSlot(0, droneStack(DroneData.createNew()));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.PATROL), new ItemStack(ModItems.upgrade(UpgradeType.PATROL).get(), 1));
+        int cost = UpgradeType.PATROL.baseCost();
+        int perTick = cost / 20;
+        // Enough for 4 ticks of progress and a bit less than one more tick.
+        int initial = perTick * 4 + perTick / 2;
+        station.getEnergyStorage().receiveEnergy(initial, false);
+
+        station.requestInstall(UpgradeType.PATROL);
+        helper.runAfterDelay(15, () -> {
+            helper.assertTrue(station.getInstalling() == UpgradeType.PATROL, "Step should still be waiting for FE");
+            helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.PATROL) == 0, "Upgrade shouldn't install without FE");
+            int stored = station.getEnergyStorage().getEnergyStored();
+            helper.assertTrue(stored == initial - perTick * 4, "Paused step should have spent exactly 4 ticks of FE, stored=" + stored);
+            helper.runAfterDelay(5, () -> {
+                helper.assertTrue(station.getEnergyStorage().getEnergyStored() == stored, "Paused step must not spend FE");
+                station.getEnergyStorage().receiveEnergy(cost, false);
+            });
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(helper.getTick() > 20, "Too early to be resumed");
+            helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.PATROL) == 1, "Step should finish after FE is added");
+            helper.assertTrue(station.getEnergyStorage().getEnergyStored() == initial + cost - cost,
+                    "Total spent should equal the step cost, stored=" + station.getEnergyStorage().getEnergyStored());
+        });
+    }
+
+    // --- 3. Direct mode requestInstall ---
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void directRequestInstallDoesNothingWithoutUpgradeInInput(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.getItems().setStackInSlot(0, droneStack(DroneData.createNew()));
+        // A different type is in the input: still nothing for Patrol.
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.SIGHT), new ItemStack(ModItems.upgrade(UpgradeType.SIGHT).get(), 1));
+        station.getEnergyStorage().receiveEnergy(100_000, false);
+
+        station.requestInstall(UpgradeType.PATROL);
+        helper.assertTrue(station.getInstalling() == null, "No step should start without a matching upgrade in the input");
+        helper.runAfterDelay(25, () -> {
+            helper.assertTrue(station.getDrone().orElseThrow().upgrades().isEmpty(), "Drone should have no upgrades");
+            helper.assertTrue(station.getEnergyStorage().getEnergyStored() == 100_000, "No FE should be spent");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void directRequestInstallInstallsAndTakesOneItem(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.getItems().setStackInSlot(0, droneStack(DroneData.createNew()));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.PATROL), new ItemStack(ModItems.upgrade(UpgradeType.PATROL).get(), 3));
+        station.getEnergyStorage().receiveEnergy(100_000, false);
+
+        station.requestInstall(UpgradeType.PATROL);
+        helper.assertTrue(station.getInstalling() == UpgradeType.PATROL, "A step should start");
+        helper.runAfterDelay(10, () -> helper.assertTrue(station.getItems().getStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.PATROL)).getCount() == 3,
+                "The item is only taken when the step finishes"));
+        helper.succeedWhen(() -> {
+            helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.PATROL) == 1, "Patrol not installed yet");
+            helper.assertTrue(station.getItems().getStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.PATROL)).getCount() == 2,
+                    "Exactly one item should be taken, stack is " + station.getItems().getStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.PATROL)));
+        });
+    }
+
+    // --- 4. Caps ---
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void directInstallRefusesPastPerTypeCap(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        int cap = UpgradeType.SIGHT.maxCount();
+        station.getItems().setStackInSlot(0, droneStack(DroneData.createNew().withUpgradeCount(UpgradeType.SIGHT, cap)));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.SIGHT), new ItemStack(ModItems.upgrade(UpgradeType.SIGHT).get(), 1));
+        station.getEnergyStorage().receiveEnergy(200_000, false);
+
+        station.requestInstall(UpgradeType.SIGHT);
+        helper.assertTrue(station.getInstalling() == null, "Install beyond the per-type cap (" + cap + ") should be refused");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void directInstallRefusesPastTotalSlotLimit(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        DroneData full = fillToTotalLimit(DroneData.createNew());
+        helper.assertTrue(DroneStats.totalUpgrades(full.upgrades()) == ServerConfig.get(ServerConfig.UPGRADES_TOTAL_SLOTS),
+                "Fixture should fill the total slot limit, total=" + DroneStats.totalUpgrades(full.upgrades()));
+        station.getItems().setStackInSlot(0, droneStack(full));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.PLAYER_SEEK), new ItemStack(ModItems.upgrade(UpgradeType.PLAYER_SEEK).get(), 1));
+        station.getEnergyStorage().receiveEnergy(200_000, false);
+
+        station.requestInstall(UpgradeType.PLAYER_SEEK);
+        helper.assertTrue(station.getInstalling() == null, "Install beyond the total slot limit should be refused");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void setProgramCountRefusesPastPerTypeCap(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.setMode(ProgrammingMode.TEMPLATE);
+        int cap = UpgradeType.TRANSMITTER.maxCount();
+        station.setProgramCount(UpgradeType.TRANSMITTER, cap);
+        helper.assertTrue(station.getTemplate().upgradeCount(UpgradeType.TRANSMITTER) == cap, "Setting the count to the cap should work");
+        station.setProgramCount(UpgradeType.TRANSMITTER, cap + 1);
+        helper.assertTrue(station.getTemplate().upgradeCount(UpgradeType.TRANSMITTER) == cap, "Setting the count above the cap should be refused");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void setProgramCountRefusesPastTotalSlotLimit(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.setMode(ProgrammingMode.TEMPLATE);
+        for (UpgradeType type : UpgradeType.values()) {
+            int room = ServerConfig.get(ServerConfig.UPGRADES_TOTAL_SLOTS) - totalOf(station);
+            station.setProgramCount(type, Math.min(type.maxCount(), room));
+        }
+        int total = totalOf(station);
+        helper.assertTrue(total == ServerConfig.get(ServerConfig.UPGRADES_TOTAL_SLOTS), "Fixture should fill the total limit, total=" + total);
+        // Something below its cap must be refused now.
+        UpgradeType open = null;
+        for (UpgradeType type : UpgradeType.values()) {
+            if (station.getTemplate().upgradeCount(type) < type.maxCount()) {
+                open = type;
+                break;
+            }
+        }
+        helper.assertTrue(open != null, "Fixture needs a type below its cap");
+        station.setProgramCount(open, station.getTemplate().upgradeCount(open) + 1);
+        helper.assertTrue(totalOf(station) == total, "Program must not exceed the total slot limit, total=" + totalOf(station));
+        helper.succeed();
+    }
+
+    // --- 5. Manual removal ---
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void removeUpgradeGivesItemToPlayerInventory(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.getItems().setStackInSlot(0, droneStack(DroneData.createNew().withUpgradeCount(UpgradeType.SIGHT, 2)));
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+
+        station.removeUpgrade(UpgradeType.SIGHT, player);
+        helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.SIGHT) == 1, "Count should drop to 1");
+        helper.assertTrue(player.getInventory().countItem(ModItems.upgrade(UpgradeType.SIGHT).get()) == 1,
+                "Player should get one Sight upgrade item");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void removeUpgradeDropsAtPlayersFeetWhenInventoryFull(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.getItems().setStackInSlot(0, droneStack(DroneData.createNew().withUpgradeCount(UpgradeType.SIGHT, 1)));
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+        Vec3 feet = helper.absoluteVec(new Vec3(8.5, 3, 8.5));
+        player.setPos(feet);
+        for (int i = 0; i < 36; i++) {
+            player.getInventory().setItem(i, new ItemStack(Items.DIRT, 64));
+        }
+
+        station.removeUpgrade(UpgradeType.SIGHT, player);
+        helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.SIGHT) == 0, "Count should drop to 0");
+        helper.assertTrue(player.getInventory().countItem(ModItems.upgrade(UpgradeType.SIGHT).get()) == 0, "Full inventory can't take it");
+        helper.assertTrue(findDropped(helper, feet, ModItems.upgrade(UpgradeType.SIGHT).get()) != null,
+                "The upgrade item should drop near the player's feet");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void templateModeRemovalOnlyForUpgradesBeyondTemplate(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        DroneData drone = DroneData.createNew().withUpgradeCount(UpgradeType.SIGHT, 2).withUpgradeCount(UpgradeType.PATROL, 1);
+        station.getItems().setStackInSlot(0, droneStack(drone));
+        station.setMode(ProgrammingMode.TEMPLATE);
+        station.setProgramCount(UpgradeType.SIGHT, 1);
+        station.setProgramCount(UpgradeType.PATROL, 1);
+        Player player = helper.makeMockPlayer(GameType.SURVIVAL);
+
+        station.removeUpgrade(UpgradeType.PATROL, player);
+        helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.PATROL) == 1,
+                "Patrol matches the template, so removal should be refused");
+        station.removeUpgrade(UpgradeType.SIGHT, player);
+        helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.SIGHT) == 1, "Extra Sight should be removable");
+        station.removeUpgrade(UpgradeType.SIGHT, player);
+        helper.assertTrue(station.getDrone().orElseThrow().upgradeCount(UpgradeType.SIGHT) == 1,
+                "Sight now matches the template, so removal should be refused");
+        helper.assertTrue(player.getInventory().countItem(ModItems.upgrade(UpgradeType.SIGHT).get()) == 1, "Only one Sight item refunded");
+        helper.assertTrue(player.getInventory().countItem(ModItems.upgrade(UpgradeType.PATROL).get()) == 0, "No Patrol item refunded");
+        helper.succeed();
+    }
+
+    // --- 6-8. Template mode ---
+
+    @GameTest(template = "empty", timeoutTicks = 140)
+    public static void templateModeWritesSettingsInstallsUpgradesAndCompletes(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.setMode(ProgrammingMode.TEMPLATE);
+        station.setProgramCount(UpgradeType.PATROL, 1);
+        station.setProgramCount(UpgradeType.HEALTH, 1);
+        DroneConfig config = new DroneConfig(
+                List.of(new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie"), new TargetEntry(TargetEntry.Kind.TAG, "minecraft:raiders")),
+                10, Optional.of(GlobalPos.of(helper.getLevel().dimension(), helper.absolutePos(new BlockPos(6, 5, 6)))), Optional.of(3),
+                Optional.empty(), "Bob", DyeColor.RED);
+        station.setConfig(config);
+        helper.assertValueEqual(station.getTemplate().config(), config, "Template config should be accepted");
+
+        station.getEnergyStorage().receiveEnergy(200_000, false);
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.PATROL), new ItemStack(ModItems.upgrade(UpgradeType.PATROL).get(), 1));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.HEALTH), new ItemStack(ModItems.upgrade(UpgradeType.HEALTH).get(), 1));
+        IItemHandler automation = station.getAutomationItems();
+        ItemStack left = automation.insertItem(0, droneStack(DroneData.createNew()), false);
+        helper.assertTrue(left.isEmpty(), "Drone should be inserted");
+        helper.assertTrue(!station.isComplete(), "Not complete before the work is done");
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(station.isComplete(), "Station should be complete, drone=" + station.getDrone().orElseThrow());
+            DroneData drone = station.getDrone().orElseThrow();
+            helper.assertValueEqual(drone.config(), config, "Drone config should equal the template's");
+            helper.assertTrue(drone.upgradeCount(UpgradeType.PATROL) == 1 && drone.upgradeCount(UpgradeType.HEALTH) == 1,
+                    "Drone should have the programmed upgrades, has " + drone.upgrades());
+            helper.assertTrue(station.getItems().getStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.PATROL)).isEmpty() && station.getItems().getStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.HEALTH)).isEmpty(),
+                    "Input upgrades should be consumed");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void templateModeWaitsWhenUpgradeMissingFromInput(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.setMode(ProgrammingMode.TEMPLATE);
+        station.setProgramCount(UpgradeType.SIGHT, 1);
+        station.getEnergyStorage().receiveEnergy(100_000, false);
+        station.getItems().insertItem(0, droneStack(DroneData.createNew()), false);
+
+        helper.runAfterDelay(30, () -> {
+            helper.assertTrue(station.getInstalling() == null, "No step should run without the upgrade in the input");
+            helper.assertTrue(station.getDrone().orElseThrow().upgrades().isEmpty(), "No upgrade should be installed");
+            helper.assertTrue(!station.isComplete(), "Must not be complete");
+            helper.assertTrue(station.getEnergyStorage().getEnergyStored() == 100_000, "No FE should be spent");
+            // Supplying the upgrade later lets it proceed.
+            station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.SIGHT), new ItemStack(ModItems.upgrade(UpgradeType.SIGHT).get(), 1));
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(helper.getTick() > 30, "Waiting for the delayed input");
+            helper.assertTrue(station.isComplete(), "Should complete once the upgrade is supplied");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void modeSwitchDoesNotChangeDroneAlreadyInSlotUntilReinserted(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        DroneData original = DroneData.createNew().withConfig(DroneConfig.createDefault().withLabel("Old"));
+        station.getItems().setStackInSlot(0, droneStack(original));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.SIGHT), new ItemStack(ModItems.upgrade(UpgradeType.SIGHT).get(), 1));
+        station.getEnergyStorage().receiveEnergy(100_000, false);
+
+        station.setMode(ProgrammingMode.TEMPLATE);
+        station.setProgramCount(UpgradeType.SIGHT, 1);
+        station.setConfig(DroneConfig.createDefault().withLabel("New"));
+        helper.assertTrue(station.getTemplate().config().label().equals("New"), "Template label should be set");
+
+        helper.runAfterDelay(40, () -> {
+            helper.assertValueEqual(station.getDrone().orElseThrow(), original, "Drone already in the slot must be left alone");
+            helper.assertTrue(!station.isComplete(), "Must not be complete for a pre-existing drone");
+            helper.assertTrue(station.getInstalling() == null, "No step should run");
+            helper.assertTrue(station.getEnergyStorage().getEnergyStored() == 100_000, "No FE spent");
+
+            ItemStack drone = station.getItems().extractItem(0, 1, false);
+            helper.assertTrue(!drone.isEmpty(), "Player can take the drone out");
+            station.getItems().insertItem(0, drone, false);
+        });
+        helper.succeedWhen(() -> {
+            helper.assertTrue(helper.getTick() > 40, "Waiting for reinsertion");
+            helper.assertTrue(station.isComplete(), "Re-inserted drone should be programmed and complete");
+            DroneData drone = station.getDrone().orElseThrow();
+            helper.assertTrue(drone.config().label().equals("New") && drone.upgradeCount(UpgradeType.SIGHT) == 1,
+                    "Template should apply after reinsertion, drone=" + drone);
+        });
+    }
+
+    // --- 9. Automation ---
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void automationInsertsDroneAndUpgradesButNeverExtractsUpgrades(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        IItemHandler automation = station.getAutomationItems();
+
+        helper.assertTrue(automation.insertItem(0, droneStack(DroneData.createNew()), false).isEmpty(), "Drone should go into slot 0");
+        for (UpgradeType type : UpgradeType.values()) {
+            int slot = ProgrammingStationBlockEntity.inputSlot(type);
+            ItemStack rest = automation.insertItem(slot, upgrade(type, 1), false);
+            helper.assertTrue(rest.isEmpty(), type + " should go into its own slot " + slot);
+        }
+        int sightSlot = ProgrammingStationBlockEntity.inputSlot(UpgradeType.SIGHT);
+        helper.assertTrue(!automation.insertItem(sightSlot, new ItemStack(Items.DIRT), false).isEmpty(), "Non-upgrade must be rejected in the input");
+        helper.assertTrue(!automation.insertItem(0, upgrade(UpgradeType.SIGHT, 1), true).isEmpty(), "Upgrade must be rejected in the drone slot");
+        helper.assertTrue(!automation.insertItem(sightSlot, droneStack(DroneData.createNew()), true).isEmpty(), "Drone must be rejected in the input");
+
+        for (UpgradeType type : UpgradeType.values()) {
+            int slot = ProgrammingStationBlockEntity.inputSlot(type);
+            helper.assertTrue(automation.extractItem(slot, 64, false).isEmpty(), "Upgrades must not be extractable, " + type);
+            helper.assertTrue(station.getItems().getStackInSlot(slot).getCount() == 1, "Slot of " + type + " should be untouched");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void automationInsertIntoAnotherTypesSlotIsRefusedUnchanged(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        IItemHandler automation = station.getAutomationItems();
+        for (UpgradeType type : UpgradeType.values()) {
+            for (UpgradeType slotType : UpgradeType.values()) {
+                if (type == slotType) {
+                    continue;
+                }
+                int slot = ProgrammingStationBlockEntity.inputSlot(slotType);
+                ItemStack rest = automation.insertItem(slot, upgrade(type, 5), false);
+                helper.assertTrue(ItemStack.matches(rest, upgrade(type, 5)), type + " into the " + slotType + " slot should be returned unchanged, got " + rest);
+                helper.assertTrue(station.getItems().getStackInSlot(slot).isEmpty(), "The " + slotType + " slot must stay empty");
+                helper.assertTrue(!automation.isItemValid(slot, upgrade(type, 1)), "isItemValid should refuse " + type + " in the " + slotType + " slot");
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void fullStackOfOneTypeDoesNotBlockInsertingAnotherType(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        IItemHandler automation = station.getAutomationItems();
+        int sightSlot = ProgrammingStationBlockEntity.inputSlot(UpgradeType.SIGHT);
+        int patrolSlot = ProgrammingStationBlockEntity.inputSlot(UpgradeType.PATROL);
+        helper.assertTrue(automation.insertItem(sightSlot, upgrade(UpgradeType.SIGHT, 64), false).isEmpty(), "A full stack of Sight should fit");
+        helper.assertTrue(!automation.insertItem(sightSlot, upgrade(UpgradeType.SIGHT, 1), false).isEmpty(), "A 65th Sight must be refused");
+        helper.assertTrue(automation.insertItem(patrolSlot, upgrade(UpgradeType.PATROL, 1), false).isEmpty(), "Patrol should still be accepted with Sight full");
+        helper.assertTrue(station.getItems().getStackInSlot(sightSlot).getCount() == 64, "Sight slot should hold 64");
+        helper.assertTrue(station.getItems().getStackInSlot(patrolSlot).getCount() == 1, "Patrol slot should hold 1");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void slotAcceptsItsTypeEvenWhenDroneIsAtCapForThatType(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        IItemHandler automation = station.getAutomationItems();
+        automation.insertItem(0, droneStack(DroneData.createNew().withUpgradeCount(UpgradeType.SIGHT, UpgradeType.SIGHT.maxCount())), false);
+        int sightSlot = ProgrammingStationBlockEntity.inputSlot(UpgradeType.SIGHT);
+        ItemStack rest = automation.insertItem(sightSlot, upgrade(UpgradeType.SIGHT, 2), false);
+        helper.assertTrue(rest.isEmpty(), "Sight slot should accept Sight even though the drone is at the cap, rest=" + rest);
+        helper.assertTrue(station.getItems().getStackInSlot(sightSlot).getCount() == 2, "Sight slot should hold 2");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 140)
+    public static void templateModeInstallsFromPerTypeSlotsFilledByAutomation(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        IItemHandler automation = station.getAutomationItems();
+        station.setMode(ProgrammingMode.TEMPLATE);
+        station.setProgramCount(UpgradeType.PATROL, 1);
+        station.setProgramCount(UpgradeType.HEALTH, 1);
+        station.getEnergyStorage().receiveEnergy(200_000, false);
+        int patrolSlot = ProgrammingStationBlockEntity.inputSlot(UpgradeType.PATROL);
+        int healthSlot = ProgrammingStationBlockEntity.inputSlot(UpgradeType.HEALTH);
+        helper.assertTrue(automation.insertItem(patrolSlot, upgrade(UpgradeType.PATROL, 3), false).isEmpty(), "Patrol inserted");
+        helper.assertTrue(automation.insertItem(healthSlot, upgrade(UpgradeType.HEALTH, 3), false).isEmpty(), "Health inserted");
+        helper.assertTrue(automation.insertItem(0, droneStack(DroneData.createNew()), false).isEmpty(), "Drone inserted");
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(station.isComplete(), "Station should be complete, drone=" + station.getDrone().orElseThrow());
+            helper.assertTrue(station.getItems().getStackInSlot(patrolSlot).getCount() == 2, "One Patrol should be consumed");
+            helper.assertTrue(station.getItems().getStackInSlot(healthSlot).getCount() == 2, "One Health should be consumed");
+        });
+    }
+
+    // --- 9b. Save migration from the shared 9-slot input ---
+
+    /** A station loaded from an old-layout save: drone in slot 0, 3 x 64 Sight in slots 1-3, Patrol in slot 9. */
+    private static ProgrammingStationBlockEntity loadOldLayout(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        net.minecraft.core.HolderLookup.Provider registries = helper.getLevel().registryAccess();
+        net.neoforged.neoforge.items.ItemStackHandler old = new net.neoforged.neoforge.items.ItemStackHandler(10);
+        old.setStackInSlot(0, droneStack(DroneData.createNew()));
+        old.setStackInSlot(1, upgrade(UpgradeType.SIGHT, 64));
+        old.setStackInSlot(2, upgrade(UpgradeType.SIGHT, 64));
+        old.setStackInSlot(3, upgrade(UpgradeType.SIGHT, 64));
+        old.setStackInSlot(9, upgrade(UpgradeType.PATROL, 1));
+        net.minecraft.nbt.CompoundTag tag = station.saveWithFullMetadata(registries);
+        tag.put("Items", old.serializeNBT(registries));
+        station.loadWithComponents(tag, registries);
+        return station;
+    }
+
+    private static void assertMigratedSlots(GameTestHelper helper, ProgrammingStationBlockEntity station) {
+        helper.assertTrue(station.getItems().getSlots() == ProgrammingStationBlockEntity.SLOT_COUNT, "Handler should have the new slot count");
+        helper.assertTrue(station.getItems().getStackInSlot(0).is(ModItems.DRONE.get()), "Drone should stay in slot 0");
+        ItemStack sight = station.getItems().getStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.SIGHT));
+        helper.assertTrue(sight.is(ModItems.upgrade(UpgradeType.SIGHT).get()) && sight.getCount() == 64, "Sight slot should hold 64, has " + sight);
+        ItemStack patrol = station.getItems().getStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.PATROL));
+        helper.assertTrue(patrol.is(ModItems.upgrade(UpgradeType.PATROL).get()) && patrol.getCount() == 1, "Patrol slot should hold 1, has " + patrol);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 40)
+    public static void oldSaveSortsUpgradesIntoPerTypeSlotsAndDropsOverflowOnNextTick(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = loadOldLayout(helper);
+        assertMigratedSlots(helper, station);
+        Vec3 above = Vec3.atCenterOf(helper.absolutePos(REL)).add(0, 1, 0);
+        net.minecraft.world.item.Item sightItem = ModItems.upgrade(UpgradeType.SIGHT).get();
+        helper.assertTrue(droppedCount(helper, above, sightItem) == 0, "Nothing should have dropped before the tick");
+        helper.succeedWhen(() -> {
+            int dropped = droppedCount(helper, above, sightItem);
+            helper.assertTrue(dropped == 128, "128 Sight overflow should drop, found " + dropped);
+            assertMigratedSlots(helper, station);
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void oldSaveOverflowIsIncludedInDropsBeforeTheTick(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = loadOldLayout(helper);
+        int sight = 0;
+        int patrol = 0;
+        int drones = 0;
+        for (ItemStack stack : station.getDrops()) {
+            if (stack.is(ModItems.upgrade(UpgradeType.SIGHT).get())) {
+                sight += stack.getCount();
+            } else if (stack.is(ModItems.upgrade(UpgradeType.PATROL).get())) {
+                patrol += stack.getCount();
+            } else if (stack.is(ModItems.DRONE.get())) {
+                drones += stack.getCount();
+            }
+        }
+        helper.assertTrue(sight == 192, "Drops should include all 192 Sight (64 in slot + 128 overflow), got " + sight);
+        helper.assertTrue(patrol == 1 && drones == 1, "Drops should include 1 Patrol and 1 drone, got " + patrol + " and " + drones);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void automationCannotExtractDroneInDirectMode(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.getAutomationItems().insertItem(0, droneStack(DroneData.createNew()), false);
+        helper.assertTrue(station.getAutomationItems().extractItem(0, 1, false).isEmpty(), "Direct mode: no automation extraction");
+        helper.assertTrue(!station.getItems().getStackInSlot(0).isEmpty(), "Drone should still be there");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void automationExtractsDroneInTemplateModeOnlyWhenComplete(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        IItemHandler automation = station.getAutomationItems();
+        station.setMode(ProgrammingMode.TEMPLATE);
+        station.setProgramCount(UpgradeType.SIGHT, 1);
+        automation.insertItem(0, droneStack(DroneData.createNew()), false);
+        helper.assertTrue(!station.isComplete(), "Not complete: Sight is missing");
+        helper.assertTrue(automation.extractItem(0, 1, false).isEmpty(), "Not complete: no extraction");
+        helper.assertTrue(automation.extractItem(0, 1, true).isEmpty(), "Not complete: no simulated extraction either");
+
+        // A program the drone matches exactly.
+        station.setProgramCount(UpgradeType.SIGHT, 0);
+        helper.assertTrue(station.isComplete(), "Now the drone matches the empty program");
+        ItemStack out = automation.extractItem(0, 1, false);
+        helper.assertTrue(!out.isEmpty(), "Complete: automation should extract the drone");
+        helper.assertTrue(station.getItems().getStackInSlot(0).isEmpty(), "Slot should be empty after extraction");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void automationCannotExtractDroneWithExtraUpgrades(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        IItemHandler automation = station.getAutomationItems();
+        station.setMode(ProgrammingMode.TEMPLATE);
+        automation.insertItem(0, droneStack(DroneData.createNew().withUpgradeCount(UpgradeType.SIGHT, 1)), false);
+        helper.assertTrue(!station.isComplete(), "A drone with extra upgrades never matches");
+        helper.assertTrue(automation.extractItem(0, 1, false).isEmpty(), "No extraction for a drone with extra upgrades");
+        helper.succeed();
+    }
+
+    // --- 10. setConfig validation ---
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void setConfigRejectsInvalidSettings(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        // drone.targetSlots (default 3) slots; no Player Seek.
+        DroneData drone = DroneData.createNew();
+        station.getItems().setStackInSlot(0, droneStack(drone));
+        DroneConfig base = drone.config();
+        TargetEntry zombie = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie");
+        TargetEntry skeleton = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:skeleton");
+        TargetEntry creeper = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:creeper");
+        TargetEntry spider = new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:spider");
+
+        expectRejected(helper, station, base.withTargets(List.of(new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:not_a_thing"))),
+                "unknown entity type");
+        expectRejected(helper, station, base.withTargets(List.of(zombie, zombie)), "duplicate target");
+        expectRejected(helper, station, base.withTargets(List.of(new TargetEntry(TargetEntry.Kind.PLAYER_NAME, "Steve"))),
+                "player name without Player Seek");
+        expectRejected(helper, station, base.withTargets(List.of(zombie, skeleton, creeper, spider)), "target beyond the slots");
+        expectRejected(helper, station, base.withFollowDistance(ServerConfig.get(ServerConfig.DRONE_MAX_FOLLOW_DISTANCE) + 1),
+                "follow distance above max");
+        expectRejected(helper, station, base.withLabel("x".repeat(ProgramRules.MAX_LABEL_LENGTH + 1)), "label of 33 characters");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void setConfigAcceptsValidSettings(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        DroneData drone = DroneData.createNew().withUpgradeCount(UpgradeType.PLAYER_SEEK, 1);
+        station.getItems().setStackInSlot(0, droneStack(drone));
+        DroneConfig valid = drone.config()
+                .withTargets(List.of(new TargetEntry(TargetEntry.Kind.ENTITY_TYPE, "minecraft:zombie"), new TargetEntry(TargetEntry.Kind.PLAYER_NAME, "Steve")))
+                .withFollowDistance(ServerConfig.get(ServerConfig.DRONE_MAX_FOLLOW_DISTANCE))
+                .withLabel("x".repeat(ProgramRules.MAX_LABEL_LENGTH))
+                .withColor(DyeColor.GREEN);
+        station.setConfig(valid);
+        helper.assertValueEqual(station.getDrone().orElseThrow().config(), valid, "Valid settings should be written to the drone");
+        helper.succeed();
+    }
+
+    // --- 11. Breaking and placing ---
+
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void breakingKeepsModeAndTemplateOnItemAndDropsContentsThenPlacingRestores(GameTestHelper helper) {
+        ProgrammingStationBlockEntity station = placeProgrammingStation(helper, REL);
+        station.setMode(ProgrammingMode.TEMPLATE);
+        station.setProgramCount(UpgradeType.SIGHT, 2);
+        station.setConfig(DroneConfig.createDefault().withLabel("Tpl").withColor(DyeColor.PINK));
+        DroneData droneData = DroneData.createNew().withUpgradeCount(UpgradeType.HEALTH, 1);
+        station.getItems().setStackInSlot(0, droneStack(droneData));
+        station.getItems().setStackInSlot(ProgrammingStationBlockEntity.inputSlot(UpgradeType.SIREN), new ItemStack(ModItems.upgrade(UpgradeType.SIREN).get(), 1));
+        var template = station.getTemplate();
+
+        BlockPos abs = helper.absolutePos(REL);
+        Vec3 center = Vec3.atCenterOf(abs);
+        helper.getLevel().destroyBlock(abs, true);
+
+        ItemStack stationItem = findDropped(helper, center, ModItems.PROGRAMMING_STATION.get());
+        helper.assertTrue(stationItem != null, "The station item should drop");
+        ProgrammingStationSettings settings = stationItem.get(ModDataComponents.PROGRAMMING_STATION);
+        helper.assertTrue(settings != null, "Dropped item should carry the programming_station component");
+        helper.assertTrue(settings.mode() == ProgrammingMode.TEMPLATE, "Mode should be kept, was " + settings.mode());
+        helper.assertValueEqual(settings.template(), template, "Template should be kept");
+        ItemStack droppedDrone = findDropped(helper, center, ModItems.DRONE.get());
+        helper.assertTrue(droppedDrone != null && DroneItem.getData(droppedDrone).equals(droneData), "The drone should drop unchanged");
+        helper.assertTrue(findDropped(helper, center, ModItems.upgrade(UpgradeType.SIREN).get()) != null, "The input upgrade should drop");
+
+        // Placing the item again restores mode and template.
+        BlockPos other = new BlockPos(8, 3, 8);
+        helper.setBlock(other, ModBlocks.PROGRAMMING_STATION.get());
+        ProgrammingStationBlockEntity placed = (ProgrammingStationBlockEntity) helper.getLevel().getBlockEntity(helper.absolutePos(other));
+        placed.applyComponentsFromItemStack(stationItem);
+        helper.assertTrue(placed.getMode() == ProgrammingMode.TEMPLATE, "Placed station should be in Template mode");
+        helper.assertValueEqual(placed.getTemplate(), template, "Placed station should have the template");
+        helper.succeed();
+    }
+
+    // --- Helpers ---
+
+    private static ItemStack upgrade(UpgradeType type, int count) {
+        return new ItemStack(ModItems.upgrade(type).get(), count);
+    }
+
+    private static int droppedCount(GameTestHelper helper, Vec3 pos, net.minecraft.world.item.Item item) {
+        int total = 0;
+        for (ItemEntity entity : helper.getLevel().getEntitiesOfClass(ItemEntity.class, new AABB(pos, pos).inflate(3.0))) {
+            if (entity.getItem().getItem() == item) {
+                total += entity.getItem().getCount();
+            }
+        }
+        return total;
+    }
+
+    private static ItemStack droneStack(DroneData data) {
+        return DroneItem.createStack(data);
+    }
+
+    private static int totalOf(ProgrammingStationBlockEntity station) {
+        return DroneStats.totalUpgrades(station.getTemplate().upgrades());
+    }
+
+    /** Fills the drone's upgrades to the total slot limit, respecting the per-type caps. */
+    private static DroneData fillToTotalLimit(DroneData drone) {
+        int limit = ServerConfig.get(ServerConfig.UPGRADES_TOTAL_SLOTS);
+        for (UpgradeType type : UpgradeType.values()) {
+            int room = limit - DroneStats.totalUpgrades(drone.upgrades());
+            drone = drone.withUpgradeCount(type, Math.min(type.maxCount(), room));
+        }
+        return drone;
+    }
+
+    private static void expectRejected(GameTestHelper helper, ProgrammingStationBlockEntity station, DroneConfig requested, String what) {
+        DroneConfig before = station.getDrone().orElseThrow().config();
+        station.setConfig(requested);
+        DroneConfig after = station.getDrone().orElseThrow().config();
+        if (!after.equals(before)) {
+            throw new GameTestAssertException("setConfig should reject " + what + " but the drone config changed to " + after);
+        }
+    }
+}

@@ -23,3 +23,7 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew build
+      # Boots the GameTest server, runs every GameTest and fails the job if a required test fails.
+      - name: Run GameTests
+        run: ./gradlew runGameTestServer
+        timeout-minutes: 30
