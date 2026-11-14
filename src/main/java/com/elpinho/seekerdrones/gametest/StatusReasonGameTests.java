@@ -120,9 +120,10 @@ public class StatusReasonGameTests {
         EnergyGameTests.forceReturning(drone, aAbs);
         helper.assertTrue(drone.resolveReason() == DroneReason.Info.NONE, "Before skipping a station the reason should be NONE, was " + drone.resolveReason());
         try {
-            Method markUnreachable = DroneEntity.class.getDeclaredMethod("markUnreachable", DroneData.class, BlockPos.class);
+            Object charging = readField(drone, "charging");
+            Method markUnreachable = charging.getClass().getDeclaredMethod("markUnreachable", DroneData.class, BlockPos.class);
             markUnreachable.setAccessible(true);
-            markUnreachable.invoke(drone, drone.snapshotData(), aAbs);
+            markUnreachable.invoke(charging, drone.snapshotData(), aAbs);
         } catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException(e);
         } catch (InvocationTargetException e) {
