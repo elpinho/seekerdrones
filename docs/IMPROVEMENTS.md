@@ -28,7 +28,6 @@ Status: `idea` | `decided`
 
 ## Drone GUI and visuals
   - It depends on the new drone model (ROADMAP.md M10). Tell the artist so the model and animations work at any scale.
-- **Remote model visible in the FPV feed and while piloting** (`decided`, bug): the Drone Remote's held model shows on screen while watching a drone's feed or piloting it (DESIGN.md sections 2.12 and 2.13). It shouldn't: the view is the drone's camera, and the feed already hides the player's hand and HUD.
 
 ## Sounds
 

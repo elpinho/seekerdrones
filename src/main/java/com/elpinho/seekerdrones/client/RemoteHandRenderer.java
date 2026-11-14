@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.client;
 
+import com.elpinho.seekerdrones.client.feed.FpvFeedClient;
 import com.elpinho.seekerdrones.registry.ModItems;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
@@ -53,8 +54,14 @@ public final class RemoteHandRenderer {
         return hand == InteractionHand.MAIN_HAND && entity.getOffhandItem().isEmpty();
     }
 
-    /** First person: draws both arms and the remote centered in front of the camera, in place of the main hand. */
+    /**
+     * First person: draws both arms and the remote centered in front of the camera, in place of the main hand. Not
+     * while watching or piloting an FPV feed, whose view is the drone's camera (DESIGN.md sections 2.12 and 2.13).
+     */
     public static void onRenderHand(RenderHandEvent event) {
+        if (event.isCanceled() || FpvFeedClient.isActive()) {
+            return;
+        }
         Minecraft minecraft = Minecraft.getInstance();
         AbstractClientPlayer player = minecraft.player;
         if (player == null || !event.getItemStack().is(ModItems.DRONE_REMOTE.get()) || !isHeldInBothHands(player, event.getHand())) {
