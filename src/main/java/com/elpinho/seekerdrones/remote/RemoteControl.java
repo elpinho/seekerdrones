@@ -15,6 +15,7 @@ import com.elpinho.seekerdrones.drone.DroneIndex;
 import com.elpinho.seekerdrones.drone.DronePermissions;
 import com.elpinho.seekerdrones.drone.DroneState;
 import com.elpinho.seekerdrones.drone.DroneStats;
+import com.elpinho.seekerdrones.feed.FpvFeeds;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
 import com.elpinho.seekerdrones.network.EditRemoteSettingsPayload;
 import com.elpinho.seekerdrones.network.LinkGlowPayload;
@@ -102,7 +103,9 @@ public final class RemoteControl {
         Optional<DroneStatusPayload> status = target.drone() != null
                 ? Optional.of(DroneStatusPayload.of(target.drone(), false))
                 : Optional.empty();
-        send(player, new RemoteStatusPayload(open, link, target.reach(), target.distance(), status));
+        ServerPlayer pilot = target.drone() != null ? FpvFeeds.pilotOf(target.drone()) : null;
+        send(player, new RemoteStatusPayload(open, link, target.reach(), target.distance(), status,
+                pilot != null ? pilot.getGameProfile().getName() : ""));
     }
 
     /** Skipped for connections that didn't negotiate the channel (e.g. GameTest fake players). */
@@ -194,6 +197,10 @@ public final class RemoteControl {
         Target target = find(player, droneId);
         DroneEntity drone = target.drone();
         if (target.reach() == RemoteReach.OK && drone != null) {
+            if (command == RemoteCommand.RECALL || command == RemoteCommand.HOLD || command == RemoteCommand.CHARGE) {
+                // These take the drone back from its pilot, whoever clicked them (section 2.13).
+                FpvFeeds.endPiloting(drone);
+            }
             switch (command) {
                 case RECALL -> drone.recall(player);
                 case HOLD -> drone.hold();
@@ -211,6 +218,17 @@ public final class RemoteControl {
                     GlobalPos here = GlobalPos.of(player.level().dimension(), BlockPos.containing(player.getEyePosition()));
                     if (!drone.setPatrolCenter(here)) {
                         player.displayClientMessage(Component.translatable("message.seekerdrones.remote.needs_patrol"), true);
+                    }
+                }
+                case DETONATE -> {
+                    // Only the pilot, and only an Explosive drone. Its removal ends the feed with "Signal lost".
+                    if (FpvFeeds.pilotedDrone(player) == drone) {
+                        drone.detonate();
+                    }
+                }
+                case STOP_PILOT -> {
+                    if (FpvFeeds.pilotedDrone(player) == drone) {
+                        FpvFeeds.stop(player, false);
                     }
                 }
             }

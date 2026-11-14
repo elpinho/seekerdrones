@@ -76,7 +76,7 @@ Each milestone ends in something playable or testable. The drone and its AI come
 ### M9 — Server safety and visibility
 - Server-safety configs (designed): Explosive block damage (NEVER / MOB_GRIEFING / ALWAYS, DESIGN.md §3.1), a target allowlist next to the denylist (§3.3), a global toggle for player targets that disables Player Seek (§4), and a deployed drone limit per player (§2.2).
 - FPV Camera Upgrade and FPV feed (DESIGN.md §2.12, §4): watch a drone's live first-person view from the Drone Remote, or with `/seekerdrones view` for server operators.
-- Remote piloting (the next step after the feed, to be designed): fly a drone by hand from its FPV feed. Settle it with the user and write it into DESIGN.md before implementing.
+- Remote piloting (DESIGN.md §2.13): fly a drone by hand from its FPV feed, from a PILOT button on the Drone Remote. Also moves the feed's exit from Sneak to its own key (Left Alt).
 - Drone dashboard (DESIGN.md §2.11, after the feed and piloting, to be designed): a remote screen with a drone's POV and a map of drone positions.
 - **Done when:** server admins can limit drones with the safety configs, and an operator can watch a drone's FPV feed from the Drone Remote.
 

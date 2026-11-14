@@ -11,6 +11,7 @@ import javax.annotation.Nullable;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.feed.FpvFeeds;
+import com.elpinho.seekerdrones.feed.PilotInput;
 import com.elpinho.seekerdrones.remote.DroneRemoteItem;
 import com.elpinho.seekerdrones.network.DroneStatusPayload;
 import com.elpinho.seekerdrones.registry.ModSounds;
@@ -303,6 +304,10 @@ public class DroneEntity extends PathfinderMob {
     /** The drone ID this drone is under in the {@link DroneIndex}, or null while it isn't indexed. */
     @Nullable
     private String indexedId;
+    /** The pilot's latest input while PILOTED (section 2.13). Not saved: piloting ends when the drone unloads. */
+    private PilotInput pilotInput = PilotInput.NONE;
+    /** Whether the pilot boosted this tick, which multiplies the distance cost (section 2.13). */
+    private boolean boosting;
     /** Client side: the game time until which the drone glows for the local player after being linked. */
     private long clientGlowUntil;
 
@@ -510,6 +515,11 @@ public class DroneEntity extends PathfinderMob {
     /** Which low-power beep loop the drone plays. */
     public LowPowerLevel getLowPower() {
         return LowPowerLevel.BY_ID.apply(entityData.get(DATA_LOW_POWER));
+    }
+
+    /** Whether the drone has an Explosive upgrade, from the synced field, so it works on the client too. */
+    public boolean hasExplosiveUpgrade() {
+        return entityData.get(DATA_EXPLOSIVE);
     }
 
     /** Whether the drone is an Explosive drone flying at its target, whose flying loop always plays. */
@@ -748,6 +758,11 @@ public class DroneEntity extends PathfinderMob {
         DroneData data = getDroneData();
         boolean staggered = isStaggeredTick(ServerConfig.get(ServerConfig.DRONE_SCAN_INTERVAL));
         DroneState state = getState();
+        if (state == DroneState.PILOTED) {
+            // Flown by hand: the AI is paused (section 2.13).
+            tickPiloted();
+            return;
+        }
         if (state == DroneState.RETURNING || state == DroneState.CHARGING) {
             // Returning overrides everything else, and the drone doesn't scan for targets (section 5.2).
             tickReturning(data, staggered);
@@ -1436,12 +1451,15 @@ public class DroneEntity extends PathfinderMob {
             if (FpvFeeds.isWatched(this)) {
                 drainFeedCost += ServerConfig.get(ServerConfig.CAMERA_FEED_ENERGY_PER_TICK);
             }
+            if (getState() == DroneState.PILOTED) {
+                drainFeedCost += ServerConfig.get(ServerConfig.PILOT_ENERGY_PER_TICK);
+            }
             if (queued) {
                 drainQueueCost += ServerConfig.get(ServerConfig.DRONE_HOVER_ENERGY_PER_TICK);
             } else {
                 double step = Math.sqrt(Mth.lengthSquared(getX() - xo, getY() - yo, getZ() - zo));
                 if (step <= MAX_DRAIN_STEP) {
-                    drainDistance += step;
+                    drainDistance += boosting ? step * ServerConfig.get(ServerConfig.PILOT_BOOST_DISTANCE_FACTOR) : step;
                 }
                 drainHoverTicks++;
             }
@@ -1539,7 +1557,8 @@ public class DroneEntity extends PathfinderMob {
      */
     private void checkReturnThreshold(DroneData data) {
         DroneState state = getState();
-        if (state == DroneState.RETURNING || state == DroneState.CHARGING) {
+        if (state == DroneState.RETURNING || state == DroneState.CHARGING || state == DroneState.PILOTED) {
+            // A piloted drone only warns: the pilot decides when to head home (section 2.13).
             return;
         }
         if (DroneStats.isExplosive(data) && (target != null || pendingTargetId != null)) {
@@ -1853,6 +1872,17 @@ public class DroneEntity extends PathfinderMob {
             selfHealRate = 0;
         }
         return hurt;
+    }
+
+    /** Drones never use portals, so they never change dimension by themselves (section 3.6). */
+    @Override
+    public boolean canUsePortal(boolean allowPassengers) {
+        return false;
+    }
+
+    @Override
+    public boolean canChangeDimensions(Level oldLevel, Level newLevel) {
+        return false;
     }
 
     @Override
@@ -2264,5 +2294,88 @@ public class DroneEntity extends PathfinderMob {
         patrolWaypoint = -1;
         recheckDirectPath = true;
         setState(DroneState.IDLE);
+    }
+
+    // --- Remote piloting (section 2.13) ---
+
+    public boolean isPiloted() {
+        return getState() == DroneState.PILOTED;
+    }
+
+    /** An operator takes control: the drone drops what it was doing and stops its AI until piloting ends. */
+    public void startPiloting() {
+        dropActivity();
+        clearRecall();
+        pilotInput = PilotInput.NONE;
+        boosting = false;
+        setState(DroneState.PILOTED);
+    }
+
+    /**
+     * Piloting ended: the AI takes over again right away. A drone with Patrol heads for the nearest waypoint, one
+     * without hovers where it was released, which becomes its rest position. If it's below its return threshold, it
+     * goes to charge.
+     */
+    public void stopPiloting() {
+        if (!isPiloted()) {
+            return;
+        }
+        pilotInput = PilotInput.NONE;
+        boosting = false;
+        DroneData data = getDroneData();
+        if (!DroneStats.isPatrolling(data)) {
+            restPosition = currentPosition();
+        }
+        patrolWaypoint = -1;
+        recheckDirectPath = true;
+        setState(DroneState.IDLE);
+        checkReturnThreshold(data);
+    }
+
+    /** The pilot's movement keys, ignored unless the drone is piloted. */
+    public void setPilotInput(PilotInput input) {
+        if (isPiloted()) {
+            pilotInput = input;
+        }
+    }
+
+    public boolean isBoosting() {
+        return boosting;
+    }
+
+    /** Detonates a piloted Explosive drone where it is. False, and nothing happens, for any other drone. */
+    public boolean detonate() {
+        DroneData data = getDroneData();
+        if (!isPiloted() || !DroneStats.isExplosive(data)) {
+            return false;
+        }
+        explode(data);
+        return true;
+    }
+
+    /**
+     * Whether the drone has no more energy than it needs to get home: the HUD's LOW POWER warning while piloted. With
+     * no station in range, whether its energy is critical.
+     */
+    public boolean isBelowReturnThreshold() {
+        DroneData data = getDroneData();
+        BlockPos station = nearestStation(data);
+        if (station == null) {
+            return DroneStats.isCriticalEnergy(data);
+        }
+        return data.energy() <= DroneStats.returnThreshold(data, Math.sqrt(distanceToSqr(ChargingStationBlockEntity.dockPosition(station))));
+    }
+
+    /** Flies where the pilot's keys point, at the piloting speed, with the usual inertia. */
+    private void tickPiloted() {
+        if (pathGoal != null) {
+            stopNavigating();
+        }
+        PilotInput input = pilotInput;
+        boosting = input.boost() && input.isMoving();
+        double perSecond = ServerConfig.get(boosting ? ServerConfig.PILOT_BOOST_SPEED : ServerConfig.PILOT_SPEED);
+        double speed = Math.min(perSecond / DroneStats.TICKS_PER_SECOND, ServerConfig.get(ServerConfig.DRONE_MAX_SPEED));
+        ((DroneMoveControl) moveControl).fly(input.direction().scale(speed), ServerConfig.get(ServerConfig.DRONE_ACCELERATION));
+        updateFacing(null);
     }
 }

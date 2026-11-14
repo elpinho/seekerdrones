@@ -12,14 +12,17 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
- * Client to server: an open Drone Remote screen asking for fresh values (DESIGN.md section 2.10).
+ * Client to server: an open Drone Remote screen asking for fresh values (DESIGN.md section 2.10), or a pilot opening
+ * the remote's screen mid-flight (section 2.13) with {@code open}.
  */
-public record RequestRemoteStatusPayload(String droneId) implements CustomPacketPayload {
+public record RequestRemoteStatusPayload(String droneId, boolean open) implements CustomPacketPayload {
     public static final Type<RequestRemoteStatusPayload> TYPE =
             new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "request_remote_status"));
 
-    public static final StreamCodec<ByteBuf, RequestRemoteStatusPayload> STREAM_CODEC =
-            ByteBufCodecs.STRING_UTF8.map(RequestRemoteStatusPayload::new, RequestRemoteStatusPayload::droneId);
+    public static final StreamCodec<ByteBuf, RequestRemoteStatusPayload> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.STRING_UTF8, RequestRemoteStatusPayload::droneId,
+            ByteBufCodecs.BOOL, RequestRemoteStatusPayload::open,
+            RequestRemoteStatusPayload::new);
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
@@ -28,7 +31,7 @@ public record RequestRemoteStatusPayload(String droneId) implements CustomPacket
 
     public static void handle(RequestRemoteStatusPayload payload, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
-            RemoteControl.heldLink(player, payload.droneId()).ifPresent(link -> RemoteControl.sendStatus(player, link, false));
+            RemoteControl.heldLink(player, payload.droneId()).ifPresent(link -> RemoteControl.sendStatus(player, link, payload.open()));
         }
     }
 }

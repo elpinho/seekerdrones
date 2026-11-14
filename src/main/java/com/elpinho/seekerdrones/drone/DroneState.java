@@ -21,7 +21,9 @@ public enum DroneState {
     /** Hovering where it is until resumed (Drone Remote, section 2.10). */
     HOLDING,
     /** Flying to the player who recalled it, or hovering there (Drone Remote, section 2.10). */
-    RECALLED;
+    RECALLED,
+    /** Flown by hand by an operator through its FPV feed; the AI is paused (section 2.13). */
+    PILOTED;
 
     public static final IntFunction<DroneState> BY_ID = ByIdMap.continuous(Enum::ordinal, values(), ByIdMap.OutOfBoundsStrategy.ZERO);
     public static final StreamCodec<ByteBuf, DroneState> STREAM_CODEC = ByteBufCodecs.idMapper(BY_ID, Enum::ordinal);

@@ -37,6 +37,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * the view the chunk and entity tracking use for a viewer. While a player watches, the mixins in
  * {@code com.elpinho.seekerdrones.mixin} center their chunk tracking, entity tracking and distance-based sounds on
  * the drone instead of their body. Only chunks that are already loaded are sent, and nothing is loaded for the feed.
+ * <p>
+ * A pilot session (section 2.13) is a remote feed whose player also flies the drone: the drone is PILOTED while it
+ * lasts, and its AI resumes when it ends, whatever ends it.
  */
 public final class FpvFeeds {
     /** How often (ticks) the entities around the drone are re-checked for the viewer, like a moving player's would be. */
@@ -49,13 +52,16 @@ public final class FpvFeeds {
         final DroneEntity drone;
         /** Opened from a Drone Remote: the remote's reach rules apply. Otherwise from the operator command. */
         final boolean remote;
+        /** The player flies the drone (section 2.13), not just watches it. Always opened from a remote. */
+        final boolean pilot;
         long section;
         int age;
 
-        Session(ServerPlayer player, DroneEntity drone, boolean remote) {
+        Session(ServerPlayer player, DroneEntity drone, boolean remote, boolean pilot) {
             this.player = player;
             this.drone = drone;
             this.remote = remote;
+            this.pilot = pilot;
             this.section = SectionPos.of(drone).asLong();
         }
     }
@@ -108,6 +114,27 @@ public final class FpvFeeds {
         return false;
     }
 
+    /** The player piloting this drone, or null (section 2.13). */
+    @Nullable
+    public static ServerPlayer pilotOf(DroneEntity drone) {
+        if (SESSIONS.isEmpty()) {
+            return null;
+        }
+        for (Session session : SESSIONS.values()) {
+            if (session.pilot && session.drone == drone) {
+                return session.player;
+            }
+        }
+        return null;
+    }
+
+    /** The drone the player pilots, or null. */
+    @Nullable
+    public static DroneEntity pilotedDrone(ServerPlayer player) {
+        Session session = SESSIONS.isEmpty() ? null : SESSIONS.get(player.getUUID());
+        return session != null && session.pilot && session.player == player ? session.drone : null;
+    }
+
     // --- Starting and stopping ---
 
     /**
@@ -115,6 +142,14 @@ public final class FpvFeeds {
      * Tells the player why when it can't start.
      */
     public static void startFromRemote(ServerPlayer player, String droneId) {
+        startFromRemote(player, droneId, false);
+    }
+
+    /**
+     * Starts watching (or piloting, section 2.13) from a Drone Remote: the remote, operator and reach rules of section
+     * 2.10, plus the FPV Camera. Only one player pilots a drone at a time. Tells the player why when it can't start.
+     */
+    public static void startFromRemote(ServerPlayer player, String droneId, boolean pilot) {
         if (RemoteControl.heldLink(player, droneId).isEmpty()) {
             return;
         }
@@ -130,14 +165,31 @@ public final class FpvFeeds {
             player.displayClientMessage(Component.translatable("message.seekerdrones.feed.no_camera"), true);
             return;
         }
-        start(player, drone, true);
+        if (pilot) {
+            ServerPlayer current = pilotOf(drone);
+            if (current != null && current != player) {
+                player.displayClientMessage(Component.translatable("message.seekerdrones.pilot.taken", current.getDisplayName()), true);
+                return;
+            }
+        }
+        start(player, drone, true, pilot);
     }
 
     /** Starts watching the drone, replacing any feed the player was watching. The caller has done the checks. */
     public static void start(ServerPlayer player, DroneEntity drone, boolean remote) {
-        SESSIONS.put(player.getUUID(), new Session(player, drone, remote));
+        start(player, drone, remote, false);
+    }
+
+    private static void start(ServerPlayer player, DroneEntity drone, boolean remote, boolean pilot) {
+        Session previous = SESSIONS.put(player.getUUID(), new Session(player, drone, remote, pilot));
+        if (previous != null && previous.pilot && (previous.drone != drone || !pilot)) {
+            previous.drone.stopPiloting();
+        }
+        if (pilot && !drone.isPiloted()) {
+            drone.startPiloting();
+        }
         refreshView(player);
-        send(player, new FpvStartPayload(drone.getId(), drone.getDroneId(), remote));
+        send(player, new FpvStartPayload(drone.getId(), drone.getDroneId(), remote, pilot));
         sendStatus(player, drone);
     }
 
@@ -147,11 +199,33 @@ public final class FpvFeeds {
         if (session == null) {
             return false;
         }
+        if (session.pilot) {
+            session.drone.stopPiloting();
+        }
         if (session.player == player && !player.hasDisconnected()) {
             refreshView(player);
             send(player, new FpvEndPayload(signalLost));
         }
         return true;
+    }
+
+    /**
+     * Ends the piloting of this drone, if anyone pilots it: a Recall, Hold or Charge from any operator's remote
+     * (section 2.13). The pilot goes back to their own view.
+     */
+    public static void endPiloting(DroneEntity drone) {
+        ServerPlayer pilot = pilotOf(drone);
+        if (pilot != null) {
+            stop(pilot, false);
+        }
+    }
+
+    /** The pilot's movement keys, applied only to the drone they pilot. */
+    public static void pilotInput(ServerPlayer player, PilotInput input) {
+        DroneEntity drone = pilotedDrone(player);
+        if (drone != null) {
+            drone.setPilotInput(input.sanitized());
+        }
     }
 
     /** Re-centers the player's chunk tracking and re-checks which entities they see, right away. */
@@ -173,6 +247,9 @@ public final class FpvFeeds {
             ServerPlayer player = session.player;
             if (player.hasDisconnected() || player.isRemoved()) {
                 SESSIONS.remove(player.getUUID());
+                if (session.pilot) {
+                    session.drone.stopPiloting();
+                }
                 continue;
             }
             DroneEntity drone = session.drone;
@@ -217,7 +294,9 @@ public final class FpvFeeds {
     }
 
     private static void sendStatus(ServerPlayer player, DroneEntity drone) {
-        send(player, new FpvStatusPayload(drone.getEnergy(), DroneStats.maxEnergy(drone.snapshotData()), (float) drone.getDrainRate(), (float) drone.getSolarRate()));
+        boolean lowPower = drone.isPiloted() && drone.isBelowReturnThreshold();
+        send(player, new FpvStatusPayload(drone.getEnergy(), DroneStats.maxEnergy(drone.snapshotData()), (float) drone.getDrainRate(),
+                (float) drone.getSolarRate(), lowPower));
     }
 
     /** Skipped for connections that didn't negotiate the channel (e.g. GameTest fake players). */
@@ -248,7 +327,10 @@ public final class FpvFeeds {
     }
 
     public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
-        SESSIONS.remove(event.getEntity().getUUID());
+        Session session = SESSIONS.remove(event.getEntity().getUUID());
+        if (session != null && session.pilot) {
+            session.drone.stopPiloting();
+        }
     }
 
     public static void onServerStopped(ServerStoppedEvent event) {

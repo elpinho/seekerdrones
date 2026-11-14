@@ -28,6 +28,9 @@ public class DroneMoveControl extends MoveControl {
     private double acceleration;
     @Nullable
     private Vec3 stopAt;
+    /** This tick's velocity for a piloted drone, or null. */
+    @Nullable
+    private Vec3 flyVelocity;
 
     public DroneMoveControl(DroneEntity drone) {
         super(drone);
@@ -49,6 +52,16 @@ public class DroneMoveControl extends MoveControl {
         this.stopAt = stopAt;
     }
 
+    /**
+     * Flies at this exact velocity this tick (blocks/tick), reached with the usual inertia: a piloted drone (section
+     * 2.13). A zero velocity brakes to a stop.
+     */
+    public void fly(Vec3 velocity, double acceleration) {
+        this.acceleration = acceleration;
+        flyVelocity = velocity;
+        operation = Operation.WAIT;
+    }
+
     /** Brakes to a stop this tick, as fast as the acceleration allows. */
     public void hold(double acceleration) {
         this.acceleration = acceleration;
@@ -59,7 +72,9 @@ public class DroneMoveControl extends MoveControl {
     @Override
     public void tick() {
         Vec3 desired;
-        if (holding) {
+        if (flyVelocity != null) {
+            desired = flyVelocity;
+        } else if (holding) {
             desired = Vec3.ZERO;
         } else if (operation == Operation.MOVE_TO) {
             desired = desiredVelocity();
@@ -68,6 +83,7 @@ public class DroneMoveControl extends MoveControl {
             return;
         }
         holding = false;
+        flyVelocity = null;
         operation = Operation.WAIT;
         steering = true;
         Vec3 velocity = mob.getDeltaMovement();

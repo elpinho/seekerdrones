@@ -12,14 +12,16 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
- * Client to server: the FPV FEED button on the Drone Remote screen (DESIGN.md section 2.12). The server checks the
+ * Client to server: the FPV or PILOT button on the Drone Remote screen (DESIGN.md sections 2.12 and 2.13). The server checks the
  * player's remote, operator permission, reach and the drone's FPV Camera again.
  */
-public record StartFpvFeedPayload(String droneId) implements CustomPacketPayload {
+public record StartFpvFeedPayload(String droneId, boolean pilot) implements CustomPacketPayload {
     public static final Type<StartFpvFeedPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "start_fpv_feed"));
 
-    public static final StreamCodec<ByteBuf, StartFpvFeedPayload> STREAM_CODEC =
-            ByteBufCodecs.STRING_UTF8.map(StartFpvFeedPayload::new, StartFpvFeedPayload::droneId);
+    public static final StreamCodec<ByteBuf, StartFpvFeedPayload> STREAM_CODEC = StreamCodec.composite(
+            ByteBufCodecs.STRING_UTF8, StartFpvFeedPayload::droneId,
+            ByteBufCodecs.BOOL, StartFpvFeedPayload::pilot,
+            StartFpvFeedPayload::new);
 
     @Override
     public Type<? extends CustomPacketPayload> type() {
@@ -28,7 +30,7 @@ public record StartFpvFeedPayload(String droneId) implements CustomPacketPayload
 
     public static void handle(StartFpvFeedPayload payload, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
-            FpvFeeds.startFromRemote(player, payload.droneId());
+            FpvFeeds.startFromRemote(player, payload.droneId(), payload.pilot());
         }
     }
 }

@@ -187,9 +187,9 @@ A drone with the **FPV Camera Upgrade** (section 4) streams a live first-person 
   - With the operator command `/seekerdrones view <droneId> [player]` (permission level 2, for moderation): the same feed and HUD, but without a remote, operator check, range limit or Camera upgrade. The drone must be loaded and in the viewer's dimension. `/seekerdrones view stop [player]` ends it.
   - Several players may watch the same drone at once.
 - **The view:** the camera sits on the drone, and the drone's own model isn't drawn. It's a **free-look gimbal**: the mouse turns the camera freely (any yaw, pitch from straight down to straight up), independent of where the drone faces, so you can keep watching a target while the drone circles. The camera follows the drone's position smoothly.
-- **The viewer's body** stays where it is, frozen: movement keys, jumping, using items and switching the hotbar slot do nothing. The body is still in the world and can be hurt. These keys are kept free for piloting later (below).
+- **The viewer's body** stays where it is, frozen: movement keys, jumping, using items and switching the hotbar slot do nothing. The body is still in the world and can be hurt. Piloting (section 2.13) uses these keys to fly the drone instead.
 - **The feed ends**, back to the player's own view, when:
-  - the player presses **Sneak** (like vanilla spectating) or takes damage,
+  - the player presses the **exit key** (default Left Alt, rebindable; it replaces the earlier Sneak exit, since piloting uses Sneak to descend) or takes damage,
   - the drone dies, is picked up or turns into an item for any other reason, or its chunk unloads,
   - (remote feeds only) the drone goes out of `remote.range` or to another dimension, the player stops being its operator, the drone loses its FPV Camera, or the player stops holding the linked remote (in either hand, like the remote's other checks), all checked every `camera.recheckInterval` ticks,
   - (all feeds) the player dies, changes dimension or disconnects.
@@ -206,7 +206,33 @@ A drone with the **FPV Camera Upgrade** (section 4) streams a live first-person 
   - **Night vision:** a key (default N, rebindable) toggles it, client-side only: full night-vision lighting plus a green filter.
   - **Signal lost / connecting:** full static with "SIGNAL LOST" (or "CONNECTING" while the drone's chunks are still arriving).
 - **Energy:** besides the usual upgrade factor (section 5.1), a drone pays `camera.feedEnergyPerTick` FE per tick while at least one player is watching it (once per drone, not per viewer, with no upgrade multiplier), charged with the batched drain. Like the hover cost, it isn't charged while the drone is docked. At 0 energy the drone drops (section 5.2) and the feed ends with "Signal lost".
-- **Remote piloting (the next step after the feed, to be designed):** flying the drone by hand from the FPV feed. It isn't part of the feed yet. The feed keeps the movement keys unused and its session state separate, so piloting can be added on top.
+- **Remote piloting** builds on the feed: see section 2.13.
+
+### 2.13 Remote piloting
+
+An operator can fly a drone by hand through its FPV feed (section 2.12). Piloting is a **separate mode** from watching: the feed stays watch-only, and piloting has its own button.
+
+- **Starting it:** a **PILOT** button on the Drone Remote screen. The old full-width FPV FEED row is split into **FPV** (camcorder icon) and **PILOT** (a joystick icon: a red knob on a gray stick over a dark base). On the screen opened mid-flight (below), that row becomes one full-width button instead: **DETONATE** (a black bomb with a lit fuse) for an Explosive drone, or **STOP PILOTING** (a red stop square) for any other. It has the same requirements as the feed button: the FPV Camera Upgrade, and the remote's reach rules (operator check, same dimension, loaded, within `remote.range`), with the usual server-operator bypass (section 6.2). The `/seekerdrones view` command stays watch-only.
+- **One pilot at a time.** While someone pilots a drone, its PILOT button is disabled for everyone else with "Piloted by <name>". Other operators can still watch its feed.
+- **The AI pauses:** the drone enters the **PILOTED** state (section 3.1). It drops its target and releases its claim (section 3.3), and it doesn't scan, chase, follow, patrol or return to charge while piloted. The Siren and Transmitter only fire on target acquisition, so they stay silent.
+- **Remote commands still work:** Recall, Hold and Charge stay enabled. Clicking one, from the pilot's remote or any other operator's, ends piloting and then runs the command. Center and the settings edits don't end it.
+- **The Remote screen mid-flight:** while piloting, **Use** (right click) opens the linked remote's screen over the feed without ending it. The drone brakes and hovers while the screen is open (the pilot can't steer through it), and closing it goes back to flying.
+- **Controls** (the movement keys the feed leaves unused):
+  - The camera is the same **free-look gimbal** as the feed: the mouse looks around freely, independent of the drone's facing.
+  - **W/A/S/D** fly horizontally relative to where the camera looks (its yaw only, so looking down doesn't dive). **Jump** flies up and **Sneak** flies down.
+  - **Sprint** boosts, which is faster and uses more energy (below).
+  - The **detonate key** (default X, rebindable) detonates an **Explosive** drone where it is (below). It does nothing on other drones.
+  - The **exit key** (default Left Alt, the same key as the feed's) ends piloting.
+  - The drone flies with its usual inertia (`drone.acceleration`, section 3.4) and collides with blocks. Its body turns toward the direction it flies at up to `drone.turnSpeed`, and holds its facing while it hovers.
+- **Speed:** a base speed of `pilot.speed` (8 blocks/s by default, the cruise speed) that **doesn't depend on upgrades**, and `pilot.boostSpeed` (24 blocks/s, the max speed) while boosting. Both are capped by `drone.maxSpeed`.
+- **Energy:** while piloted, the drone pays `pilot.energyPerTick` FE per tick (default 60) on top of the hover, flight and feed costs, with no upgrade multiplier, like the feed cost (section 2.12). While boosting, its distance cost (`drone.energyPerBlock`, section 5.1) is multiplied by `pilot.boostDistanceFactor` (×2). Everything is charged with the batched drain (section 8.4).
+- **Low energy:** the pilot keeps control below the return threshold (section 5.2). The HUD flashes a **LOW POWER** warning under the energy bar while the drone is below its return threshold, and the low-power sounds play as usual. If it reaches 0 FE, it drops as an item (section 5.2) and the feed ends with "Signal lost".
+- **Detonating:** the detonate key, or the **DETONATE** button on the Remote screen opened mid-flight (shown for Explosive drones while you pilot them), makes the drone explode on the spot. The button's tooltip says what it does and names the bound key, e.g. "Blow the drone up where it is. Press X while flying." It works with the usual power and `upgrades.explosive.blockDamage` rules (section 3.1). The drone is consumed and the feed ends with "Signal lost". Without the AI, a piloted drone never explodes on its own when it comes near an entity.
+- **Portals:** drones never use portals (section 3.6), so piloting can't move a drone to another dimension.
+- **Piloting ends** in every case where the remote feed ends (section 2.12: the exit key, the pilot taking damage, range, operator status, the Camera upgrade, the remote in hand, the drone being lost). It also ends when the drone detonates, and when Recall, Hold or Charge is clicked on any operator's remote.
+- **After piloting** the AI takes over again right away. A drone with Patrol patrols from the nearest waypoint (section 3.2). A drone without Patrol hovers where it was released, which becomes its new rest position. If it's below its return threshold, it goes to charge as usual (section 5.2).
+- **HUD:** the feed's HUD (section 2.12), with the state pill showing PILOTED, the LOW POWER warning, a BOOST tag next to SPD while boosting, and a hint line with the exit, boost, remote (Use) and (Explosive only) detonate keys.
+- **Networking:** the client sends its movement input (the key states and the camera yaw) to the server each tick only while piloting, and only when it changes. The server moves the drone, so the drone stays authoritative and other players see it fly as usual.
 
 ---
 
@@ -239,6 +265,7 @@ A drone with the **FPV Camera Upgrade** (section 4) streams a live first-person 
 - **EXPLODE** (Explosive only): An Explosive drone never follows. It chases straight at the center of the target's hitbox and stays CHASING. Once its own center is within `drone.explosionTriggerDistance` of that point, it explodes and is removed. The explosion damages entities. Whether it breaks blocks is set by `upgrades.explosive.blockDamage`: **NEVER** (default), **MOB_GRIEFING** (only while the `mobGriefing` game rule is on, like a creeper, with the mob explosion drop decay) or **ALWAYS** (like TNT, with the TNT explosion drop decay). Its power is `basePower + perUpgrade × (count − 1)`.
 - **RETURNING / CHARGING:** See section 5.
 - **HOLDING / RECALLED** (Drone Remote only): the drone hovers in place (HOLDING), or flies to the player (RECALLED) and then holds there with a timeout, without scanning. See section 2.10.
+- **PILOTED** (Drone Remote only): an operator flies the drone by hand. The AI pauses, and it resumes when piloting ends. See section 2.13.
 
 ### 3.2 Patrol center
 
@@ -325,6 +352,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 
 - **Drones only operate in loaded chunks.** A drone in an unloaded chunk freezes like any vanilla entity and resumes when the chunk loads again.
 - There is **no** chunk loading in v1, not even behind a config option.
+- **Drones never use portals** (Nether, End, End gateways or other mods' portals that use the vanilla portal check), whether flying on their own, piloted (section 2.13) or drifting after a throw, so a drone never changes dimension by itself.
 
 ### 3.7 Size
 
@@ -434,6 +462,7 @@ Drone Operators control who can interact with drones. A drone's operators come f
 | Open the drone status GUI | Yes |
 | Link a Drone Remote, or use its commands and settings | Yes (checked on every use, section 2.10) |
 | Watch a drone's FPV feed from the Drone Remote | Yes (re-checked while watching, section 2.12) |
+| Pilot a drone from the Drone Remote | Yes (re-checked while piloting, section 2.13) |
 | Receive Transmitter notifications | Yes (all online operators) |
 | Exempt from being targeted by Player Seek | Yes |
 | Insert/extract drones in machines (manually or by automation) | **No**. Machines never check permissions, so automation keeps working. |
@@ -800,6 +829,10 @@ All values below are placeholders.
 | `camera.recheckInterval` | 20 ticks | How often a remote feed re-checks operator, range and remote in hand |
 | `camera.staticStart` | 0.25 | Fraction of `remote.range`, at its far end, over which the picture fades into static |
 | `camera.signalLostTicks` | 30 ticks | How long "Signal lost" shows before the view switches back |
+| `pilot.speed` | 8 blocks/second | Piloting speed, the same with any upgrades (section 2.13), capped by `drone.maxSpeed` |
+| `pilot.boostSpeed` | 24 blocks/second | Piloting speed while boosting, capped by `drone.maxSpeed` |
+| `pilot.energyPerTick` | 60 FE | Extra drain while piloted, on top of the feed cost |
+| `pilot.boostDistanceFactor` | 2.0 | Multiplies the distance cost while boosting |
 | `upgrades.sight.perUpgrade` | 8 blocks | |
 | `upgrades.explosive.basePower` / `perUpgrade` | 2.0 / 1.0 | TNT = 4.0 |
 | `upgrades.explosive.blockDamage` | NEVER | NEVER / MOB_GRIEFING / ALWAYS (section 3.1) |

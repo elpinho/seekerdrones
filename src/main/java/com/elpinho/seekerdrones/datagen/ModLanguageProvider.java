@@ -225,6 +225,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add(DroneState.CHARGING.getTranslationKey(), "Charging");
         add(DroneState.HOLDING.getTranslationKey(), "Holding");
         add(DroneState.RECALLED.getTranslationKey(), "Recalled");
+        add(DroneState.PILOTED.getTranslationKey(), "Piloted");
 
         add(DroneReason.NO_TARGET_ENTRIES.getTranslationKey(), "No target entries set");
         add(DroneReason.NO_USABLE_TARGETS.getTranslationKey(), "No usable target entries");
@@ -406,7 +407,17 @@ public class ModLanguageProvider extends LanguageProvider {
         add("screen.seekerdrones.drone_remote.center.tooltip", "Sets the patrol center to where you are looking from");
         add("screen.seekerdrones.drone_remote.center.disabled", "Needs a Patrol upgrade");
         add("screen.seekerdrones.drone_remote.fpv", "FPV feed");
-        add("screen.seekerdrones.drone_remote.fpv.tooltip", "Watch the drone's live camera feed. Sneak to leave it");
+        add("screen.seekerdrones.drone_remote.fpv.short", "FPV");
+        add("screen.seekerdrones.drone_remote.fpv.tooltip", "Watch the drone's live camera feed. Press %s to leave it");
+        add("screen.seekerdrones.drone_remote.pilot", "Pilot");
+        add("screen.seekerdrones.drone_remote.pilot.tooltip",
+                "Fly the drone by hand from its camera: move with the movement keys, Jump and Sneak to climb and descend, Sprint to boost. Press %s to stop");
+        add("screen.seekerdrones.drone_remote.pilot.taken", "Piloted by %s");
+        add("screen.seekerdrones.drone_remote.detonate", "Detonate");
+        add("screen.seekerdrones.drone_remote.detonate.tooltip", "Blow the drone up where it is. You can also press %s while flying");
+        add("screen.seekerdrones.drone_remote.stop_pilot", "Stop piloting");
+        add("screen.seekerdrones.drone_remote.stop_pilot.tooltip", "Hand the drone back to its AI. You can also press %s while flying");
+        add("message.seekerdrones.pilot.taken", "%s is already piloting this drone");
         add("screen.seekerdrones.drone_remote.fpv.disabled", "Needs an FPV Camera upgrade");
         add("message.seekerdrones.feed.no_camera", "This drone has no FPV Camera upgrade");
 
@@ -421,8 +432,14 @@ public class ModLanguageProvider extends LanguageProvider {
         add("hud.seekerdrones.fpv.speed", "SPD");
         add("hud.seekerdrones.fpv.speed.value", "%s m/s");
         add("hud.seekerdrones.fpv.hint", "[%s] Exit   [%s] Night vision");
+        add("hud.seekerdrones.fpv.hint.pilot", "[%s] Exit   [%s] Boost   [%s] Remote   [%s] Night vision");
+        add("hud.seekerdrones.fpv.hint.pilot_explosive", "[%s] Exit   [%s] Boost   [%s] Remote   [%s] Detonate   [%s] Night vision");
+        add("hud.seekerdrones.fpv.boost", "BOOST");
+        add("hud.seekerdrones.fpv.low_power", "LOW POWER");
         add("key.categories.seekerdrones", "Seeker Drones");
         add("key.seekerdrones.fpv_night_vision", "FPV night vision");
+        add("key.seekerdrones.fpv_exit", "Leave the FPV feed or stop piloting");
+        add("key.seekerdrones.pilot_detonate", "Detonate the piloted drone");
 
         add("commands.seekerdrones.not_holding_drone", "You must hold a drone item in your main hand");
         add("commands.seekerdrones.no_drones", "No drones matched");

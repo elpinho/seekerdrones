@@ -13,14 +13,16 @@ import net.minecraft.resources.ResourceLocation;
  * reached the client yet: its chunks are still being sent.
  *
  * @param remote opened from a Drone Remote, so the signal drops with distance; false for the operator command
+ * @param pilot  the player also flies the drone (section 2.13)
  */
-public record FpvStartPayload(int entityId, String droneId, boolean remote) implements CustomPacketPayload {
+public record FpvStartPayload(int entityId, String droneId, boolean remote, boolean pilot) implements CustomPacketPayload {
     public static final Type<FpvStartPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "fpv_start"));
 
     public static final StreamCodec<ByteBuf, FpvStartPayload> STREAM_CODEC = StreamCodec.composite(
             ByteBufCodecs.VAR_INT, FpvStartPayload::entityId,
             ByteBufCodecs.STRING_UTF8, FpvStartPayload::droneId,
             ByteBufCodecs.BOOL, FpvStartPayload::remote,
+            ByteBufCodecs.BOOL, FpvStartPayload::pilot,
             FpvStartPayload::new);
 
     @Override

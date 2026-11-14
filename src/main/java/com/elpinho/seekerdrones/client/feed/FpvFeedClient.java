@@ -12,6 +12,11 @@ import com.elpinho.seekerdrones.network.FpvEndPayload;
 import com.elpinho.seekerdrones.network.FpvStartPayload;
 import com.elpinho.seekerdrones.network.FpvStatusPayload;
 import com.elpinho.seekerdrones.network.StopFpvFeedPayload;
+import com.elpinho.seekerdrones.feed.PilotInput;
+import com.elpinho.seekerdrones.network.PilotInputPayload;
+import com.elpinho.seekerdrones.network.RemoteCommandPayload;
+import com.elpinho.seekerdrones.network.RequestRemoteStatusPayload;
+import com.elpinho.seekerdrones.remote.RemoteCommand;
 import com.mojang.blaze3d.platform.InputConstants;
 
 import net.minecraft.client.CameraType;
@@ -33,11 +38,20 @@ import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * The client side of the FPV feed (DESIGN.md section 2.12): the camera sits on the watched drone and the mouse turns a
- * free-look gimbal, while the player's body stays frozen. Sneak leaves the feed, and a key toggles night vision.
+ * free-look gimbal, while the player's body stays frozen. The exit key leaves the feed, and a key toggles night vision.
+ * <p>
+ * While piloting (section 2.13) the movement keys fly the drone: their state is sent to the server when it changes,
+ * Use opens the linked remote's screen over the feed, and the detonate key blows up an Explosive drone.
  */
 public final class FpvFeedClient {
     public static final KeyMapping NIGHT_VISION_KEY = new KeyMapping("key.seekerdrones.fpv_night_vision", InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_N, "key.categories.seekerdrones");
+    public static final KeyMapping EXIT_KEY = new KeyMapping("key.seekerdrones.fpv_exit", InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_LEFT_ALT, "key.categories.seekerdrones");
+    public static final KeyMapping DETONATE_KEY = new KeyMapping("key.seekerdrones.pilot_detonate", InputConstants.Type.KEYSYM,
+            GLFW.GLFW_KEY_X, "key.categories.seekerdrones");
+    /** Below this change (degrees) the camera yaw isn't re-sent while flying. */
+    private static final float YAW_RESEND_DEGREES = 1.0F;
 
     /** How long (ticks) to wait for the drone to reach the client before giving up. */
     private static final int CONNECT_TIMEOUT_TICKS = 200;
@@ -66,8 +80,10 @@ public final class FpvFeedClient {
     private static float yaw;
     private static float pitch;
     private static boolean nightVision;
-    /** Sneak exits only once it has been released since the feed started, so the Sneak held to open it doesn't. */
-    private static boolean sneakArmed;
+    /** The player flies the drone too (section 2.13). */
+    private static boolean pilot;
+    /** The input last sent to the server while piloting. */
+    private static PilotInput sentInput = PilotInput.NONE;
     @Nullable
     private static CameraType savedCameraType;
     @Nullable
@@ -96,6 +112,20 @@ public final class FpvFeedClient {
 
     public static float yaw() {
         return yaw;
+    }
+
+    /** Whether the player flies the drone with this ID (section 2.13). */
+    public static boolean isPiloting(String id) {
+        return active && pilot && phase != Phase.SIGNAL_LOST && droneId.equals(id);
+    }
+
+    public static boolean isPiloting() {
+        return active && pilot;
+    }
+
+    /** Boosting right now: piloting, moving and holding Sprint. */
+    public static boolean isBoosting() {
+        return isPiloting() && sentInput.boost() && sentInput.isMoving();
     }
 
     @Nullable
@@ -142,9 +172,11 @@ public final class FpvFeedClient {
         entityId = payload.entityId();
         droneId = payload.droneId();
         remote = payload.remote();
+        pilot = payload.pilot();
+        sentInput = PilotInput.NONE;
         status = null;
         setPhase(Phase.CONNECTING);
-        sneakArmed = !minecraft.options.keyShift.isDown();
+        consume(EXIT_KEY, DETONATE_KEY);
         minecraft.options.setCameraType(CameraType.FIRST_PERSON);
         minecraft.setScreen(null);
     }
@@ -183,6 +215,8 @@ public final class FpvFeedClient {
             }
         }
         active = false;
+        pilot = false;
+        sentInput = PilotInput.NONE;
         savedCameraType = null;
         status = null;
         nightVision = false;
@@ -198,6 +232,8 @@ public final class FpvFeedClient {
 
     public static void registerKeys(RegisterKeyMappingsEvent event) {
         event.register(NIGHT_VISION_KEY);
+        event.register(EXIT_KEY);
+        event.register(DETONATE_KEY);
     }
 
     public static void onClientTick(ClientTickEvent.Pre event) {
@@ -237,18 +273,21 @@ public final class FpvFeedClient {
             }
         }
         Options options = minecraft.options;
-        if (minecraft.screen == null) {
-            if (options.keyShift.isDown()) {
-                if (sneakArmed) {
-                    leave();
-                    return;
-                }
-            } else {
-                sneakArmed = true;
-            }
+        boolean exit = false;
+        while (EXIT_KEY.consumeClick()) {
+            exit = true;
+        }
+        if (exit && minecraft.screen == null) {
+            leave();
+            return;
         }
         while (NIGHT_VISION_KEY.consumeClick()) {
             nightVision = !nightVision;
+        }
+        if (pilot) {
+            tickPilot(minecraft, options);
+        } else {
+            consume(DETONATE_KEY);
         }
         // The body is frozen: these keys do nothing while watching.
         consume(options.keyDrop, options.keySwapOffhand, options.keyInventory, options.keyTogglePerspective, options.keyPickItem,
@@ -257,6 +296,43 @@ public final class FpvFeedClient {
         if (options.getCameraType() != CameraType.FIRST_PERSON) {
             options.setCameraType(CameraType.FIRST_PERSON);
         }
+    }
+
+    /**
+     * Piloting (section 2.13): sends the movement keys when they change (the drone brakes while a screen is open), opens
+     * the linked remote's screen on Use, and detonates on the detonate key.
+     */
+    private static void tickPilot(Minecraft minecraft, Options options) {
+        boolean open = false;
+        while (options.keyUse.consumeClick()) {
+            open = true;
+        }
+        if (open && minecraft.screen == null) {
+            PacketDistributor.sendToServer(new RequestRemoteStatusPayload(droneId, true));
+        }
+        boolean detonate = false;
+        while (DETONATE_KEY.consumeClick()) {
+            detonate = true;
+        }
+        if (detonate && minecraft.screen == null && phase == Phase.LIVE) {
+            PacketDistributor.sendToServer(new RemoteCommandPayload(droneId, RemoteCommand.DETONATE));
+        }
+        PilotInput input = PilotInput.NONE;
+        if (minecraft.screen == null && phase == Phase.LIVE) {
+            input = new PilotInput(axis(options.keyUp, options.keyDown), axis(options.keyLeft, options.keyRight),
+                    axis(options.keyJump, options.keyShift), options.keySprint.isDown(), Mth.wrapDegrees(yaw));
+        }
+        boolean keysChanged = input.forward() != sentInput.forward() || input.left() != sentInput.left()
+                || input.vertical() != sentInput.vertical() || input.boost() != sentInput.boost();
+        boolean turned = input.isMoving() && Math.abs(Mth.wrapDegrees(input.yaw() - sentInput.yaw())) >= YAW_RESEND_DEGREES;
+        if (keysChanged || turned) {
+            sentInput = input;
+            PacketDistributor.sendToServer(new PilotInputPayload(input));
+        }
+    }
+
+    private static byte axis(KeyMapping positive, KeyMapping negative) {
+        return (byte) ((positive.isDown() ? 1 : 0) - (negative.isDown() ? 1 : 0));
     }
 
     private static void consume(KeyMapping... keys) {

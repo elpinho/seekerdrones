@@ -14,8 +14,9 @@ import net.minecraft.resources.ResourceLocation;
  *
  * @param drainRate the FE per tick the drone's last energy drain cost, everything included
  * @param solarRate the FE per tick its Solar upgrades generated then (section 4), so the HUD can show the net rate
+ * @param lowPower  a piloted drone is at or below its return threshold: the HUD's LOW POWER warning (section 2.13)
  */
-public record FpvStatusPayload(int energy, int maxEnergy, float drainRate, float solarRate) implements CustomPacketPayload {
+public record FpvStatusPayload(int energy, int maxEnergy, float drainRate, float solarRate, boolean lowPower) implements CustomPacketPayload {
     public static final Type<FpvStatusPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "fpv_status"));
 
     public static final StreamCodec<ByteBuf, FpvStatusPayload> STREAM_CODEC = StreamCodec.composite(
@@ -23,6 +24,7 @@ public record FpvStatusPayload(int energy, int maxEnergy, float drainRate, float
             ByteBufCodecs.VAR_INT, FpvStatusPayload::maxEnergy,
             ByteBufCodecs.FLOAT, FpvStatusPayload::drainRate,
             ByteBufCodecs.FLOAT, FpvStatusPayload::solarRate,
+            ByteBufCodecs.BOOL, FpvStatusPayload::lowPower,
             FpvStatusPayload::new);
 
     @Override

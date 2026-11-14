@@ -311,7 +311,7 @@ public class SolarGameTests {
             helper.assertTrue(decoded.solarRate() == payload.solarRate() && buf.readableBytes() == 0,
                     "DroneStatusPayload codec should round trip solarRate, got " + decoded.solarRate());
 
-            FpvStatusPayload fpv = new FpvStatusPayload(1000, 2000, 8.0F, (float) drone.getSolarRate());
+            FpvStatusPayload fpv = new FpvStatusPayload(1000, 2000, 8.0F, (float) drone.getSolarRate(), false);
             ByteBuf fpvBuf = Unpooled.buffer();
             FpvStatusPayload.STREAM_CODEC.encode(fpvBuf, fpv);
             FpvStatusPayload fpvDecoded = FpvStatusPayload.STREAM_CODEC.decode(fpvBuf);

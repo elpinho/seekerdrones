@@ -10,7 +10,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
-/** Client to server: the player pressed Sneak to leave the FPV feed (DESIGN.md section 2.12). */
+/** Client to server: the player pressed the exit key to leave the FPV feed (DESIGN.md section 2.12). */
 public record StopFpvFeedPayload() implements CustomPacketPayload {
     public static final StopFpvFeedPayload INSTANCE = new StopFpvFeedPayload();
     public static final Type<StopFpvFeedPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "stop_fpv_feed"));

@@ -17,6 +17,7 @@ import com.elpinho.seekerdrones.client.gui.EntityPreview;
 import com.elpinho.seekerdrones.client.gui.FieldBox;
 import com.elpinho.seekerdrones.client.gui.Gauges;
 import com.elpinho.seekerdrones.client.gui.Kit;
+import com.elpinho.seekerdrones.client.feed.FpvFeedClient;
 import com.elpinho.seekerdrones.client.gui.KitButton;
 import com.elpinho.seekerdrones.client.gui.KitSlider;
 import com.elpinho.seekerdrones.client.gui.KitWidget;
@@ -68,7 +69,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * The Drone Remote's screen (DESIGN.md section 2.10): the drone status screen's header, radar, energy and health,
  * laid out so a dark display with Upgrades, Targets, Behavior and Identity tabs and a command bar fit in one frame.
  * Upgrades and Targets are read-only. Behavior and Identity edit the settings the remote may change, and the command
- * bar sends Recall, Hold or Resume, Return to charge and Patrol center here. The FPV FEED button opens the drone's live
+ * bar sends Recall, Hold or Resume, Return to charge and Patrol center here. The FPV and PILOT buttons open the drone's live
  * camera feed (section 2.12). Everything is checked again by the
  * server. The screen asks for fresh values about once a second, and disables its controls while the drone can't be
  * reached.
@@ -134,8 +135,9 @@ public class DroneRemoteScreen extends PanelScreen {
     private static final int COMMAND_HEIGHT = 18;
     private static final int COMMAND_GAP = 3;
     private static final int SEPARATOR_Y = 149;
-    /** The FPV FEED button (section 2.12), in the left column under the Sight and Follow rows. */
+    /** The FPV and PILOT buttons (sections 2.12 and 2.13), in the left column under the Sight and Follow rows. */
     private static final int FPV_Y = 128;
+    private static final int FEED_GAP = 3;
 
     private static final double SPEED_SMOOTHING = 0.15;
 
@@ -150,13 +152,16 @@ public class DroneRemoteScreen extends PanelScreen {
     private static final ResourceLocation ICON_RESUME = Kit.sprite("icon/resume");
     private static final ResourceLocation ICON_PIN = Kit.sprite("icon/pin");
     private static final ResourceLocation ICON_FPV = Kit.sprite("icon/fpv");
+    private static final ResourceLocation ICON_PILOT = Kit.sprite("icon/pilot");
+    private static final ResourceLocation ICON_DETONATE = Kit.sprite("icon/detonate");
+    private static final ResourceLocation ICON_STOP = Kit.sprite("icon/stop");
 
     private enum Tab {
         UPGRADES, TARGETS, BEHAVIOR, IDENTITY
     }
 
     /** What decides which widgets exist. The widgets are rebuilt when it changes. */
-    private record Structure(Tab tab, boolean patrol, boolean controls) {}
+    private record Structure(Tab tab, boolean patrol, boolean controls, boolean flying, boolean explosive) {}
 
     private final String droneId;
     private final RemoteLink link;
@@ -248,7 +253,7 @@ public class DroneRemoteScreen extends PanelScreen {
     }
 
     private Structure currentStructure() {
-        return new Structure(tab, patrol(), controls());
+        return new Structure(tab, patrol(), controls(), flying(), explosive());
     }
 
     private int maxUpgradeScroll() {
@@ -440,16 +445,64 @@ public class DroneRemoteScreen extends PanelScreen {
                     }
                     return lines;
                 });
-        addCommand(leftPos + RADAR_X, topPos + FPV_Y, RADAR_SIZE, () -> ICON_FPV, 9, 7, () -> Component.translatable(KEY + "fpv"),
-                () -> controls() && fpvCamera(), () -> PacketDistributor.sendToServer(new StartFpvFeedPayload(droneId)), () -> {
+        initFeedRow();
+    }
+
+    /**
+     * The row under the Sight and Follow rows: FPV and PILOT side by side (sections 2.12 and 2.13). On the screen opened
+     * mid-flight it's one button instead: DETONATE for an Explosive drone, STOP PILOTING for any other.
+     */
+    private void initFeedRow() {
+        int x = leftPos + RADAR_X;
+        int y = topPos + FPV_Y;
+        if (flying()) {
+            if (explosive()) {
+                addCommand(x, y, RADAR_SIZE, () -> ICON_DETONATE, 7, 8, () -> Component.translatable(KEY + "detonate"), () -> controls(),
+                        () -> send(RemoteCommand.DETONATE), () -> List.of(Component.translatable(KEY + "detonate"),
+                                Component.translatable(KEY + "detonate.tooltip", FpvFeedClient.DETONATE_KEY.getTranslatedKeyMessage())
+                                        .withStyle(ChatFormatting.GRAY)));
+            } else {
+                addCommand(x, y, RADAR_SIZE, () -> ICON_STOP, 5, 5, () -> Component.translatable(KEY + "stop_pilot"), () -> controls(),
+                        () -> send(RemoteCommand.STOP_PILOT), () -> List.of(Component.translatable(KEY + "stop_pilot"),
+                                Component.translatable(KEY + "stop_pilot.tooltip", FpvFeedClient.EXIT_KEY.getTranslatedKeyMessage())
+                                        .withStyle(ChatFormatting.GRAY)));
+            }
+            return;
+        }
+        int fpvWidth = (RADAR_SIZE - FEED_GAP + 1) / 2;
+        int pilotWidth = RADAR_SIZE - FEED_GAP - fpvWidth;
+        addCommand(x, y, fpvWidth, () -> ICON_FPV, 9, 7, () -> Component.translatable(KEY + "fpv.short"),
+                () -> controls() && fpvCamera(), () -> PacketDistributor.sendToServer(new StartFpvFeedPayload(droneId, false)), () -> {
                     List<Component> lines = new ArrayList<>();
                     lines.add(Component.translatable(KEY + "fpv"));
-                    lines.add(Component.translatable(KEY + "fpv.tooltip").withStyle(ChatFormatting.GRAY));
+                    lines.add(Component.translatable(KEY + "fpv.tooltip", FpvFeedClient.EXIT_KEY.getTranslatedKeyMessage()).withStyle(ChatFormatting.GRAY));
                     if (controls() && !fpvCamera()) {
                         lines.add(Component.translatable(KEY + "fpv.disabled").withStyle(ChatFormatting.RED));
                     }
                     return lines;
                 });
+        addCommand(x + fpvWidth + FEED_GAP, y, pilotWidth, () -> ICON_PILOT, 7, 7, () -> Component.translatable(KEY + "pilot"),
+                () -> controls() && fpvCamera() && status.pilot().isEmpty(),
+                () -> PacketDistributor.sendToServer(new StartFpvFeedPayload(droneId, true)), () -> {
+                    List<Component> lines = new ArrayList<>();
+                    lines.add(Component.translatable(KEY + "pilot"));
+                    lines.add(Component.translatable(KEY + "pilot.tooltip", FpvFeedClient.EXIT_KEY.getTranslatedKeyMessage()).withStyle(ChatFormatting.GRAY));
+                    if (controls() && !fpvCamera()) {
+                        lines.add(Component.translatable(KEY + "fpv.disabled").withStyle(ChatFormatting.RED));
+                    } else if (controls() && !status.pilot().isEmpty()) {
+                        lines.add(Component.translatable(KEY + "pilot.taken", status.pilot()).withStyle(ChatFormatting.RED));
+                    }
+                    return lines;
+                });
+    }
+
+    /** This screen was opened by its pilot mid-flight (section 2.13). */
+    private boolean flying() {
+        return FpvFeedClient.isPiloting(droneId);
+    }
+
+    private boolean explosive() {
+        return DroneStats.isExplosive(shown.data());
     }
 
     private boolean fpvCamera() {
@@ -718,7 +771,7 @@ public class DroneRemoteScreen extends PanelScreen {
             return;
         }
         if (++ticksOpen % REFRESH_INTERVAL_TICKS == 0) {
-            PacketDistributor.sendToServer(new RequestRemoteStatusPayload(droneId));
+            PacketDistributor.sendToServer(new RequestRemoteStatusPayload(droneId, false));
         }
         Entity entity = controls() && minecraft.level != null ? minecraft.level.getEntity(shown.entityId()) : null;
         if (entity != null) {

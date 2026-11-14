@@ -51,6 +51,7 @@ public final class FpvHud {
     private static final int FRAME = 0xAAFFFFFF;
     private static final int RED = 0xFFF45B5B;
     private static final int NIGHT_TEXT = 0xFF8CFFA0;
+    private static final int BOOST = 0xFFFBBF24;
     private static final int NIGHT_TINT = 0x3820FF50;
     private static final String[] DIRECTIONS = {"S", "SW", "W", "NW", "N", "NE", "E", "SE"};
 
@@ -121,8 +122,7 @@ public final class FpvHud {
             drawTelemetry(graphics, font, minecraft, drone, height);
             drawBars(graphics, font, drone, width, height);
         }
-        Component hint = Component.translatable(KEY + "hint", minecraft.options.keyShift.getTranslatedKeyMessage(),
-                FpvFeedClient.NIGHT_VISION_KEY.getTranslatedKeyMessage());
+        Component hint = hint(minecraft, drone);
         Kit.smallText(graphics, font, hint, (width - Kit.smallWidth(font, hint)) / 2F, height - MARGIN - 5, DIM, true);
 
         if (!live) {
@@ -133,6 +133,21 @@ public final class FpvHud {
                         phase == FpvFeedClient.Phase.SIGNAL_LOST ? RED : WHITE);
             }
         }
+    }
+
+    /** The keys: exit and night vision, plus boost, remote and (Explosive only) detonate while piloting (section 2.13). */
+    private static Component hint(Minecraft minecraft, @Nullable DroneEntity drone) {
+        Component exit = FpvFeedClient.EXIT_KEY.getTranslatedKeyMessage();
+        Component night = FpvFeedClient.NIGHT_VISION_KEY.getTranslatedKeyMessage();
+        if (!FpvFeedClient.isPiloting()) {
+            return Component.translatable(KEY + "hint", exit, night);
+        }
+        Component boost = minecraft.options.keySprint.getTranslatedKeyMessage();
+        Component remote = minecraft.options.keyUse.getTranslatedKeyMessage();
+        if (drone != null && drone.hasExplosiveUpgrade()) {
+            return Component.translatable(KEY + "hint.pilot_explosive", exit, boost, remote, FpvFeedClient.DETONATE_KEY.getTranslatedKeyMessage(), night);
+        }
+        return Component.translatable(KEY + "hint.pilot", exit, boost, remote, night);
     }
 
     // --- Signal ---
@@ -276,8 +291,11 @@ public final class FpvHud {
         row(graphics, font, Component.translatable(KEY + "altitude"), Component.translatable(KEY + "altitude.value", Mth.floor(drone.getY())), y);
         row(graphics, font, Component.translatable(KEY + "distance"),
                 Component.translatable(KEY + "distance.value", Math.round(minecraft.player.distanceTo(drone))), y + 8);
-        row(graphics, font, Component.translatable(KEY + "speed"),
-                Component.translatable(KEY + "speed.value", String.format("%.1f", speed)), y + 16);
+        Component speedValue = Component.translatable(KEY + "speed.value", String.format("%.1f", speed));
+        row(graphics, font, Component.translatable(KEY + "speed"), speedValue, y + 16);
+        if (FpvFeedClient.isBoosting()) {
+            Kit.smallText(graphics, font, Component.translatable(KEY + "boost"), INSET + 24 + Kit.smallWidth(font, speedValue) + 4, y + 16, BOOST, true);
+        }
     }
 
     private static void row(GuiGraphics graphics, Font font, Component label, Component value, int y) {
@@ -316,6 +334,11 @@ public final class FpvHud {
         }
         graphics.blitSprite(Kit.ICON_HEALTH, x - 10, y + 11, 7, 6);
         bar(graphics, Kit.FILL_HEALTH_HORIZONTAL, x, y + 11, Kit.fraction(drone.getHealth(), drone.getMaxHealth()));
+        // A piloted drone at its return threshold: the pilot decides when to head home (section 2.13).
+        if (status != null && status.lowPower() && FpvFeedClient.isPiloting() && (Util.getMillis() / 400) % 2 == 0) {
+            Component warning = Component.translatable(KEY + "low_power");
+            Kit.smallText(graphics, font, warning, x + BAR_WIDTH - Kit.smallWidth(font, warning), y - 8, RED, true);
+        }
     }
 
     private static void bar(GuiGraphics graphics, ResourceLocation fill, int x, int y, float fraction) {

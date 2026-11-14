@@ -171,6 +171,11 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue CAMERA_STATIC_START;
     public static final ModConfigSpec.IntValue CAMERA_SIGNAL_LOST_TICKS;
 
+    public static final ModConfigSpec.DoubleValue PILOT_SPEED;
+    public static final ModConfigSpec.DoubleValue PILOT_BOOST_SPEED;
+    public static final ModConfigSpec.IntValue PILOT_ENERGY_PER_TICK;
+    public static final ModConfigSpec.DoubleValue PILOT_BOOST_DISTANCE_FACTOR;
+
     // === sounds ===
     public static final ModConfigSpec.IntValue SOUNDS_RESORT_INTERVAL;
     public static final ModConfigSpec.IntValue SOUNDS_FLYING_MAX_PLAYING;
@@ -567,6 +572,21 @@ public class ServerConfig {
         CAMERA_SIGNAL_LOST_TICKS = BUILDER
                 .comment("How long (ticks) \"Signal lost\" shows before the view switches back to the player.")
                 .defineInRange("signalLostTicks", 30, 0, 200);
+        BUILDER.pop();
+
+        BUILDER.comment("Remote piloting: flying a drone by hand from its FPV feed (DESIGN.md section 2.13).").push("pilot");
+        PILOT_SPEED = BUILDER
+                .comment("Piloting speed (blocks/second), the same with any upgrades. Capped by drone.maxSpeed.")
+                .defineInRange("speed", 8.0, 0.2, 30.0);
+        PILOT_BOOST_SPEED = BUILDER
+                .comment("Piloting speed (blocks/second) while boosting (Sprint). Capped by drone.maxSpeed.")
+                .defineInRange("boostSpeed", 24.0, 0.2, 30.0);
+        PILOT_ENERGY_PER_TICK = BUILDER
+                .comment("Extra FE per tick a drone pays while piloted, on top of the feed cost (no upgrade multiplier).")
+                .defineInRange("energyPerTick", 60, 0, Integer.MAX_VALUE);
+        PILOT_BOOST_DISTANCE_FACTOR = BUILDER
+                .comment("Multiplies the drone's distance cost (drone.energyPerBlock) while boosting.")
+                .defineInRange("boostDistanceFactor", 2.0, 1.0, 100.0);
         BUILDER.pop();
 
         BUILDER.comment("Drone and machine sounds. Volumes are clamped to 1.0 by the game when played: above that they only extend",

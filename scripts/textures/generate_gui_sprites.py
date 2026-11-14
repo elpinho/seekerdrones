@@ -574,6 +574,14 @@ ICONS = {
     "fpv": ([
         ".R.......", "GGGGGG...", "GGGGGG..G", "GGLLGG.GG", "GGLLGGGGG", "GGGGGG.GG", "GGGGGG..G"],
         {"G": (154, 164, 176, 255), "L": (143, 229, 214, 255), "R": (244, 91, 91, 255)}),
+    # Remote piloting (DESIGN.md section 2.13): the PILOT joystick, the DETONATE bomb and the STOP PILOTING square.
+    "pilot": ([
+        "..RR...", "..RR...", "...G...", "...G...", "...G...", ".DDDDD.", "DDDDDDD"],
+        {"R": (244, 91, 91, 255), "G": (154, 164, 176, 255), "D": (94, 104, 116, 255)}),
+    "detonate": ([
+        ".....Y.", "....O..", "..KKK..", ".KKKKK.", "KKWKKKK", "KKKKKKK", ".KKKKK.", "..KKK.."],
+        {"K": (40, 40, 48, 255), "W": (120, 120, 130, 255), "O": (251, 146, 60, 255), "Y": (253, 224, 71, 255)}),
+    "stop": (["SSSSS"] * 5, {"S": (244, 91, 91, 255)}),
     "settings": ([
         ".s...s...", ".s...s.S.", "SSS..s.s.", ".s..SSSs.", ".s...s.s.", ".s...sSSS", ".s...s.s.", ".s...s.s."],
         {"s": (154, 164, 176, 255), "S": (94, 104, 116, 255)}),

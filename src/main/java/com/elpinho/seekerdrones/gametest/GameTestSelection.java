@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
@@ -14,8 +15,10 @@ import com.elpinho.seekerdrones.SeekerDrones;
 import com.mojang.logging.LogUtils;
 
 import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestRegistry;
 import net.minecraft.gametest.framework.GameTestServer;
 import net.minecraft.gametest.framework.TestFunction;
+import net.minecraft.server.level.ServerLevel;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -30,7 +33,8 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
  * the method name in lower case ({@code @PrefixGameTestTemplate(false)}), so the class comes from the holders.</li>
  * <li>{@code seekerdrones.gametest.repeat} ({@code -PgametestRepeat=N}): runs every selected test N times. Each
  * extra round gets its own batches, so a round runs with the same concurrency as a normal run, and a test that
- * changes config in its own batch never overlaps its copies.</li>
+ * changes config in its own batch never overlaps its copies. Each copied batch gets the original batch's
+ * {@code @BeforeBatch} and {@code @AfterBatch} methods, so a batch that changes config runs its copies with it.</li>
  * </ul>
  *
  * {@code GameTestServer} copies the registered tests in its constructor, but only turns them into batches after
@@ -60,9 +64,16 @@ public final class GameTestSelection {
             }
         }
         List<TestFunction> selected = List.copyOf(tests);
+        Map<String, Consumer<ServerLevel>> beforeBatch = batchFunctions("BEFORE_BATCH_FUNCTIONS");
+        Map<String, Consumer<ServerLevel>> afterBatch = batchFunctions("AFTER_BATCH_FUNCTIONS");
         for (int round = 2; round <= repeat; round++) {
             for (TestFunction test : selected) {
-                tests.add(copy(test, round));
+                TestFunction copy = copy(test, round);
+                tests.add(copy);
+                // The copy's batch has a new name, so it needs the original batch's @BeforeBatch and @AfterBatch
+                // too, or a batch that changes config would run its copies with the default values.
+                copyBatchFunction(beforeBatch, test.batchName(), copy.batchName());
+                copyBatchFunction(afterBatch, test.batchName(), copy.batchName());
             }
         }
         LOGGER.info("GameTest selection: {} test(s) matching '{}', {} round(s), {} test run(s) in total",
@@ -74,6 +85,25 @@ public final class GameTestSelection {
         return new TestFunction(test.batchName() + suffix, test.testName() + suffix, test.structureName(), test.rotation(), test.maxTicks(),
                 test.setupTicks(), test.required(), test.manualOnly(), test.maxAttempts(), test.requiredSuccesses(), test.skyAccess(),
                 test.function());
+    }
+
+    private static void copyBatchFunction(Map<String, Consumer<ServerLevel>> functions, String from, String to) {
+        Consumer<ServerLevel> function = functions.get(from);
+        if (function != null) {
+            functions.putIfAbsent(to, function);
+        }
+    }
+
+    /** {@code GameTestRegistry}'s map of batch name to its {@code @BeforeBatch} or {@code @AfterBatch} method. */
+    @SuppressWarnings("unchecked")
+    private static Map<String, Consumer<ServerLevel>> batchFunctions(String fieldName) {
+        try {
+            Field field = GameTestRegistry.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return (Map<String, Consumer<ServerLevel>>) field.get(null);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Can't reach GameTestRegistry." + fieldName + " to repeat batch setup", e);
+        }
     }
 
     /** Test name (lower-case method name) to {@code <Class>.<method>}, for this mod's {@code @GameTestHolder} classes. */

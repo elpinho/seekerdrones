@@ -8,7 +8,7 @@ import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class ModNetwork {
-    private static final String PROTOCOL_VERSION = "6";
+    private static final String PROTOCOL_VERSION = "7";
 
     private ModNetwork() {}
 
@@ -43,6 +43,7 @@ public final class ModNetwork {
                 (payload, context) -> ClientPayloadHandlers.handleLinkGlow(payload));
         registrar.playToServer(StartFpvFeedPayload.TYPE, StartFpvFeedPayload.STREAM_CODEC, StartFpvFeedPayload::handle);
         registrar.playToServer(StopFpvFeedPayload.TYPE, StopFpvFeedPayload.STREAM_CODEC, StopFpvFeedPayload::handle);
+        registrar.playToServer(PilotInputPayload.TYPE, PilotInputPayload.STREAM_CODEC, PilotInputPayload::handle);
         registrar.playToClient(FpvStartPayload.TYPE, FpvStartPayload.STREAM_CODEC,
                 (payload, context) -> ClientPayloadHandlers.handleFpvStart(payload));
         registrar.playToClient(FpvEndPayload.TYPE, FpvEndPayload.STREAM_CODEC,
