@@ -6,7 +6,7 @@
 
 Seeker Drones is a NeoForge mod for Minecraft 1.21.1. Drones are built, programmed, launched and recharged by machines, and every step can be automated, so your base keeps its defenses in the air long after you've logged off.
 
-> **Status: in development (pre-1.0).** The mod isn't released yet, and it isn't on CurseForge or Modrinth. Textures and models are placeholders until the commissioned art is in, and numbers in the config are still being balanced. Saves may break between versions.
+> **Status: in development (pre-1.0).** The mod isn't released yet, and it isn't on CurseForge or Modrinth. The drone and item art are placeholders until the commissioned art is in, and numbers in the config are still being balanced. Saves may break between versions.
 
 ## Features
 
@@ -80,6 +80,15 @@ Add `-PwithMekanism` to a run to start it with Mekanism. On Windows, `scripts/` 
 ## Reporting issues
 
 Bugs and suggestions go in the [issue tracker](https://github.com/elpinho/seekerdrones/issues). For a bug, include the mod, NeoForge and Minecraft versions, the other mods you use, and the log or crash report.
+
+## How this mod is made
+
+Seeker Drones is a solo project, and I want to be open about how it's built:
+
+- **Code:** written with AI assistance (Claude), with me designing the mod, deciding how it behaves and playtesting it. Changes are checked by an automated GameTest suite that runs on every push.
+- **Current art:** the placeholder textures and models are drawn by scripts in `scripts/textures/`, which were also written with AI.
+- **Sounds:** recordings by people on Freesound, credited in [`SOUND_CREDITS.md`](SOUND_CREDITS.md). Two (a beep and the siren) were synthesized for the mod.
+- **Commissioned art:** the drone and item art is being commissioned from a human artist, who will be credited here.
 
 ## License
 
