@@ -1,8 +1,11 @@
 package com.elpinho.seekerdrones.network;
 
+import java.util.Optional;
+
 import com.elpinho.seekerdrones.SeekerDrones;
 
 import io.netty.buffer.ByteBuf;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
@@ -14,8 +17,13 @@ import net.minecraft.resources.ResourceLocation;
  *
  * @param remote opened from a Drone Remote, so the signal drops with distance; false for the operator command
  * @param pilot  the player also flies the drone (section 2.13)
+ * @param uplink the Satellite Uplink a remote feed was opened through (section 7.9): the signal is then measured from
+ *               it, horizontally
+ * @param range  the distance at which the signal is gone: {@code remote.range}, or the Uplink's radius; 0 for the
+ *               operator command
  */
-public record FpvStartPayload(int entityId, String droneId, boolean remote, boolean pilot) implements CustomPacketPayload {
+public record FpvStartPayload(int entityId, String droneId, boolean remote, boolean pilot, Optional<BlockPos> uplink, int range)
+        implements CustomPacketPayload {
     public static final Type<FpvStartPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "fpv_start"));
 
     public static final StreamCodec<ByteBuf, FpvStartPayload> STREAM_CODEC = StreamCodec.composite(
@@ -23,6 +31,8 @@ public record FpvStartPayload(int entityId, String droneId, boolean remote, bool
             ByteBufCodecs.STRING_UTF8, FpvStartPayload::droneId,
             ByteBufCodecs.BOOL, FpvStartPayload::remote,
             ByteBufCodecs.BOOL, FpvStartPayload::pilot,
+            ByteBufCodecs.optional(BlockPos.STREAM_CODEC), FpvStartPayload::uplink,
+            ByteBufCodecs.VAR_INT, FpvStartPayload::range,
             FpvStartPayload::new);
 
     @Override

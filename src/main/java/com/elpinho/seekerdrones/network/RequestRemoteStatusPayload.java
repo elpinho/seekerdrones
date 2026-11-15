@@ -13,7 +13,8 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
  * Client to server: an open Drone Remote screen asking for fresh values (DESIGN.md section 2.10), or a pilot opening
- * the remote's screen mid-flight (section 2.13) with {@code open}.
+ * the remote's screen mid-flight (section 2.13) or a Satellite Uplink viewer clicking a drone (section 7.9) with
+ * {@code open}.
  */
 public record RequestRemoteStatusPayload(String droneId, boolean open) implements CustomPacketPayload {
     public static final Type<RequestRemoteStatusPayload> TYPE =
@@ -31,7 +32,7 @@ public record RequestRemoteStatusPayload(String droneId, boolean open) implement
 
     public static void handle(RequestRemoteStatusPayload payload, IPayloadContext context) {
         if (context.player() instanceof ServerPlayer player) {
-            RemoteControl.heldLink(player, payload.droneId()).ifPresent(link -> RemoteControl.sendStatus(player, link, payload.open()));
+            RemoteControl.access(player, payload.droneId()).ifPresent(access -> RemoteControl.sendStatus(player, access, payload.open()));
         }
     }
 }

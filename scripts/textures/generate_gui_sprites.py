@@ -585,6 +585,10 @@ ICONS = {
     "settings": ([
         ".s...s...", ".s...s.S.", "SSS..s.s.", ".s..SSSs.", ".s...s.s.", ".s...sSSS", ".s...s.s.", ".s...s.s."],
         {"s": (154, 164, 176, 255), "S": (94, 104, 116, 255)}),
+    # The Drone Remote's Back tab when opened through a Satellite Uplink (DESIGN.md section 7.9): a left arrow.
+    "back": ([
+        "...a.....", "..aa.....", ".aaaaaaaa", "aaaaaaaaa", "aaaaaaaaa", ".aaaaaaaa", "..aa.....", "...a....."],
+        {"a": (64, 64, 64, 255)}),
 }
 
 

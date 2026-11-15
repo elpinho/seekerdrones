@@ -43,6 +43,7 @@ public class SeekerDronesClient {
         modEventBus.addListener(SeekerDronesClient::registerItemColors);
         modEventBus.addListener(SeekerDronesClient::registerScreens);
         modEventBus.addListener(RadarStationRenderer::registerModels);
+        modEventBus.addListener(UplinkRenderer::registerModels);
         // The Drone Remote is held in both hands (DESIGN.md section 2.10).
         modEventBus.addListener(RemoteHandRenderer::registerClientExtensions);
         NeoForge.EVENT_BUS.addListener(RemoteHandRenderer::onRenderHand);
@@ -72,11 +73,13 @@ public class SeekerDronesClient {
         event.register(ModMenuTypes.DEPLOYING_STATION.get(), DeployingStationScreen::new);
         event.register(ModMenuTypes.CHARGING_STATION.get(), ChargingStationScreen::new);
         event.register(ModMenuTypes.RADAR_STATION.get(), RadarStationScreen::new);
+        event.register(ModMenuTypes.UPLINK.get(), UplinkScreen::new);
     }
 
     private static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntityTypes.DRONE.get(), DroneRenderer::new);
         event.registerBlockEntityRenderer(ModBlockEntities.RADAR_STATION.get(), RadarStationRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.UPLINK.get(), UplinkRenderer::new);
     }
 
     private static void registerLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {

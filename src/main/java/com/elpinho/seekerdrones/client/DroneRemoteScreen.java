@@ -24,6 +24,7 @@ import com.elpinho.seekerdrones.client.gui.FieldBox;
 import com.elpinho.seekerdrones.client.gui.Gauges;
 import com.elpinho.seekerdrones.client.gui.Kit;
 import com.elpinho.seekerdrones.client.feed.FpvFeedClient;
+import net.minecraft.client.Minecraft;
 import com.elpinho.seekerdrones.client.gui.KitButton;
 import com.elpinho.seekerdrones.client.gui.KitSlider;
 import com.elpinho.seekerdrones.client.gui.KitWidget;
@@ -161,6 +162,7 @@ public class DroneRemoteScreen extends PanelScreen {
     private static final ResourceLocation ICON_PILOT = Kit.sprite("icon/pilot");
     private static final ResourceLocation ICON_DETONATE = Kit.sprite("icon/detonate");
     private static final ResourceLocation ICON_STOP = Kit.sprite("icon/stop");
+    private static final ResourceLocation ICON_BACK = Kit.sprite("icon/back");
 
     private enum Tab {
         UPGRADES, TARGETS, BEHAVIOR, IDENTITY
@@ -171,6 +173,8 @@ public class DroneRemoteScreen extends PanelScreen {
 
     private final String droneId;
     private final RemoteLink link;
+    /** Opened through a Satellite Uplink (section 7.9): Back and Esc go back to its map. */
+    private final boolean uplink;
     private RemoteStatusPayload status;
     /** The latest values of the drone, or what is known from the link while none has arrived. */
     private DroneStatusPayload shown;
@@ -205,6 +209,14 @@ public class DroneRemoteScreen extends PanelScreen {
         super(Component.translatable("screen.seekerdrones.drone_remote"), WIDTH, HEIGHT);
         this.droneId = status.link().droneId();
         this.link = status.link();
+        this.uplink = status.uplink();
+        if (uplink) {
+            // Opened through a Satellite Uplink: a Back tab on top, like Esc (section 7.9).
+            sideTabs.add(new SideTab(22, (graphics, x, y, mouseX, mouseY) -> graphics.blitSprite(ICON_BACK, x + 8, y + 7, 9, 8))
+                    .tooltip(() -> List.of(Component.translatable(KEY + "back"),
+                            Component.translatable(KEY + "back.tooltip").withStyle(ChatFormatting.GRAY)))
+                    .onClick(this::onClose));
+        }
         sideTabs.add(SideTab.energyUnit());
         update(status);
     }
@@ -214,6 +226,12 @@ public class DroneRemoteScreen extends PanelScreen {
     }
 
     public void update(RemoteStatusPayload status) {
+        if (uplink && status.reach() != RemoteReach.OK && minecraft != null) {
+            // Through the Uplink, a drone that can't be reached any more ends the session: back to the map (section 7.9).
+            showSignalLost(status.reach());
+            onClose();
+            return;
+        }
         this.status = status;
         if (status.status().isPresent()) {
             shown = status.status().get();
@@ -764,8 +782,17 @@ public class DroneRemoteScreen extends PanelScreen {
         syncWidgets();
     }
 
-    /** Whether the player still holds a remote linked to this drone. */
+    /** Tells the player on the action bar why a drone opened through the Uplink can't be reached (section 7.9). */
+    public static void showSignalLost(RemoteReach reach) {
+        Minecraft.getInstance().gui.setOverlayMessage(Component.translatable("message.seekerdrones.uplink.signal_lost",
+                Component.translatable(reach.getTranslationKey())), false);
+    }
+
+    /** Whether the player still holds a remote linked to this drone, or still has the Uplink open it came from. */
     private boolean holdsLink() {
+        if (uplink) {
+            return UplinkScreen.isOpen();
+        }
         for (InteractionHand hand : InteractionHand.values()) {
             ItemStack stack = minecraft.player.getItemInHand(hand);
             if (stack.getItem() instanceof DroneRemoteItem) {
@@ -855,11 +882,17 @@ public class DroneRemoteScreen extends PanelScreen {
         return mouseX >= leftPos + x && mouseX < leftPos + x + width && mouseY >= topPos + y && mouseY < topPos + y + height;
     }
 
-    /** Commits the field being typed in before the screen closes. */
+    /**
+     * Commits the field being typed in before the screen closes. Opened through the Uplink, it goes back to the map,
+     * unless it was opened over a pilot's feed, which it goes back to (section 2.13).
+     */
     @Override
     public void onClose() {
         if (getFocused() instanceof FieldBox) {
             setFocused(null);
+        }
+        if (uplink && !FpvFeedClient.isActive() && UplinkScreen.reopen()) {
+            return;
         }
         super.onClose();
     }

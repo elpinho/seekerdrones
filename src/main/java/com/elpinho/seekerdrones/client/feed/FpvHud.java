@@ -16,6 +16,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.Util;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -152,13 +153,20 @@ public final class FpvHud {
 
     // --- Signal ---
 
-    /** How far the drone is, as a fraction of the remote's range. 0 for a command feed, which has no range. */
+    /**
+     * How far the drone is, as a fraction of the remote's range, or for a feed through a Satellite Uplink, of the
+     * Uplink's radius from the Uplink, horizontally (section 7.9). 0 for a command feed, which has no range.
+     */
     private static float rangeFraction(Minecraft minecraft, DroneEntity drone) {
         if (!FpvFeedClient.isRemote()) {
             return 0;
         }
-        double range = Math.max(1, ServerConfig.get(ServerConfig.REMOTE_RANGE));
-        return (float) (minecraft.player.distanceTo(drone) / range);
+        double range = Math.max(1, FpvFeedClient.range());
+        BlockPos uplink = FpvFeedClient.uplink();
+        double distance = uplink != null
+                ? Math.sqrt(Mth.square(drone.getX() - (uplink.getX() + 0.5)) + Mth.square(drone.getZ() - (uplink.getZ() + 0.5)))
+                : minecraft.player.distanceTo(drone);
+        return (float) (distance / range);
     }
 
     private static int signalBars(Minecraft minecraft, DroneEntity drone) {

@@ -36,6 +36,8 @@ public class ModItems {
     /** Two blocks tall: like a door's item, it clears the space above first, so a plant there can't break it (DESIGN.md 7.8). */
     public static final DeferredItem<BlockItem> RADAR_STATION = ITEMS.registerItem("radar_station",
             properties -> new DoubleHighBlockItem(ModBlocks.RADAR_STATION.get(), properties));
+    public static final DeferredItem<BlockItem> UPLINK = ITEMS.registerItem("satellite_uplink",
+            properties -> new DoubleHighBlockItem(ModBlocks.UPLINK.get(), properties));
 
     // Intermediate components (DESIGN.md section 7.5).
     public static final DeferredItem<Item> DRONE_ROTOR = ITEMS.registerSimpleItem("drone_rotor");

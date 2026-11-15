@@ -5,6 +5,7 @@ import com.elpinho.seekerdrones.deploying.DeployingStationBlock;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlock;
 import com.elpinho.seekerdrones.programming.ProgrammingStationBlock;
 import com.elpinho.seekerdrones.radar.RadarStationBlock;
+import com.elpinho.seekerdrones.uplink.UplinkBlock;
 import com.elpinho.seekerdrones.station.ChargingStationBlock;
 
 import net.minecraft.world.level.block.SoundType;
@@ -52,6 +53,16 @@ public class ModBlocks {
                     .requiresCorrectToolForDrops()
                     .sound(SoundType.METAL)
                     // Two blocks tall with a custom model (DESIGN.md section 7.8).
+                    .noOcclusion()
+                    .pushReaction(PushReaction.BLOCK)));
+
+    public static final DeferredBlock<UplinkBlock> UPLINK = BLOCKS.register("satellite_uplink",
+            () -> new UplinkBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(3.5F, 6.0F)
+                    .requiresCorrectToolForDrops()
+                    .sound(SoundType.METAL)
+                    // Two blocks tall with a custom model (DESIGN.md section 7.9).
                     .noOcclusion()
                     .pushReaction(PushReaction.BLOCK)));
 }

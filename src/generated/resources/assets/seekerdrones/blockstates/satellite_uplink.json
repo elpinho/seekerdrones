@@ -1,0 +1,58 @@
+{
+  "variants": {
+    "facing=east,half=lower,powered=false": {
+      "model": "seekerdrones:block/satellite_uplink",
+      "y": 90
+    },
+    "facing=east,half=lower,powered=true": {
+      "model": "seekerdrones:block/satellite_uplink_powered",
+      "y": 90
+    },
+    "facing=east,half=upper,powered=false": {
+      "model": "seekerdrones:block/satellite_uplink_upper"
+    },
+    "facing=east,half=upper,powered=true": {
+      "model": "seekerdrones:block/satellite_uplink_upper"
+    },
+    "facing=north,half=lower,powered=false": {
+      "model": "seekerdrones:block/satellite_uplink"
+    },
+    "facing=north,half=lower,powered=true": {
+      "model": "seekerdrones:block/satellite_uplink_powered"
+    },
+    "facing=north,half=upper,powered=false": {
+      "model": "seekerdrones:block/satellite_uplink_upper"
+    },
+    "facing=north,half=upper,powered=true": {
+      "model": "seekerdrones:block/satellite_uplink_upper"
+    },
+    "facing=south,half=lower,powered=false": {
+      "model": "seekerdrones:block/satellite_uplink",
+      "y": 180
+    },
+    "facing=south,half=lower,powered=true": {
+      "model": "seekerdrones:block/satellite_uplink_powered",
+      "y": 180
+    },
+    "facing=south,half=upper,powered=false": {
+      "model": "seekerdrones:block/satellite_uplink_upper"
+    },
+    "facing=south,half=upper,powered=true": {
+      "model": "seekerdrones:block/satellite_uplink_upper"
+    },
+    "facing=west,half=lower,powered=false": {
+      "model": "seekerdrones:block/satellite_uplink",
+      "y": 270
+    },
+    "facing=west,half=lower,powered=true": {
+      "model": "seekerdrones:block/satellite_uplink_powered",
+      "y": 270
+    },
+    "facing=west,half=upper,powered=false": {
+      "model": "seekerdrones:block/satellite_uplink_upper"
+    },
+    "facing=west,half=upper,powered=true": {
+      "model": "seekerdrones:block/satellite_uplink_upper"
+    }
+  }
+}

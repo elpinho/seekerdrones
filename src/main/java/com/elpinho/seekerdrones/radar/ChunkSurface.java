@@ -4,6 +4,8 @@ import javax.annotation.Nullable;
 
 import com.mojang.serialization.Codec;
 
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
@@ -12,6 +14,7 @@ import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.SimpleBitStorage;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
@@ -20,11 +23,16 @@ import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.chunk.PalettedContainer;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.MapColor;
 
 /**
  * Reads the surface of one chunk for the radar map (DESIGN.md section 7.8): for each of its 16 × 16 columns, the Y of
  * the top block and whether it's water. Works on a loaded chunk (main thread) or on a chunk's saved data (any thread),
  * so the map covers unloaded chunks without loading them.
+ *
+ * <p>In color mode (the Uplink, section 7.9), the top is the highest block with a map color, like a vanilla map, and
+ * the surface also records that block's {@link MapColor} id and, for a fluid, how deep it is.
  *
  * <p>Where the dimension has a ceiling, the top is the highest non-air block at or below {@code scanFromY} (the
  * station's Y), so the Nether shows its floor instead of the bedrock roof. Elsewhere it's the world surface.
@@ -42,12 +50,21 @@ public final class ChunkSurface {
     private static final String TAG_BLOCK_STATES = "block_states";
     private static final String TAG_HEIGHTMAPS = "Heightmaps";
 
+    /** How deep a fluid column is counted, at most: enough for the map's water shading. */
+    private static final int MAX_FLUID_DEPTH = 16;
+
     private final ChunkPos pos;
+    private final boolean colors;
     private final int[] tops = new int[256];
     private final boolean[] water = new boolean[256];
+    private final byte[] mapColors;
+    private final byte[] fluidDepths;
 
-    private ChunkSurface(ChunkPos pos) {
+    private ChunkSurface(ChunkPos pos, boolean colors) {
         this.pos = pos;
+        this.colors = colors;
+        this.mapColors = colors ? new byte[256] : null;
+        this.fluidDepths = colors ? new byte[256] : null;
     }
 
     public ChunkPos pos() {
@@ -63,9 +80,24 @@ public final class ChunkSurface {
         return water[localZ * 16 + localX];
     }
 
-    /** Reads a loaded chunk. Main thread only. */
+    /** Color mode only: the {@link MapColor} id of the column's top block (a fluid's own color). */
+    public int mapColor(int localX, int localZ) {
+        return mapColors[localZ * 16 + localX] & 0xFF;
+    }
+
+    /** Color mode only: how many fluid blocks deep the column is from its top (0 if its top isn't a fluid). */
+    public int fluidDepth(int localX, int localZ) {
+        return fluidDepths[localZ * 16 + localX];
+    }
+
+    /** Reads a loaded chunk for the height map. Main thread only. */
     public static ChunkSurface of(LevelChunk chunk, boolean ceiling, int scanFromY) {
-        ChunkSurface surface = new ChunkSurface(chunk.getPos());
+        return of(chunk, ceiling, scanFromY, false);
+    }
+
+    /** Reads a loaded chunk, for the height map or (with {@code colors}) the color map. Main thread only. */
+    public static ChunkSurface of(LevelChunk chunk, boolean ceiling, int scanFromY, boolean colors) {
+        ChunkSurface surface = new ChunkSurface(chunk.getPos(), colors);
         LevelChunkSection[] sections = chunk.getSections();
         Blocks3 blocks = (x, y, z) -> {
             int index = chunk.getSectionIndex(y);
@@ -86,6 +118,12 @@ public final class ChunkSurface {
      */
     @Nullable
     public static ChunkSurface of(ChunkPos pos, CompoundTag tag, LevelHeightAccessor height, boolean ceiling, int scanFromY) {
+        return of(pos, tag, height, ceiling, scanFromY, false);
+    }
+
+    /** Reads a chunk's saved data for the height map or (with {@code colors}) the color map. Safe off the main thread. */
+    @Nullable
+    public static ChunkSurface of(ChunkPos pos, CompoundTag tag, LevelHeightAccessor height, boolean ceiling, int scanFromY, boolean colors) {
         ListTag sectionTags = tag.getList(TAG_SECTIONS, Tag.TAG_COMPOUND);
         if (sectionTags.isEmpty()) {
             return null;
@@ -105,7 +143,7 @@ public final class ChunkSurface {
             return index < 0 || index >= sections.length || sections[index] == null ? null : sections[index].get(x, y & 15, z);
         };
         SimpleBitStorage heightmap = savedHeightmap(tag, height);
-        ChunkSurface surface = new ChunkSurface(pos);
+        ChunkSurface surface = new ChunkSurface(pos, colors);
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
                 int from = ceiling ? scanFromY
@@ -133,23 +171,50 @@ public final class ChunkSurface {
         }
     }
 
-    /** Scans down from {@code fromY} to the first non-air block. */
+    /** Scans down from {@code fromY} to the first non-air block (in color mode, the first with a map color). */
     private void sample(Blocks3 blocks, LevelHeightAccessor height, int x, int z, int fromY) {
         int i = z * 16 + x;
         tops[i] = NONE;
-        for (int y = Math.min(fromY, height.getMaxBuildHeight() - 1); y >= height.getMinBuildHeight(); y--) {
+        int minY = height.getMinBuildHeight();
+        for (int y = Math.min(fromY, height.getMaxBuildHeight() - 1); y >= minY; y--) {
             BlockState state = blocks.get(x, y, z);
             if (state == null) {
                 // An empty section: skip to the one below.
                 y = (y >> 4) << 4;
                 continue;
             }
-            if (!state.isAir()) {
-                tops[i] = y;
-                water[i] = state.getFluidState().is(FluidTags.WATER);
-                return;
+            if (colors ? mapColorOf(state) == MapColor.NONE : state.isAir()) {
+                continue;
+            }
+            tops[i] = y;
+            water[i] = state.getFluidState().is(FluidTags.WATER);
+            if (colors) {
+                sampleColor(blocks, i, x, y, z, state, minY);
+            }
+            return;
+        }
+    }
+
+    /** Like a vanilla map: a fluid that isn't under a solid top shows the fluid's color, and its depth is counted. */
+    private void sampleColor(Blocks3 blocks, int i, int x, int y, int z, BlockState state, int minY) {
+        FluidState fluid = state.getFluidState();
+        BlockState shown = state;
+        int depth = 0;
+        if (!fluid.isEmpty() && !state.isFaceSturdy(EmptyBlockGetter.INSTANCE, BlockPos.ZERO, Direction.UP)) {
+            shown = fluid.createLegacyBlock();
+            BlockState below = state;
+            for (int depthY = y; depthY >= minY && depth < MAX_FLUID_DEPTH && below != null && !below.getFluidState().isEmpty(); depthY--) {
+                depth++;
+                below = depthY - 1 >= minY ? blocks.get(x, depthY - 1, z) : null;
             }
         }
+        mapColors[i] = (byte) mapColorOf(shown).id;
+        fluidDepths[i] = (byte) depth;
+    }
+
+    /** A block's map color without a level, so it works off the main thread on saved chunks. */
+    private static MapColor mapColorOf(BlockState state) {
+        return state.getMapColor(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
     }
 
     /** A block state by local X, world Y and local Z, or null where the whole section is empty. */

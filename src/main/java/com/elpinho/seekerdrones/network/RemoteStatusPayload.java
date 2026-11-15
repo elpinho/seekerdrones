@@ -20,19 +20,27 @@ import net.minecraft.resources.ResourceLocation;
  * @param distance how far the drone is from the player in blocks, only meaningful when it is reachable or out of range
  * @param status   the drone's values, present only when the drone is {@link RemoteReach#OK reachable}
  * @param pilot    the name of the player piloting the drone (section 2.13), empty if nobody does
+ * @param uplink   opened through a Satellite Uplink (section 7.9) rather than a remote in hand; the distance is then from
+ *                 the Uplink
  */
-public record RemoteStatusPayload(boolean open, RemoteLink link, RemoteReach reach, int distance, Optional<DroneStatusPayload> status, String pilot)
-        implements CustomPacketPayload {
+public record RemoteStatusPayload(boolean open, RemoteLink link, RemoteReach reach, int distance, Optional<DroneStatusPayload> status, String pilot,
+        boolean uplink) implements CustomPacketPayload {
     public static final Type<RemoteStatusPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "remote_status"));
 
-    public static final StreamCodec<ByteBuf, RemoteStatusPayload> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.BOOL, RemoteStatusPayload::open,
-            RemoteLink.STREAM_CODEC, RemoteStatusPayload::link,
-            RemoteReach.STREAM_CODEC, RemoteStatusPayload::reach,
-            ByteBufCodecs.VAR_INT, RemoteStatusPayload::distance,
-            ByteBufCodecs.optional(DroneStatusPayload.STREAM_CODEC), RemoteStatusPayload::status,
-            ByteBufCodecs.STRING_UTF8, RemoteStatusPayload::pilot,
-            RemoteStatusPayload::new);
+    public static final StreamCodec<ByteBuf, RemoteStatusPayload> STREAM_CODEC = StreamCodec.of(
+            (buf, payload) -> {
+                ByteBufCodecs.BOOL.encode(buf, payload.open());
+                RemoteLink.STREAM_CODEC.encode(buf, payload.link());
+                RemoteReach.STREAM_CODEC.encode(buf, payload.reach());
+                ByteBufCodecs.VAR_INT.encode(buf, payload.distance());
+                ByteBufCodecs.optional(DroneStatusPayload.STREAM_CODEC).encode(buf, payload.status());
+                ByteBufCodecs.STRING_UTF8.encode(buf, payload.pilot());
+                ByteBufCodecs.BOOL.encode(buf, payload.uplink());
+            },
+            buf -> new RemoteStatusPayload(ByteBufCodecs.BOOL.decode(buf), RemoteLink.STREAM_CODEC.decode(buf),
+                    RemoteReach.STREAM_CODEC.decode(buf), ByteBufCodecs.VAR_INT.decode(buf),
+                    ByteBufCodecs.optional(DroneStatusPayload.STREAM_CODEC).decode(buf), ByteBufCodecs.STRING_UTF8.decode(buf),
+                    ByteBufCodecs.BOOL.decode(buf)));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

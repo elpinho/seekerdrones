@@ -21,7 +21,6 @@ import net.minecraft.client.renderer.Rect2i;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -37,10 +36,6 @@ public final class RadarScope implements AutoCloseable {
     private static final int TRAIL = 0x6E78FF96;
     private static final int TRAIL_DEGREES = 70;
     private static final int STATION = 0xFF8FE5D6;
-    private static final int PLAYER = 0xFFFFFFFF;
-    private static final int PLAYER_OUTLINE = 0xFF141414;
-    private static final int BLIP_OUTLINE = 0xFF0A0E10;
-    private static final int SEGMENTS = 128;
     /** Half the blip's size, in GUI pixels. */
     private static final float BLIP = 1.5F;
     /** How close (GUI pixels) the mouse must be to a blip for its tooltip. */
@@ -107,16 +102,16 @@ public final class RadarScope implements AutoCloseable {
             drawTrail(buffer, pose, cx, cy, r, sweepAngle);
         }
         for (int ring = 1; ring <= 3; ring++) {
-            drawRing(buffer, pose, cx, cy, r * ring / 3F, RING);
+            MapShapes.ring(buffer, pose, cx, cy, r * ring / 3F, 0.5F, RING);
         }
-        drawQuad(buffer, pose, cx - r, cy - 0.25F, cx + r, cy + 0.25F, RING);
-        drawQuad(buffer, pose, cx - 0.25F, cy - r, cx + 0.25F, cy + r, RING);
+        MapShapes.quad(buffer, pose, cx - r, cy - 0.25F, cx + r, cy + 0.25F, RING);
+        MapShapes.quad(buffer, pose, cx - 0.25F, cy - r, cx + 0.25F, cy + r, RING);
         if (powered) {
-            drawLine(buffer, pose, cx, cy, cx + r * (float) Math.sin(sweepAngle), cy - r * (float) Math.cos(sweepAngle), 0.6F, SWEEP);
+            MapShapes.line(buffer, pose, cx, cy, cx + r * (float) Math.sin(sweepAngle), cy - r * (float) Math.cos(sweepAngle), 0.6F, SWEEP);
         }
-        drawQuad(buffer, pose, cx - 1, cy - 1, cx + 1, cy + 1, STATION);
+        MapShapes.quad(buffer, pose, cx - 1, cy - 1, cx + 1, cy + 1, STATION);
         if (playerDx * playerDx + playerDz * playerDz <= (double) mapRadius * mapRadius) {
-            drawPlayer(buffer, pose, cx + (float) playerDx * scale, cy + (float) playerDz * scale, playerYaw);
+            MapShapes.player(buffer, pose, cx + (float) playerDx * scale, cy + (float) playerDz * scale, playerYaw);
         }
         List<Rect2i> labels = new ArrayList<>();
         for (Blip blip : blips.values()) {
@@ -126,8 +121,8 @@ public final class RadarScope implements AutoCloseable {
             }
             float bx = cx + blip.contact().dx() * scale;
             float by = cy + blip.contact().dz() * scale;
-            drawQuad(buffer, pose, bx - BLIP - 0.5F, by - BLIP - 0.5F, bx + BLIP + 0.5F, by + BLIP + 0.5F, withAlpha(BLIP_OUTLINE, alpha));
-            drawQuad(buffer, pose, bx - BLIP, by - BLIP, bx + BLIP, by + BLIP, withAlpha(textColor(blip.contact()), alpha));
+            MapShapes.quad(buffer, pose, bx - BLIP - 0.5F, by - BLIP - 0.5F, bx + BLIP + 0.5F, by + BLIP + 0.5F, MapShapes.withAlpha(MapShapes.OUTLINE, alpha));
+            MapShapes.quad(buffer, pose, bx - BLIP, by - BLIP, bx + BLIP, by + BLIP, MapShapes.withAlpha(textColor(blip.contact()), alpha));
         }
         graphics.flush();
         RenderSystem.enableCull();
@@ -145,11 +140,11 @@ public final class RadarScope implements AutoCloseable {
             int lx = Math.round(cx + blip.contact().dx() * scale + BLIP + 2);
             int ly = Math.round(cy + blip.contact().dz() * scale - 3);
             Rect2i area = new Rect2i(lx, ly, Kit.smallWidth(font, label), 6);
-            if (labels.stream().anyMatch(other -> intersects(other, area))) {
+            if (labels.stream().anyMatch(other -> MapShapes.intersects(other, area))) {
                 continue;
             }
             labels.add(area);
-            Kit.smallText(graphics, font, label, lx, ly, withAlpha(textColor(blip.contact()), Math.max(alpha, 0.05F)), true);
+            Kit.smallText(graphics, font, label, lx, ly, MapShapes.withAlpha(textColor(blip.contact()), Math.max(alpha, 0.05F)), true);
         }
     }
 
@@ -226,15 +221,6 @@ public final class RadarScope implements AutoCloseable {
         return 0xFF000000 | contact.color().getTextColor();
     }
 
-    private static int withAlpha(int color, float alpha) {
-        return FastColor.ARGB32.color(Math.round(FastColor.ARGB32.alpha(color) * alpha), color);
-    }
-
-    private static boolean intersects(Rect2i a, Rect2i b) {
-        return a.getX() < b.getX() + b.getWidth() && b.getX() < a.getX() + a.getWidth()
-                && a.getY() < b.getY() + b.getHeight() && b.getY() < a.getY() + a.getHeight();
-    }
-
     private static void drawRingLabels(GuiGraphics graphics, Font font, float cx, float cy, float r, int mapRadius) {
         for (int ring = 1; ring <= 3; ring++) {
             float distance = r * ring / 3F * 0.7071F;
@@ -252,75 +238,13 @@ public final class RadarScope implements AutoCloseable {
             double a0 = sweepAngle - Math.toRadians(i);
             double a1 = sweepAngle - Math.toRadians(i + 1);
             float fade = 1 - (float) i / steps;
-            int color = withAlpha(TRAIL, fade * fade);
-            int colorEnd = withAlpha(TRAIL, (1 - (float) (i + 1) / steps) * (1 - (float) (i + 1) / steps));
-            vertex(buffer, pose, cx, cy, color);
-            vertex(buffer, pose, cx + r * (float) Math.sin(a0), cy - r * (float) Math.cos(a0), color);
-            vertex(buffer, pose, cx + r * (float) Math.sin(a1), cy - r * (float) Math.cos(a1), colorEnd);
-            vertex(buffer, pose, cx, cy, colorEnd);
+            int color = MapShapes.withAlpha(TRAIL, fade * fade);
+            int colorEnd = MapShapes.withAlpha(TRAIL, (1 - (float) (i + 1) / steps) * (1 - (float) (i + 1) / steps));
+            MapShapes.vertex(buffer, pose, cx, cy, color);
+            MapShapes.vertex(buffer, pose, cx + r * (float) Math.sin(a0), cy - r * (float) Math.cos(a0), color);
+            MapShapes.vertex(buffer, pose, cx + r * (float) Math.sin(a1), cy - r * (float) Math.cos(a1), colorEnd);
+            MapShapes.vertex(buffer, pose, cx, cy, colorEnd);
         }
-    }
-
-    private static void drawRing(VertexConsumer buffer, Matrix4f pose, float cx, float cy, float r, int color) {
-        float inner = r - 0.25F;
-        float outer = r + 0.25F;
-        for (int i = 0; i < SEGMENTS; i++) {
-            double a0 = 2 * Math.PI * i / SEGMENTS;
-            double a1 = 2 * Math.PI * (i + 1) / SEGMENTS;
-            float s0 = (float) Math.sin(a0);
-            float c0 = (float) Math.cos(a0);
-            float s1 = (float) Math.sin(a1);
-            float c1 = (float) Math.cos(a1);
-            vertex(buffer, pose, cx + outer * s0, cy - outer * c0, color);
-            vertex(buffer, pose, cx + inner * s0, cy - inner * c0, color);
-            vertex(buffer, pose, cx + inner * s1, cy - inner * c1, color);
-            vertex(buffer, pose, cx + outer * s1, cy - outer * c1, color);
-        }
-    }
-
-    private static void drawLine(VertexConsumer buffer, Matrix4f pose, float x0, float y0, float x1, float y1, float width, int color) {
-        float dx = x1 - x0;
-        float dy = y1 - y0;
-        float length = Mth.sqrt(dx * dx + dy * dy);
-        if (length == 0) {
-            return;
-        }
-        float nx = -dy / length * width / 2;
-        float ny = dx / length * width / 2;
-        vertex(buffer, pose, x0 + nx, y0 + ny, color);
-        vertex(buffer, pose, x0 - nx, y0 - ny, color);
-        vertex(buffer, pose, x1 - nx, y1 - ny, color);
-        vertex(buffer, pose, x1 + nx, y1 + ny, color);
-    }
-
-    private static void drawQuad(VertexConsumer buffer, Matrix4f pose, float x0, float y0, float x1, float y1, int color) {
-        vertex(buffer, pose, x0, y0, color);
-        vertex(buffer, pose, x0, y1, color);
-        vertex(buffer, pose, x1, y1, color);
-        vertex(buffer, pose, x1, y0, color);
-    }
-
-    /** The viewing player: an arrow pointing where they look, with a dark outline. */
-    private static void drawPlayer(VertexConsumer buffer, Matrix4f pose, float x, float y, float yaw) {
-        // Minecraft's look direction is (-sin yaw, cos yaw) in X and Z, and the map's X and Y are the world's X and Z.
-        float dirX = -Mth.sin(yaw * Mth.DEG_TO_RAD);
-        float dirY = Mth.cos(yaw * Mth.DEG_TO_RAD);
-        drawArrow(buffer, pose, x, y, dirX, dirY, 3.5F, PLAYER_OUTLINE);
-        drawArrow(buffer, pose, x, y, dirX, dirY, 2.5F, PLAYER);
-    }
-
-    /** An arrowhead: the tip, two back corners and a notch pulled toward the middle. */
-    private static void drawArrow(VertexConsumer buffer, Matrix4f pose, float x, float y, float dirX, float dirY, float size, int color) {
-        float sideX = -dirY;
-        float sideY = dirX;
-        vertex(buffer, pose, x + dirX * size, y + dirY * size, color);
-        vertex(buffer, pose, x - dirX * size * 0.7F + sideX * size * 0.75F, y - dirY * size * 0.7F + sideY * size * 0.75F, color);
-        vertex(buffer, pose, x - dirX * size * 0.3F, y - dirY * size * 0.3F, color);
-        vertex(buffer, pose, x - dirX * size * 0.7F - sideX * size * 0.75F, y - dirY * size * 0.7F - sideY * size * 0.75F, color);
-    }
-
-    private static void vertex(VertexConsumer buffer, Matrix4f pose, float x, float y, int color) {
-        buffer.addVertex(pose, x, y, 0).setColor(color);
     }
 
     @Override

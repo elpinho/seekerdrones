@@ -162,6 +162,13 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue RADAR_STATION_SCAN_INTERVAL;
     public static final ModConfigSpec.IntValue RADAR_STATION_TERRAIN_REFRESH_INTERVAL;
     public static final ModConfigSpec.IntValue RADAR_STATION_TERRAIN_CHUNKS_PER_TICK;
+    public static final ModConfigSpec.IntValue UPLINK_ENERGY_CAPACITY;
+    public static final ModConfigSpec.IntValue UPLINK_ENERGY_PER_TICK;
+    public static final ModConfigSpec.IntValue UPLINK_RADIUS;
+    public static final ModConfigSpec.IntValue UPLINK_SCAN_INTERVAL;
+    public static final ModConfigSpec.IntValue UPLINK_TERRAIN_CHUNKS_PER_TICK;
+    public static final ModConfigSpec.IntValue UPLINK_TERRAIN_REFRESH_INTERVAL;
+    public static final ModConfigSpec.IntValue UPLINK_PULSE_TICKS;
 
     // === remote ===
     public static final ModConfigSpec.IntValue REMOTE_RANGE;
@@ -561,6 +568,30 @@ public class ServerConfig {
         RADAR_STATION_TERRAIN_CHUNKS_PER_TICK = BUILDER
                 .comment("Chunks a Radar Station reads per tick while it builds its terrain map.")
                 .defineInRange("terrainChunksPerTick", 4, 1, 64);
+        BUILDER.pop();
+
+        BUILDER.comment("Drone Satellite Uplink (DESIGN.md section 7.9).").push("uplink");
+        UPLINK_ENERGY_CAPACITY = BUILDER
+                .comment("FE a Satellite Uplink can store.")
+                .defineInRange("energyCapacity", 200_000, 1, Integer.MAX_VALUE);
+        UPLINK_ENERGY_PER_TICK = BUILDER
+                .comment("FE a Satellite Uplink uses every tick while it has enough, whether or not anyone has its screen open.")
+                .defineInRange("energyPerTick", 1_200, 0, Integer.MAX_VALUE);
+        UPLINK_RADIUS = BUILDER
+                .comment("Radius (blocks) of the area a Satellite Uplink shows, opens remotes in and counts intruders in.")
+                .defineInRange("radius", 128, 8, 256);
+        UPLINK_SCAN_INTERVAL = BUILDER
+                .comment("How often (ticks) viewers get the drones' positions, and the intruder alarm is recounted.")
+                .defineInRange("scanInterval", 10, 1, 1200);
+        UPLINK_TERRAIN_CHUNKS_PER_TICK = BUILDER
+                .comment("Chunks a Satellite Uplink reads per tick while it builds its terrain map.")
+                .defineInRange("terrainChunksPerTick", 8, 1, 64);
+        UPLINK_TERRAIN_REFRESH_INTERVAL = BUILDER
+                .comment("How often (ticks) the terrain map is rebuilt while someone has a Satellite Uplink's screen open.")
+                .defineInRange("terrainRefreshInterval", 600, 20, 72_000);
+        UPLINK_PULSE_TICKS = BUILDER
+                .comment("Ticks for one pulse of the blips on the Satellite Uplink's map (client-side).")
+                .defineInRange("pulseTicks", 40, 2, 1200);
         BUILDER.pop();
 
         BUILDER.push("remote");

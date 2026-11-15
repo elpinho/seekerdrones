@@ -29,6 +29,7 @@ public class ModCreativeTabs {
                         output.accept(ModItems.DEPLOYING_STATION.get());
                         output.accept(ModItems.CHARGING_STATION.get());
                         output.accept(ModItems.RADAR_STATION.get());
+                        output.accept(ModItems.UPLINK.get());
                         output.accept(ModItems.DRONE_ROTOR.get());
                         output.accept(ModItems.SEEKER_CORE.get());
                         for (UpgradeType type : UpgradeType.values()) {

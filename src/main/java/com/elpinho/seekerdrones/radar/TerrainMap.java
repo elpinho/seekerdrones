@@ -12,7 +12,7 @@ import net.minecraft.network.codec.StreamCodec;
  * (clamped to ±127, {@link #UNKNOWN} for chunks that were never generated) and whether its surface is water. The
  * client shades it.
  */
-public record TerrainMap(int radius, byte[] heights, BitSet water) {
+public record TerrainMap(int radius, byte[] heights, BitSet water) implements RadarMap {
     /** A column with no data: its chunk was never generated. */
     public static final byte UNKNOWN = Byte.MIN_VALUE;
 
@@ -24,14 +24,6 @@ public record TerrainMap(int radius, byte[] heights, BitSet water) {
 
     public static int size(int radius) {
         return radius * 2 + 1;
-    }
-
-    public int size() {
-        return size(radius);
-    }
-
-    public int index(int column, int row) {
-        return row * size() + column;
     }
 
     public byte height(int column, int row) {

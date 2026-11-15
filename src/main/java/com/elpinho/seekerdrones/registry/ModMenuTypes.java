@@ -5,6 +5,7 @@ import com.elpinho.seekerdrones.deploying.DeployingStationMenu;
 import com.elpinho.seekerdrones.factory.DroneFactoryMenu;
 import com.elpinho.seekerdrones.programming.ProgrammingStationMenu;
 import com.elpinho.seekerdrones.radar.RadarStationMenu;
+import com.elpinho.seekerdrones.uplink.UplinkMenu;
 import com.elpinho.seekerdrones.station.ChargingStationMenu;
 
 import net.minecraft.core.registries.Registries;
@@ -27,4 +28,6 @@ public class ModMenuTypes {
             MENU_TYPES.register("charging_station", () -> IMenuTypeExtension.create(ChargingStationMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<RadarStationMenu>> RADAR_STATION =
             MENU_TYPES.register("radar_station", () -> IMenuTypeExtension.create(RadarStationMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<UplinkMenu>> UPLINK =
+            MENU_TYPES.register("satellite_uplink", () -> IMenuTypeExtension.create(UplinkMenu::new));
 }

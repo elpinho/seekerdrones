@@ -3,6 +3,7 @@ package com.elpinho.seekerdrones.feed;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -17,6 +18,7 @@ import com.elpinho.seekerdrones.network.FpvStartPayload;
 import com.elpinho.seekerdrones.network.FpvStatusPayload;
 import com.elpinho.seekerdrones.remote.RemoteControl;
 import com.elpinho.seekerdrones.remote.RemoteReach;
+import com.elpinho.seekerdrones.uplink.UplinkBlockEntity;
 
 import net.minecraft.core.SectionPos;
 import net.minecraft.network.chat.Component;
@@ -40,6 +42,10 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * <p>
  * A pilot session (section 2.13) is a remote feed whose player also flies the drone: the drone is PILOTED while it
  * lasts, and its AI resumes when it ends, whatever ends it.
+ * <p>
+ * A remote feed opened through a Satellite Uplink (section 7.9) follows the Uplink's reach rule instead of the
+ * remote's, and ends with "Signal lost" when any of its checks fails, when the Uplink's menu closes or when the
+ * Uplink loses power.
  */
 public final class FpvFeeds {
     /** How often (ticks) the entities around the drone are re-checked for the viewer, like a moving player's would be. */
@@ -54,14 +60,18 @@ public final class FpvFeeds {
         final boolean remote;
         /** The player flies the drone (section 2.13), not just watches it. Always opened from a remote. */
         final boolean pilot;
+        /** The Satellite Uplink a remote feed was opened through (section 7.9), or null for a remote in hand. */
+        @Nullable
+        final UplinkBlockEntity uplink;
         long section;
         int age;
 
-        Session(ServerPlayer player, DroneEntity drone, boolean remote, boolean pilot) {
+        Session(ServerPlayer player, DroneEntity drone, boolean remote, boolean pilot, @Nullable UplinkBlockEntity uplink) {
             this.player = player;
             this.drone = drone;
             this.remote = remote;
             this.pilot = pilot;
+            this.uplink = uplink;
             this.section = SectionPos.of(drone).asLong();
         }
     }
@@ -150,10 +160,11 @@ public final class FpvFeeds {
      * 2.10, plus the FPV Camera. Only one player pilots a drone at a time. Tells the player why when it can't start.
      */
     public static void startFromRemote(ServerPlayer player, String droneId, boolean pilot) {
-        if (RemoteControl.heldLink(player, droneId).isEmpty()) {
+        Optional<RemoteControl.Access> access = RemoteControl.access(player, droneId);
+        if (access.isEmpty()) {
             return;
         }
-        RemoteControl.Target target = RemoteControl.find(player, droneId);
+        RemoteControl.Target target = RemoteControl.find(player, droneId, access.get());
         DroneEntity drone = target.drone();
         if (target.reach() != RemoteReach.OK || drone == null) {
             if (target.reach() == RemoteReach.DENIED) {
@@ -172,16 +183,16 @@ public final class FpvFeeds {
                 return;
             }
         }
-        start(player, drone, true, pilot);
+        start(player, drone, true, pilot, access.get().uplink());
     }
 
     /** Starts watching the drone, replacing any feed the player was watching. The caller has done the checks. */
     public static void start(ServerPlayer player, DroneEntity drone, boolean remote) {
-        start(player, drone, remote, false);
+        start(player, drone, remote, false, null);
     }
 
-    private static void start(ServerPlayer player, DroneEntity drone, boolean remote, boolean pilot) {
-        Session previous = SESSIONS.put(player.getUUID(), new Session(player, drone, remote, pilot));
+    private static void start(ServerPlayer player, DroneEntity drone, boolean remote, boolean pilot, @Nullable UplinkBlockEntity uplink) {
+        Session previous = SESSIONS.put(player.getUUID(), new Session(player, drone, remote, pilot, uplink));
         if (previous != null && previous.pilot && (previous.drone != drone || !pilot)) {
             previous.drone.stopPiloting();
         }
@@ -189,7 +200,9 @@ public final class FpvFeeds {
             drone.startPiloting();
         }
         refreshView(player);
-        send(player, new FpvStartPayload(drone.getId(), drone.getDroneId(), remote, pilot));
+        int range = !remote ? 0 : uplink != null ? uplink.radius() : ServerConfig.get(ServerConfig.REMOTE_RANGE);
+        send(player, new FpvStartPayload(drone.getId(), drone.getDroneId(), remote, pilot,
+                Optional.ofNullable(uplink).map(UplinkBlockEntity::getBlockPos), range));
         sendStatus(player, drone);
     }
 
@@ -207,6 +220,26 @@ public final class FpvFeeds {
             send(player, new FpvEndPayload(signalLost));
         }
         return true;
+    }
+
+    /** Ends the player's feed with "Signal lost" if it was opened through this Uplink: its menu closed (section 7.9). */
+    public static void stopThroughUplink(ServerPlayer player, UplinkBlockEntity uplink) {
+        Session session = SESSIONS.isEmpty() ? null : SESSIONS.get(player.getUUID());
+        if (session != null && session.uplink == uplink) {
+            stop(player, true);
+        }
+    }
+
+    /** Ends every feed opened through this Uplink with "Signal lost": it lost power (section 7.9). */
+    public static void stopThroughUplink(UplinkBlockEntity uplink) {
+        if (SESSIONS.isEmpty()) {
+            return;
+        }
+        for (Session session : new ArrayList<>(SESSIONS.values())) {
+            if (session.uplink == uplink) {
+                stop(session.player, true);
+            }
+        }
     }
 
     /**
@@ -259,7 +292,7 @@ public final class FpvFeeds {
             }
             session.age++;
             if (session.remote && session.age % recheck == 0) {
-                Boolean lost = remoteCheck(player, drone);
+                Boolean lost = session.uplink != null ? uplinkCheck(player, drone, session.uplink) : remoteCheck(player, drone);
                 if (lost != null) {
                     stop(player, lost);
                     continue;
@@ -290,6 +323,21 @@ public final class FpvFeeds {
         if (target.reach() == RemoteReach.DENIED) {
             return false;
         }
+        return target.reach() == RemoteReach.OK && target.drone() == drone ? null : true;
+    }
+
+    /**
+     * The checks of a feed opened through a Satellite Uplink (section 7.9): the player still has this Uplink's menu
+     * open, and the Uplink's reach rule passes, plus the FPV Camera. Any failure ends it with "Signal lost".
+     */
+    @Nullable
+    private static Boolean uplinkCheck(ServerPlayer player, DroneEntity drone, UplinkBlockEntity uplink) {
+        String droneId = drone.getDroneId();
+        Optional<RemoteControl.Access> access = RemoteControl.access(player, droneId);
+        if (access.isEmpty() || access.get().uplink() != uplink || !DroneStats.hasFpvCamera(drone.snapshotData())) {
+            return true;
+        }
+        RemoteControl.Target target = RemoteControl.findThroughUplink(player, droneId, uplink);
         return target.reach() == RemoteReach.OK && target.drone() == drone ? null : true;
     }
 

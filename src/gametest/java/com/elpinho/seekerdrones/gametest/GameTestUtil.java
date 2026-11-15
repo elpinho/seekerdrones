@@ -11,6 +11,7 @@ import com.elpinho.seekerdrones.deploying.DeployingStationBlockEntity;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.programming.ProgrammingStationBlockEntity;
+import com.elpinho.seekerdrones.radar.TwoBlockMachineBlock;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
@@ -34,6 +35,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -106,6 +109,18 @@ public final class GameTestUtil {
     /** Places a Charging Station with no recorded placer (as if placed by a non-player, e.g. automation). */
     public static ChargingStationBlockEntity placeChargingStation(GameTestHelper helper, BlockPos rel) {
         return place(helper, rel, ModBlocks.CHARGING_STATION.get());
+    }
+
+    /**
+     * Places both halves of a two-block radar machine (Radar Station or Satellite Uplink) the way a player placing it
+     * would, and returns the lower half's block entity.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T extends BlockEntity> T placeTwoBlock(GameTestHelper helper, BlockPos rel, TwoBlockMachineBlock block) {
+        BlockState lower = block.defaultBlockState();
+        helper.setBlock(rel, lower);
+        helper.setBlock(rel.above(), lower.setValue(TwoBlockMachineBlock.HALF, DoubleBlockHalf.UPPER));
+        return (T) helper.getLevel().getBlockEntity(helper.absolutePos(rel));
     }
 
     public static ProgrammingStationBlockEntity placeProgrammingStation(GameTestHelper helper, BlockPos rel) {

@@ -1,5 +1,5 @@
 """Generates the mod's placeholder textures (until the commissioned art replaces them), and the models whose geometry
-is laid out together with their textures: the 3D Drone Remote and the Radar Station.
+is laid out together with their textures: the 3D Drone Remote, the Radar Station and the Satellite Uplink.
 
 Everything is drawn from scratch with a shared palette; no vanilla textures are copied. Run from anywhere:
 
@@ -686,6 +686,9 @@ MACHINE_PALETTE = {
     "J": (20, 58, 34, 255),  # phosphor, faint
     "Q": (150, 30, 26, 255),  # beacon red
     "U": (255, 90, 70, 255),  # beacon lit
+    "V": (196, 202, 210, 255),  # dish white
+    "X": (160, 168, 178, 255),  # dish shade
+    "W": (225, 230, 236, 255),  # dish highlight
 }
 
 
@@ -1659,6 +1662,146 @@ def radar_station_models():
     }
 
 
+# --- Drone Satellite Uplink ---------------------------------------------------------------------------------------
+#
+# The Advanced radar tier (DESIGN.md sections 7.6 and 7.9), built like the Radar Station: a custom model two blocks
+# tall whose parts reuse the Radar Station's casing, plinth, deck, copper, mast and beacon textures. The console carries
+# a flat-panel screen, and the deck a pedestal with an az-el mount: UplinkRenderer turns the mount (yaw) about
+# UPLINK_HEAD and tilts the dish (pitch) about the axle at UPLINK_PIVOT_Y. The dish is modeled pointing straight up.
+
+UPLINK_HEAD = (8, 9.5)
+UPLINK_PIVOT_Y = 22
+
+# The dish's concave face, toward the sky: white panels with seams.
+SATELLITE_UPLINK_DISH = [
+    "WWWWWWWWWWWWWWWX",
+    "WVVVVVVXVVVVVVVX",
+    "WVVVVVVXVVVVVVVX",
+    "WVVVVVVXVVVVVVVX",
+    "WVVVVVVXVVVVVVVX",
+    "WVVVVVVXVVVVVVVX",
+    "WVVVVVVXVVVVVVVX",
+    "WXXXXXXXXXXXXXXX",
+    "WVVVVVVXVVVVVVVX",
+    "WVVVVVVXVVVVVVVX",
+    "WVVVVVVXVVVVVVVX",
+    "WVVVVVVXVVVVVVVX",
+    "WVVVVVVXVVVVVVVX",
+    "WVVVVVVXVVVVVVVX",
+    "WVVVVVVXVVVVVVVX",
+    "XXXXXXXXXXXXXXXX",
+]
+# The flat panel is 12 x 9 pixels, so its face uses the texture's 12 x 9 area at (2, 3) one to one.
+SATELLITE_UPLINK_SCREEN_AREA = (2, 3, 12, 9)
+
+
+def satellite_uplink_screen(frame=None, frames=40):
+    """The flat panel: dark glass while idle (frame=None); while powered, a generic colored map with a scan line and a
+    blinking contact. It never shows the real map or drones."""
+    rows = [list("2" * 16) for _ in range(16)]
+    ax, ay, aw, ah = SATELLITE_UPLINK_SCREEN_AREA
+    for y in range(ay, ay + ah):
+        for x in range(ax, ax + aw):
+            if y in (ay, ay + ah - 1) or x in (ax, ax + aw - 1):
+                rows[y][x] = "0"
+            elif frame is None:
+                rows[y][x] = "y" if (x - ax) + (y - ay) < 4 else "x"
+            else:
+                land = ((x * 5 + y * 3) % 7) < 4 and not (x > ax + 6 and y > ay + 4)
+                rows[y][x] = "g" if land else "B"
+    if frame is not None:
+        scan = ay + 1 + frame * (ah - 2) // frames
+        for x in range(ax + 1, ax + aw - 1):
+            rows[scan][x] = "t" if rows[scan][x] == "B" else "G"
+        if (frame // 5) % 2 == 0:
+            rows[ay + 3][ax + 4] = "U"
+    return ["".join(row) for row in rows]
+
+
+def satellite_uplink_base():
+    """The static model: plinth, console with the flat-panel screen, conduits, deck, turntable seat and pedestal."""
+    return [
+        radar_box([0, 0, 0], [16, 3, 16], {"all": "foot", "up": "casing", "down": "casing"}),
+        # The console body, with vented sides.
+        radar_box([1, 3, 3], [15, 13, 15], {"all": "casing", "east": "side", "west": "side"}),
+        # The flat-panel screen on a short bracket at the front.
+        radar_box([6, 6, 2], [10, 10, 3], "casing"),
+        radar_box([2, 4.5, 1], [14, 13.5, 2], {"all": "casing", "north": "screen"}, uv={"north": [2, 3, 14, 12]}),
+        # Cable conduits down the back.
+        radar_box([3, 3, 15], [5, 13, 16], "copper"),
+        radar_box([11, 3, 15], [13, 13, 16], "copper"),
+        # The deck, the turntable seat and the pedestal.
+        radar_box([2, 13, 3], [14, 14, 15], {"all": "casing", "up": "deck"}),
+        radar_box([4, 14, 5.5], [12, 15, 13.5], "copper"),
+        radar_box([6.5, 15, 8], [9.5, 18, 11], "mast"),
+    ]
+
+
+def satellite_uplink_mount():
+    """Turns about UPLINK_HEAD (yaw): the turntable and the fork."""
+    return [
+        radar_box([5, 18, 6.5], [11, 19, 12.5], "copper"),
+        radar_box([4, 19, 9], [5, 23, 10], "casing"),
+        radar_box([11, 19, 9], [12, 23, 10], "casing"),
+    ]
+
+
+def satellite_uplink_dish():
+    """Tilts about the axle (pitch), then turns with the fork. Drawn pointing straight up."""
+    cz = UPLINK_HEAD[1]
+    y0, y1 = UPLINK_PIVOT_Y + 1, UPLINK_PIVOT_Y + 2
+    dish = {"all": "dish_back", "up": "dish"}
+    return [
+        # The hub on the axle, and the axle.
+        radar_box([6.5, UPLINK_PIVOT_Y - 1, cz - 1.5], [9.5, y0, cz + 1.5], "casing"),
+        radar_box([5, UPLINK_PIVOT_Y - 0.5, cz - 0.5], [11, UPLINK_PIVOT_Y + 0.5, cz + 0.5], "copper"),
+        # The dish: a center panel and four petals angled up.
+        radar_box([4, y0, cz - 4], [12, y1, cz + 4], dish),
+        radar_box([4, y0, cz - 7.5], [12, y1, cz - 4], dish, rotation={"origin": [8, y0, cz - 4], "axis": "x", "angle": 22.5}),
+        radar_box([4, y0, cz + 4], [12, y1, cz + 7.5], dish, rotation={"origin": [8, y0, cz + 4], "axis": "x", "angle": -22.5}),
+        radar_box([0.5, y0, cz - 4], [4, y1, cz + 4], dish, rotation={"origin": [4, y0, cz], "axis": "z", "angle": -22.5}),
+        radar_box([12, y0, cz - 4], [15.5, y1, cz + 4], dish, rotation={"origin": [12, y0, cz], "axis": "z", "angle": 22.5}),
+        # The feed: a post up from the center with the receiver on top, and the tracking light.
+        radar_box([7.5, y1, cz - 0.5], [8.5, y1 + 5, cz + 0.5], "casing"),
+        radar_box([6.5, y1 + 5, cz - 1.5], [9.5, y1 + 6.5, cz + 1.5], {"all": "copper", "up": "casing"}),
+        radar_box([7.5, y1 + 6.5, cz - 0.5], [8.5, y1 + 7, cz + 0.5], "beacon"),
+    ]
+
+
+def satellite_uplink_textures(powered):
+    radar = "seekerdrones:block/radar_station"
+    uplink = "seekerdrones:block/satellite_uplink"
+    lit_suffix = "_powered" if powered else ""
+    return {
+        "particle": radar + "_casing",
+        "casing": radar + "_casing", "foot": radar + "_foot", "deck": radar + "_deck", "copper": radar + "_copper",
+        "mast": radar + "_mast", "dish_back": radar + "_dish_back", "dish": uplink + "_dish",
+        "side": radar + "_side" + lit_suffix, "beacon": radar + "_beacon" + lit_suffix,
+        "screen": uplink + "_screen" + lit_suffix,
+    }
+
+
+def satellite_uplink_model(elements, powered):
+    # No ambient occlusion, like the Radar Station: parts above y = 16 would be shaded as if inside the block above.
+    return {"ambientocclusion": False, "textures": satellite_uplink_textures(powered), "elements": elements}
+
+
+def satellite_uplink_models():
+    """Block model JSONs by name (under models/block). The blockstate comes from ModBlockStateProvider."""
+    item = satellite_uplink_model(satellite_uplink_base() + satellite_uplink_mount() + satellite_uplink_dish(), False)
+    item["display"] = RADAR_STATION_ITEM_DISPLAY
+    return {
+        "satellite_uplink": satellite_uplink_model(satellite_uplink_base(), False),
+        "satellite_uplink_powered": satellite_uplink_model(satellite_uplink_base(), True),
+        "satellite_uplink_mount": satellite_uplink_model(satellite_uplink_mount(), False),
+        "satellite_uplink_dish": satellite_uplink_model(satellite_uplink_dish(), False),
+        "satellite_uplink_dish_powered": satellite_uplink_model(satellite_uplink_dish(), True),
+        # The upper half draws nothing (the lower half's models cover it); it only needs break particles.
+        "satellite_uplink_upper": {"textures": {"particle": "seekerdrones:block/radar_station_casing"}},
+        "satellite_uplink_item": item,
+    }
+
+
 MACHINES = {
     "machine_bottom": MACHINE_BOTTOM,
     "charging_station_side": CHARGING_STATION_SIDE,
@@ -1696,6 +1839,8 @@ MACHINES = {
     "radar_station_beacon": RADAR_STATION_BEACON,
     "radar_station_beacon_powered": RADAR_STATION_BEACON_POWERED,
     "radar_station_screen": radar_station_screen(),
+    "satellite_uplink_dish": SATELLITE_UPLINK_DISH,
+    "satellite_uplink_screen": satellite_uplink_screen(),
 }
 # Animated faces: name -> (frames, game ticks per frame).
 ANIMATED_MACHINES = {
@@ -1709,6 +1854,7 @@ ANIMATED_MACHINES = {
     **{f"programming_station_{face}_working": (frames, 2) for face, frames in programming_station_working().items()},
     # One loop is 60 ticks, like the default sweep (a texture can't follow the configured one).
     "radar_station_screen_powered": ([machine(radar_station_screen(f)) for f in range(30)], 2),
+    "satellite_uplink_screen_powered": ([machine(satellite_uplink_screen(f)) for f in range(40)], 2),
 }
 
 
@@ -1790,7 +1936,8 @@ def main():
             preview.parent.mkdir(parents=True, exist_ok=True)
             img.resize((img.width * 16, img.height * 16), Image.NEAREST).save(preview)
     models = {"item/drone_remote_3d": remote_3d_model_json(),
-              **{f"block/{name}": model for name, model in radar_station_models().items()}}
+              **{f"block/{name}": model for name, model in radar_station_models().items()},
+              **{f"block/{name}": model for name, model in satellite_uplink_models().items()}}
     for name, model in models.items():
         path = MODELS / f"{name}.json"
         path.parent.mkdir(parents=True, exist_ok=True)

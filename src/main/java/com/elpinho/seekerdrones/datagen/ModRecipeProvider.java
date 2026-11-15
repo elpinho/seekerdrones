@@ -121,6 +121,20 @@ public class ModRecipeProvider extends RecipeProvider {
                 .unlockedBy(getHasName(Items.OBSERVER), has(Items.OBSERVER))
                 .save(output);
 
+        // Placeholder Satellite Uplink recipe until the art pass (DESIGN.md section 7.9): the Radar Station at its core.
+        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ModItems.UPLINK.get())
+                .pattern("QEQ")
+                .pattern("DRD")
+                .pattern("IBI")
+                .define('Q', Items.QUARTZ)
+                .define('E', Items.ENDER_EYE)
+                .define('D', Items.DIAMOND)
+                .define('R', ModItems.RADAR_STATION.get())
+                .define('I', Items.IRON_INGOT)
+                .define('B', Items.REDSTONE_BLOCK)
+                .unlockedBy(getHasName(ModItems.RADAR_STATION.get()), has(ModItems.RADAR_STATION.get()))
+                .save(output);
+
         buildBaseRecipes(output.withConditions(new NotCondition(new ModLoadedCondition(RepairFluid.MEKANISM))));
         buildMekanismAssembly(output.withConditions(new ModLoadedCondition(RepairFluid.MEKANISM)));
     }

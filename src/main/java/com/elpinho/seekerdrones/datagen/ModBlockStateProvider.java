@@ -7,6 +7,7 @@ import com.elpinho.seekerdrones.factory.DroneFactoryBlock;
 import com.elpinho.seekerdrones.machine.MachineWorkingState;
 import com.elpinho.seekerdrones.programming.ProgrammingStationBlock;
 import com.elpinho.seekerdrones.radar.RadarStationBlock;
+import com.elpinho.seekerdrones.radar.TwoBlockMachineBlock;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.station.ChargingStationBlock;
 
@@ -32,6 +33,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
         deployingStation();
         programmingStation();
         radarStation();
+        satelliteUplink();
     }
 
     /**
@@ -51,6 +53,24 @@ public class ModBlockStateProvider extends BlockStateProvider {
                 : ConfiguredModel.builder().modelFile(upper).build());
         // The item shows the whole station, base and head.
         itemModels().withExistingParent("radar_station", modLoc("block/radar_station_item"));
+    }
+
+    /**
+     * Two blocks tall like the Radar Station (DESIGN.md section 7.9). The lower half carries the static model (the
+     * console and pedestal); the mount and dish are drawn by UplinkRenderer. The upper half draws nothing.
+     */
+    private void satelliteUplink() {
+        ModelFile idle = models().getExistingFile(modLoc("block/satellite_uplink"));
+        ModelFile powered = models().getExistingFile(modLoc("block/satellite_uplink_powered"));
+        ModelFile upper = models().getExistingFile(modLoc("block/satellite_uplink_upper"));
+        getVariantBuilder(ModBlocks.UPLINK.get()).forAllStates(state -> TwoBlockMachineBlock.isLower(state)
+                ? ConfiguredModel.builder()
+                        .modelFile(state.getValue(TwoBlockMachineBlock.POWERED) ? powered : idle)
+                        .rotationY(((int) state.getValue(TwoBlockMachineBlock.FACING).toYRot() + 180) % 360)
+                        .build()
+                : ConfiguredModel.builder().modelFile(upper).build());
+        // The item shows the whole Uplink, with the dish pointing up.
+        itemModels().withExistingParent("satellite_uplink", modLoc("block/satellite_uplink_item"));
     }
 
     /**

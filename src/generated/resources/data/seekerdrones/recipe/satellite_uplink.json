@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "minecraft:redstone_block"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    },
+    "E": {
+      "item": "minecraft:ender_eye"
+    },
+    "I": {
+      "item": "minecraft:iron_ingot"
+    },
+    "Q": {
+      "item": "minecraft:quartz"
+    },
+    "R": {
+      "item": "seekerdrones:radar_station"
+    }
+  },
+  "pattern": [
+    "QEQ",
+    "DRD",
+    "IBI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "seekerdrones:satellite_uplink"
+  }
+}

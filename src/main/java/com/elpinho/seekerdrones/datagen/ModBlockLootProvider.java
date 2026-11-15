@@ -56,6 +56,8 @@ public class ModBlockLootProvider extends BlockLootSubProvider {
         // The Radar Station is two blocks tall; only the lower half drops it (DESIGN.md section 7.8).
         Block radarStation = ModBlocks.RADAR_STATION.get();
         add(radarStation, createSinglePropConditionTable(radarStation, RadarStationBlock.HALF, DoubleBlockHalf.LOWER));
+        Block uplink = ModBlocks.UPLINK.get();
+        add(uplink, createSinglePropConditionTable(uplink, RadarStationBlock.HALF, DoubleBlockHalf.LOWER));
     }
 
     @Override

@@ -6,6 +6,7 @@ import javax.annotation.Nullable;
 
 import org.lwjgl.glfw.GLFW;
 
+import com.elpinho.seekerdrones.client.UplinkScreen;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.network.FpvEndPayload;
@@ -23,6 +24,7 @@ import net.minecraft.client.CameraType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Options;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
@@ -75,6 +77,11 @@ public final class FpvFeedClient {
     private static int entityId;
     private static String droneId = "";
     private static boolean remote;
+    /** The Satellite Uplink a remote feed was opened through (section 7.9), or null. */
+    @Nullable
+    private static BlockPos uplink;
+    /** The distance at which the signal is gone, 0 for a command feed. */
+    private static int range;
     private static Phase phase = Phase.CONNECTING;
     private static int phaseTicks;
     private static float yaw;
@@ -108,6 +115,17 @@ public final class FpvFeedClient {
     /** Opened from a Drone Remote, so the signal drops with distance. */
     public static boolean isRemote() {
         return remote;
+    }
+
+    /** The Satellite Uplink the feed was opened through, or null: the signal is then measured from it. */
+    @Nullable
+    public static BlockPos uplink() {
+        return uplink;
+    }
+
+    /** The distance at which the signal is gone: the remote's range or the Uplink's radius. */
+    public static int range() {
+        return range;
     }
 
     public static float yaw() {
@@ -172,6 +190,8 @@ public final class FpvFeedClient {
         entityId = payload.entityId();
         droneId = payload.droneId();
         remote = payload.remote();
+        uplink = payload.uplink().orElse(null);
+        range = payload.range();
         pilot = payload.pilot();
         sentInput = PilotInput.NONE;
         status = null;
@@ -203,9 +223,17 @@ public final class FpvFeedClient {
         phaseTicks = 0;
     }
 
-    /** Back to the player's own view. */
+    /**
+     * Back to the player's own view. A feed opened through a Satellite Uplink goes back to the Uplink (section 7.9):
+     * to the drone's remote screen when the player left it, or to the map when the signal was lost.
+     */
     private static void reset() {
         Minecraft minecraft = Minecraft.getInstance();
+        boolean wasActive = active;
+        BlockPos via = uplink;
+        String id = droneId;
+        boolean lost = phase == Phase.SIGNAL_LOST;
+        uplink = null;
         if (active) {
             if (minecraft.player != null) {
                 minecraft.setCameraEntity(minecraft.player);
@@ -220,6 +248,13 @@ public final class FpvFeedClient {
         savedCameraType = null;
         status = null;
         nightVision = false;
+        if (wasActive && via != null && minecraft.player != null && minecraft.screen == null && UplinkScreen.isOpen()) {
+            if (lost) {
+                UplinkScreen.reopen();
+            } else {
+                PacketDistributor.sendToServer(new RequestRemoteStatusPayload(id, true));
+            }
+        }
     }
 
     /** Leaves the feed now and tells the server. */

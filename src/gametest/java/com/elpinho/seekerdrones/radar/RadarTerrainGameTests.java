@@ -34,7 +34,7 @@ public class RadarTerrainGameTests {
     }
 
     /** Ticks the builder every game tick until it hands over the map. */
-    private static void buildMap(GameTestHelper helper, ServerLevel level, TerrainBuilder builder, int ticks, java.util.function.Consumer<TerrainMap> then) {
+    private static void buildMap(GameTestHelper helper, ServerLevel level, TerrainBuilder<TerrainMap> builder, int ticks, java.util.function.Consumer<TerrainMap> then) {
         AtomicReference<TerrainMap> built = new AtomicReference<>();
         pollUntil(helper, () -> {
             built.set(builder.tick(level, 16));
@@ -50,7 +50,7 @@ public class RadarTerrainGameTests {
         BlockPos center = helper.absolutePos(new BlockPos(4, 1, 4));
         BlockPos tower = helper.absolutePos(new BlockPos(6, 3, 4));
         helper.setBlock(new BlockPos(6, 3, 4), Blocks.STONE);
-        TerrainBuilder builder = new TerrainBuilder(level, center, 8);
+        TerrainBuilder<TerrainMap> builder = TerrainBuilder.heights(level, center, 8);
         buildMap(helper, level, builder, 40, map -> {
             helper.assertTrue(map.radius() == 8 && map.size() == 17, "Map should be 17 x 17 for radius 8");
             byte height = map.heights()[column(map, center, tower)];
@@ -75,8 +75,11 @@ public class RadarTerrainGameTests {
         chunk.setUnsaved(true);
         BlockPos center = new BlockPos(SAVED_CHUNK.getMinBlockX() + 8, 100, SAVED_CHUNK.getMinBlockZ() + 8);
         // Wait until the chunk has been unloaded (and saved), then build.
-        pollUntil(helper, () -> level.getChunkSource().getChunkNow(SAVED_CHUNK.x, SAVED_CHUNK.z) == null, 200, () -> helper.runAfterDelay(DELAY, () -> {
-            TerrainBuilder builder = new TerrainBuilder(level, center, 8);
+        // Vanilla saves an unloaded chunk only when the server has time left in a tick, which can come later than the
+        // chunk leaving the loaded map while other tests keep the server busy, so wait for its saved data too.
+        pollUntil(helper, () -> level.getChunkSource().getChunkNow(SAVED_CHUNK.x, SAVED_CHUNK.z) == null
+                && level.getChunkSource().chunkMap.read(SAVED_CHUNK).join().isPresent(), 200, () -> helper.runAfterDelay(DELAY, () -> {
+            TerrainBuilder<TerrainMap> builder = TerrainBuilder.heights(level, center, 8);
             buildMap(helper, level, builder, 100, map -> {
                 helper.assertTrue(level.getChunkSource().getChunkNow(SAVED_CHUNK.x, SAVED_CHUNK.z) == null,
                         "Building the map must not load the chunk");
@@ -89,14 +92,14 @@ public class RadarTerrainGameTests {
                 helper.assertTrue(lowerHeight == 50, "Column with a block at Y 150 should read +50, got " + lowerHeight);
                 helper.succeed();
             });
-        }), () -> helper.fail("The saved chunk did not unload in time"));
+        }), () -> helper.fail("The saved chunk was not unloaded and saved in time"));
     }
 
     @GameTest(template = "empty", timeoutTicks = 100)
     public static void terrainOfNeverGeneratedChunksStaysUnknown(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos center = new BlockPos(NEVER_GENERATED.getMinBlockX() + 8, 64, NEVER_GENERATED.getMinBlockZ() + 8);
-        TerrainBuilder builder = new TerrainBuilder(level, center, 8);
+        TerrainBuilder<TerrainMap> builder = TerrainBuilder.heights(level, center, 8);
         buildMap(helper, level, builder, 80, map -> {
             for (int i = 0; i < map.heights().length; i++) {
                 helper.assertTrue(map.heights()[i] == TerrainMap.UNKNOWN, "Never generated column " + i + " should be UNKNOWN, got " + map.heights()[i]);
@@ -130,7 +133,7 @@ public class RadarTerrainGameTests {
         }
 
         // Same tick, so the chunk is still loaded: the builder reads it directly (the neighbors are read from disk or stay unknown).
-        TerrainBuilder builder = new TerrainBuilder(nether, center, 8);
+        TerrainBuilder<TerrainMap> builder = TerrainBuilder.heights(nether, center, 8);
         buildMap(helper, nether, builder, 80, map -> {
             helper.assertTrue(map.heights()[column(map, center, floor)] == 0, "The floor column should read 0 (relative to the station), got " + map.heights()[column(map, center, floor)]);
             for (int z = 0; z < 16; z++) {

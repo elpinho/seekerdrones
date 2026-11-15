@@ -5,6 +5,7 @@ import com.elpinho.seekerdrones.deploying.DeployingStationBlockEntity;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.programming.ProgrammingStationBlockEntity;
 import com.elpinho.seekerdrones.radar.RadarStationBlockEntity;
+import com.elpinho.seekerdrones.uplink.UplinkBlockEntity;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
 
 import net.minecraft.core.registries.Registries;
@@ -35,4 +36,8 @@ public class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<RadarStationBlockEntity>> RADAR_STATION =
             BLOCK_ENTITY_TYPES.register("radar_station",
                     () -> BlockEntityType.Builder.of(RadarStationBlockEntity::new, ModBlocks.RADAR_STATION.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<UplinkBlockEntity>> UPLINK =
+            BLOCK_ENTITY_TYPES.register("satellite_uplink",
+                    () -> BlockEntityType.Builder.of(UplinkBlockEntity::new, ModBlocks.UPLINK.get()).build(null));
 }

@@ -6,7 +6,7 @@ import java.util.Optional;
 
 import com.elpinho.seekerdrones.deploying.DeployingStationBlockEntity;
 import com.elpinho.seekerdrones.deploying.DeployingStatus;
-import com.elpinho.seekerdrones.radar.RadarStationBlockEntity;
+import com.elpinho.seekerdrones.radar.RadarMachineBlockEntity;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
@@ -55,7 +55,7 @@ public enum MachineProvider implements IBlockComponentProvider, StreamServerData
             case ProgrammingStationBlockEntity station -> programmingLines(station, lines);
             case DeployingStationBlockEntity station -> deployingLines(station, lines);
             case ChargingStationBlockEntity station -> chargingLines(accessor, station, lines);
-            case RadarStationBlockEntity station -> {
+            case RadarMachineBlockEntity<?> station -> {
                 if (!station.isPowered()) {
                     lines.add(new Line(Component.translatable("jade.seekerdrones.radar_station.no_power"), Severity.WARNING));
                 }

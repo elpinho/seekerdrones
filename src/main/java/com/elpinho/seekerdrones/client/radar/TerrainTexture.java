@@ -1,13 +1,7 @@
 package com.elpinho.seekerdrones.client.radar;
 
-import javax.annotation.Nullable;
-
-import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.radar.TerrainMap;
-import com.mojang.blaze3d.platform.NativeImage;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
@@ -18,8 +12,6 @@ import net.minecraft.util.Mth;
  * its height relative to the station. Water is a darker, flatter tone, and columns outside the circle are transparent.
  */
 public final class TerrainTexture implements AutoCloseable {
-    private static final ResourceLocation LOCATION = ResourceLocation.fromNamespaceAndPath(SeekerDrones.MODID, "dynamic/radar_terrain");
-
     private static final int LAND_R = 64;
     private static final int LAND_G = 186;
     private static final int LAND_B = 96;
@@ -33,39 +25,25 @@ public final class TerrainTexture implements AutoCloseable {
     private static final float TINT_RANGE = 32;
     private static final float TINT_STRENGTH = 0.18F;
 
-    @Nullable
-    private DynamicTexture texture;
-    private int size;
+    private final MapTexture texture = new MapTexture("radar_terrain");
 
     /** Replaces the texture with the map. */
     public void upload(TerrainMap map) {
-        int n = map.size();
-        if (texture == null || size != n) {
-            close();
-            texture = new DynamicTexture(n, n, false);
-            size = n;
-            Minecraft.getInstance().getTextureManager().register(LOCATION, texture);
-        }
-        NativeImage image = texture.getPixels();
         float center = map.radius();
         float radius = map.radius() + 0.5F;
-        for (int row = 0; row < n; row++) {
-            for (int column = 0; column < n; column++) {
-                float dx = column - center;
-                float dz = row - center;
-                // NativeImage takes ABGR.
-                image.setPixelRGBA(column, row, dx * dx + dz * dz > radius * radius ? 0 : abgr(color(map, column, row)));
-            }
-        }
-        texture.upload();
+        texture.upload(map.size(), (column, row) -> {
+            float dx = column - center;
+            float dz = row - center;
+            return dx * dx + dz * dz > radius * radius ? 0 : color(map, column, row);
+        });
     }
 
     public boolean isReady() {
-        return texture != null;
+        return texture.isReady();
     }
 
     public ResourceLocation location() {
-        return LOCATION;
+        return texture.location();
     }
 
     private static int color(TerrainMap map, int column, int row) {
@@ -89,15 +67,8 @@ public final class TerrainTexture implements AutoCloseable {
         return Mth.clamp(Math.round(value * shade), 0, 255);
     }
 
-    private static int abgr(int argb) {
-        return FastColor.ABGR32.color(FastColor.ARGB32.alpha(argb), FastColor.ARGB32.blue(argb), FastColor.ARGB32.green(argb), FastColor.ARGB32.red(argb));
-    }
-
     @Override
     public void close() {
-        if (texture != null) {
-            Minecraft.getInstance().getTextureManager().release(LOCATION);
-            texture = null;
-        }
+        texture.close();
     }
 }

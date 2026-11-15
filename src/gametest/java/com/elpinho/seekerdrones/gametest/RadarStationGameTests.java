@@ -100,7 +100,7 @@ public class RadarStationGameTests {
     @SuppressWarnings("unchecked")
     private static java.util.Map<ServerPlayer, Boolean> viewers(RadarStationBlockEntity station) {
         try {
-            java.lang.reflect.Field field = RadarStationBlockEntity.class.getDeclaredField("viewers");
+            java.lang.reflect.Field field = com.elpinho.seekerdrones.radar.RadarMachineBlockEntity.class.getDeclaredField("viewers");
             field.setAccessible(true);
             return (java.util.Map<ServerPlayer, Boolean>) field.get(station);
         } catch (ReflectiveOperationException e) {
