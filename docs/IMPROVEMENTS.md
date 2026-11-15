@@ -64,4 +64,5 @@ Status: `idea` | `decided`
 ## Documentation
 
 - **In-game manual** (`idea`): a guide book that explains the drones, upgrades, machines and Operator Groups in game. Specifics TBD, including which library to use (e.g. Patchouli, Modonomicon, or GuideME as used by AE2). It should be optional or bundled carefully, and it can link to the JEI entries.
+- **README screenshots** (`decided`, requested 2026-11-15): add screenshots or short GIFs to the README's Features section: a kamikaze drone diving at a target, a patrol, the machine line, the FPV feed, and the three radar machines. Wait for the commissioned art (ROADMAP.md M10) so they don't show placeholder textures. Keep the images small (compressed PNG or WebP, short GIFs) so the repo stays light.
 - **Wiki** (`idea`): an online wiki for players and modpack makers (upgrades, machines, config options, recipes, integrations). Specifics TBD, e.g. where it's hosted (GitHub wiki, a docs site, or the Modrinth/CurseForge page) and how it stays in sync with the config and DESIGN.md.

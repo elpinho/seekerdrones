@@ -2,32 +2,49 @@
 
 [![Build](https://github.com/elpinho/seekerdrones/actions/workflows/build.yml/badge.svg)](https://github.com/elpinho/seekerdrones/actions/workflows/build.yml)
 
-A NeoForge mod for Minecraft 1.21.1 that adds autonomous flying drones. A drone patrols an area, spots the kind of entity you told it to look for, and chases it. Depending on its upgrades, it then follows the target, sounds an alarm, reports it to you, or explodes.
+**Put a fleet of hunter drones in the sky.** Tell them what to look for (zombies, creepers, a mob tag, even a specific player), and they patrol your land, lock on the moment they spot it, and chase it down. What happens next depends on how you built them: they shadow the target, wail a siren, send you its coordinates... or dive straight into it and **explode**.
 
-Drones are built, programmed, deployed and recharged by machines, and every step accepts automation, so a base can keep a fleet in the air without anyone being there.
+Seeker Drones is a NeoForge mod for Minecraft 1.21.1. Drones are built, programmed, launched and recharged by machines, and every step can be automated, so your base keeps its defenses in the air long after you've logged off.
 
 > **Status: in development (pre-1.0).** The mod isn't released yet, and it isn't on CurseForge or Modrinth. Textures and models are placeholders until the commissioned art is in, and numbers in the config are still being balanced. Saves may break between versions.
 
 ## Features
 
-- **Drones** you throw to deploy and pick back up with all their settings. Each has a label, a color, an ID, energy and health, and slots for the targets it hunts: entity types, entity tags or specific players.
-- **Upgrades:** Patrol, Sight, Explosive, Siren, Transmitter, Energy, Health, Player Seek, Solar, FPV Camera and Silencer.
-- **The machine pipeline:**
-  ```
-  Drone Factory ──> Programming Station ──> Deploying Station ──> drone in the world
-   (builds drones)   (upgrades and config)   (deploys them)            │
-                                                                       ▼
-                                                          Charging Station (recharges)
-  ```
-  Drones running low on energy fly back to a Charging Station on their own, queue for a free one and resume their patrol.
-- **Drone Remote:** check a drone's status, watch its live first-person feed with the FPV Camera upgrade, and fly it by hand.
-- **Radar machines** in three tiers, each building on the last:
-  - **Radar Station:** a phosphor terrain map showing your own drones.
-  - **Satellite Uplink:** a wider map in map colors, every drone in the area, an intruder alarm, and a drone's feed opened from the map.
-  - **Command Center:** a holotable showing every drone, plus group orders (Move, Patrol Here, Strike, Hold, Return to Charge, Release).
-- **Operator Groups:** choose who may control which drones. Machines never check permissions, so automation keeps working.
-- **Server safety:** settings for explosion block damage, a target allowlist and denylist, a switch for player targets, and a limit on deployed drones per player (64 by default).
-- **Built for many drones:** scans and energy use are batched, so dozens of drones per player stay cheap on the server.
+### Kamikaze drones
+
+Give a drone the **Explosive** upgrade and it stops following its target and flies into it instead, blowing up on contact. Stack up to four for a bigger blast. You'll hear one coming: as an Explosive drone closes in, it beeps faster and faster, like a parking sensor counting down. Server admins choose whether the explosions break blocks, and can cap how many of a team's Explosive drones go after the same target.
+
+### Drones that think for themselves
+
+- **Patrol** an area around a point and height you pick, scanning for anything on their target list.
+- **Chase** what they spot and stay on it, going back to their patrol if it escapes.
+- **Manage their own energy:** when a drone runs low, it flies back to a Charging Station, waits in line for a free one, tops up and goes back to work.
+- **Upgrade** them to fit the job: Patrol, Sight, Explosive, Siren, Transmitter, Energy, Health, Player Seek, Solar, FPV Camera and Silencer. Want a loud deterrent? Add Sirens. A silent watcher? Silencers quiet its rotors and hide its nameplate.
+
+### A fully automatable production line
+
+```
+Drone Factory ──> Programming Station ──> Deploying Station ──> drone in the world
+ (builds drones)   (upgrades and config)   (launches them)            │
+                                                                      ▼
+                                                         Charging Station (recharges)
+```
+
+Feed the machines with pipes, hoppers or conveyors, and drones come off the line built, programmed with their targets and upgrades, and launched, without a player in sight. You can also deploy a drone by hand: throw it, and pick it back up later with all its settings.
+
+### See what they see
+
+- **Drone Remote:** check any of your drones, watch its live first-person feed through the FPV Camera upgrade, and take the controls to fly it yourself.
+- **Radar machines** in three tiers:
+  - **Radar Station:** a green phosphor scope of the land around it, with your drones lit up by the sweep.
+  - **Satellite Uplink:** a wider map in full color showing every drone in range, yours identified and strangers' not, with an intruder alarm on a comparator and your drones' camera feeds one click away.
+  - **Command Center:** a holotable war room. Box-select your drones on the map and send them orders: Move, Patrol Here, Strike, Hold, Return to Charge or Release.
+
+### Made for multiplayer
+
+- **Operator Groups** decide who may control which drones. Machines never check permissions, so automation keeps working.
+- **Server settings** control explosion block damage, allowed and banned targets, whether players can be targeted, and how many drones each player may have deployed (64 by default).
+- **Built to run many drones at once:** scans and energy use are batched to keep the server's tick time low.
 
 The full behavior spec is in [`docs/DESIGN.md`](docs/DESIGN.md), and the plan in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
