@@ -8,10 +8,10 @@ import static com.elpinho.seekerdrones.gametest.GameTestUtil.spawnPlayer;
 import java.util.UUID;
 
 import com.elpinho.seekerdrones.radar.RadarMachineBlockEntity;
+import com.elpinho.seekerdrones.radar.RemoteStationBlockEntity;
 import com.elpinho.seekerdrones.radar.TwoBlockMachineBlock;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModItems;
-import com.elpinho.seekerdrones.uplink.UplinkBlockEntity;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -43,8 +43,8 @@ import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 
 /**
- * The shared two-block rules (DESIGN.md sections 7.8 and 7.9) for both radar machines, the Radar Station and the
- * Satellite Uplink: placement needs a free block above, breaking either half breaks both and drops one item (none in
+ * The shared two-block rules (DESIGN.md sections 7.8 to 7.10) for the radar machines, the Radar Station, the
+ * Satellite Uplink and the Command Center: placement needs a free block above, breaking either half breaks both and drops one item (none in
  * creative), pistons can't push either half, and rotating or mirroring keeps the halves aligned. The Radar Station's
  * own placing and breaking tests are in {@code RadarStationGameTests}; here they run against the Uplink, and the rules
  * that were not covered yet run against both.
@@ -54,14 +54,22 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 public class TwoBlockMachineGameTests {
     /** A machine under test. */
     private enum Machine {
-        RADAR, UPLINK;
+        RADAR, UPLINK, COMMAND_CENTER;
 
         TwoBlockMachineBlock block() {
-            return this == RADAR ? ModBlocks.RADAR_STATION.get() : ModBlocks.UPLINK.get();
+            return switch (this) {
+                case RADAR -> ModBlocks.RADAR_STATION.get();
+                case UPLINK -> ModBlocks.UPLINK.get();
+                case COMMAND_CENTER -> ModBlocks.COMMAND_CENTER.get();
+            };
         }
 
         BlockItem item() {
-            return this == RADAR ? ModItems.RADAR_STATION.get() : ModItems.UPLINK.get();
+            return switch (this) {
+                case RADAR -> ModItems.RADAR_STATION.get();
+                case UPLINK -> ModItems.UPLINK.get();
+                case COMMAND_CENTER -> ModItems.COMMAND_CENTER.get();
+            };
         }
     }
 
@@ -96,9 +104,9 @@ public class TwoBlockMachineGameTests {
         helper.assertTrue(lower.getValue(TwoBlockMachineBlock.FACING) == upper.getValue(TwoBlockMachineBlock.FACING), "Both halves should face the same way");
         helper.assertTrue(helper.getLevel().getBlockEntity(helper.absolutePos(new BlockPos(4, 1, 4))) instanceof RadarMachineBlockEntity<?>, "Lower half should have the block entity");
         helper.assertTrue(helper.getLevel().getBlockEntity(helper.absolutePos(new BlockPos(4, 2, 4))) == null, "Upper half should have no block entity");
-        if (machine == Machine.UPLINK) {
-            UplinkBlockEntity uplink = (UplinkBlockEntity) helper.getLevel().getBlockEntity(helper.absolutePos(new BlockPos(4, 1, 4)));
-            helper.assertTrue(uplink.getPlacer().equals(java.util.Optional.of(uuid)), "The Uplink should record its placer, got " + uplink.getPlacer());
+        if (machine != Machine.RADAR) {
+            RemoteStationBlockEntity<?> station = (RemoteStationBlockEntity<?>) helper.getLevel().getBlockEntity(helper.absolutePos(new BlockPos(4, 1, 4)));
+            helper.assertTrue(station.getPlacer().equals(java.util.Optional.of(uuid)), "The " + machine + " should record its placer, got " + station.getPlacer());
         }
         helper.succeed();
     }
@@ -106,6 +114,11 @@ public class TwoBlockMachineGameTests {
     @GameTest(template = "empty", timeoutTicks = 10)
     public static void uplinkPlacingTheItemPlacesBothHalvesAndRecordsThePlacer(GameTestHelper helper) {
         placesBothHalves(helper, Machine.UPLINK);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void commandCenterPlacingTheItemPlacesBothHalvesAndRecordsThePlacer(GameTestHelper helper) {
+        placesBothHalves(helper, Machine.COMMAND_CENTER);
     }
 
     private static void placingFailsWhenBlocked(GameTestHelper helper, Machine machine) {
@@ -124,6 +137,11 @@ public class TwoBlockMachineGameTests {
         placingFailsWhenBlocked(helper, Machine.UPLINK);
     }
 
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void commandCenterPlacingFailsWhenSpaceAboveIsBlocked(GameTestHelper helper) {
+        placingFailsWhenBlocked(helper, Machine.COMMAND_CENTER);
+    }
+
     private static void placingSucceedsOverReplaceable(GameTestHelper helper, Machine machine, Block above) {
         helper.setBlock(new BlockPos(4, 0, 4), Blocks.STONE);
         helper.setBlock(new BlockPos(4, 2, 4), above);
@@ -138,6 +156,11 @@ public class TwoBlockMachineGameTests {
     @GameTest(template = "empty", timeoutTicks = 10)
     public static void uplinkPlacingSucceedsWhenSpaceAboveIsReplaceable(GameTestHelper helper) {
         placingSucceedsOverReplaceable(helper, Machine.UPLINK, Blocks.SHORT_GRASS);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void commandCenterPlacingSucceedsWhenSpaceAboveIsReplaceable(GameTestHelper helper) {
+        placingSucceedsOverReplaceable(helper, Machine.COMMAND_CENTER, Blocks.SHORT_GRASS);
     }
 
     @GameTest(template = "empty", timeoutTicks = 10)
@@ -188,6 +211,16 @@ public class TwoBlockMachineGameTests {
         survivalBreak(helper, Machine.UPLINK, true);
     }
 
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void commandCenterBreakingLowerHalfInSurvivalRemovesBothAndDropsOneItem(GameTestHelper helper) {
+        survivalBreak(helper, Machine.COMMAND_CENTER, false);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void commandCenterBreakingUpperHalfInSurvivalRemovesBothAndDropsOneItem(GameTestHelper helper) {
+        survivalBreak(helper, Machine.COMMAND_CENTER, true);
+    }
+
     @SuppressWarnings("deprecation")
     private static void creativeBreak(GameTestHelper helper, Machine machine, boolean upperHalf) {
         BlockPos rel = new BlockPos(6, 1, 6);
@@ -216,12 +249,21 @@ public class TwoBlockMachineGameTests {
         creativeBreak(helper, Machine.UPLINK, true);
     }
 
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void commandCenterBreakingLowerHalfInCreativeRemovesBothAndDropsNothing(GameTestHelper helper) {
+        creativeBreak(helper, Machine.COMMAND_CENTER, false);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void commandCenterBreakingUpperHalfInCreativeRemovesBothAndDropsNothing(GameTestHelper helper) {
+        creativeBreak(helper, Machine.COMMAND_CENTER, true);
+    }
+
     // --- Upper half routes to the lower one ---
 
-    @GameTest(template = "empty", timeoutTicks = 20)
-    public static void uplinkRightClickingUpperHalfOpensTheLowerHalfsMenu(GameTestHelper helper) {
+    private static void rightClickingUpperHalfOpensTheLowerHalfsMenu(GameTestHelper helper, Machine machine) {
         BlockPos rel = new BlockPos(4, 1, 4);
-        UplinkBlockEntity uplink = placeTwoBlock(helper, rel, ModBlocks.UPLINK.get());
+        RadarMachineBlockEntity<?> station = placeTwoBlock(helper, rel, machine.block());
         ServerPlayer player = spawnPlayer(helper, UUID.randomUUID(), 4, 1, 2, 0);
         try {
             BlockPos upperAbs = helper.absolutePos(rel.above());
@@ -233,11 +275,21 @@ public class TwoBlockMachineGameTests {
             } catch (RuntimeException expected) {
                 helper.assertTrue(String.valueOf(expected.getMessage()).contains("advanced_open_screen"), "Unexpected failure: " + expected);
             }
-            helper.assertTrue(uplink.viewers().contains(player), "Using the upper half should open the lower half's menu (the Uplink should have the viewer)");
+            helper.assertTrue(station.viewers().contains(player), "Using the upper half should open the lower half's menu (the " + machine + " should have the viewer)");
         } finally {
             removePlayer(helper, player);
         }
         helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void uplinkRightClickingUpperHalfOpensTheLowerHalfsMenu(GameTestHelper helper) {
+        rightClickingUpperHalfOpensTheLowerHalfsMenu(helper, Machine.UPLINK);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 20)
+    public static void commandCenterRightClickingUpperHalfOpensTheLowerHalfsMenu(GameTestHelper helper) {
+        rightClickingUpperHalfOpensTheLowerHalfsMenu(helper, Machine.COMMAND_CENTER);
     }
 
     // --- Pistons ---
@@ -274,6 +326,11 @@ public class TwoBlockMachineGameTests {
         pistonsCannotPush(helper, Machine.UPLINK);
     }
 
+    @GameTest(template = "empty", timeoutTicks = 30)
+    public static void commandCenterPistonsCannotPushEitherHalf(GameTestHelper helper) {
+        pistonsCannotPush(helper, Machine.COMMAND_CENTER);
+    }
+
     // --- Rotation and mirroring ---
 
     private static void rotationKeepsHalvesAligned(GameTestHelper helper, Machine machine) {
@@ -305,5 +362,10 @@ public class TwoBlockMachineGameTests {
     @GameTest(template = "empty", timeoutTicks = 10)
     public static void uplinkRotatingAndMirroringKeepsBothHalvesAligned(GameTestHelper helper) {
         rotationKeepsHalvesAligned(helper, Machine.UPLINK);
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 10)
+    public static void commandCenterRotatingAndMirroringKeepsBothHalvesAligned(GameTestHelper helper) {
+        rotationKeepsHalvesAligned(helper, Machine.COMMAND_CENTER);
     }
 }

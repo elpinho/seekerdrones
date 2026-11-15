@@ -1,6 +1,7 @@
 package com.elpinho.seekerdrones.radar;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -75,7 +76,8 @@ public abstract class RadarMachineBlockEntity<M extends RadarMap> extends BlockE
 
     protected abstract TerrainBuilder<M> newTerrainBuilder(ServerLevel level, int radius);
 
-    protected abstract CustomPacketPayload terrainPayload(M terrain);
+    /** The map's packets, in order: one for the smaller maps, row slices for the Command Center's (section 7.10). */
+    protected abstract List<? extends CustomPacketPayload> terrainPayloads(M terrain);
 
     /** The contacts the viewer may see, sent every scan interval while they watch. */
     protected abstract CustomPacketPayload contactsPayload(ServerLevel level, ServerPlayer viewer);
@@ -146,7 +148,9 @@ public abstract class RadarMachineBlockEntity<M extends RadarMap> extends BlockE
         for (Map.Entry<ServerPlayer, Boolean> viewer : viewers.entrySet()) {
             boolean isNew = viewer.getValue();
             if (isNew && terrain != null) {
-                PacketDistributor.sendToPlayer(viewer.getKey(), terrainPayload(terrain));
+                for (CustomPacketPayload payload : terrainPayloads(terrain)) {
+                    PacketDistributor.sendToPlayer(viewer.getKey(), payload);
+                }
                 viewer.setValue(false);
             }
             if (scanTick || isNew) {

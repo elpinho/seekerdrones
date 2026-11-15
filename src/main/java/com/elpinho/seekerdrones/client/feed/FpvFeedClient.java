@@ -6,7 +6,8 @@ import javax.annotation.Nullable;
 
 import org.lwjgl.glfw.GLFW;
 
-import com.elpinho.seekerdrones.client.UplinkScreen;
+import com.elpinho.seekerdrones.client.StationScreens;
+import com.elpinho.seekerdrones.client.radar.StationScreen;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.network.FpvEndPayload;
@@ -248,9 +249,9 @@ public final class FpvFeedClient {
         savedCameraType = null;
         status = null;
         nightVision = false;
-        if (wasActive && via != null && minecraft.player != null && minecraft.screen == null && UplinkScreen.isOpen()) {
+        if (wasActive && via != null && minecraft.player != null && minecraft.screen == null && StationScreen.isOpen()) {
             if (lost) {
-                UplinkScreen.reopen();
+                StationScreens.reopen();
             } else {
                 PacketDistributor.sendToServer(new RequestRemoteStatusPayload(id, true));
             }

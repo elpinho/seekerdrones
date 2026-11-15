@@ -24,6 +24,7 @@ import com.elpinho.seekerdrones.client.gui.FieldBox;
 import com.elpinho.seekerdrones.client.gui.Gauges;
 import com.elpinho.seekerdrones.client.gui.Kit;
 import com.elpinho.seekerdrones.client.feed.FpvFeedClient;
+import com.elpinho.seekerdrones.client.radar.StationScreen;
 import net.minecraft.client.Minecraft;
 import com.elpinho.seekerdrones.client.gui.KitButton;
 import com.elpinho.seekerdrones.client.gui.KitSlider;
@@ -173,7 +174,7 @@ public class DroneRemoteScreen extends PanelScreen {
 
     private final String droneId;
     private final RemoteLink link;
-    /** Opened through a Satellite Uplink (section 7.9): Back and Esc go back to its map. */
+    /** Opened through a Satellite Uplink or Command Center (sections 7.9 and 7.10): Back and Esc go back to its map. */
     private final boolean uplink;
     private RemoteStatusPayload status;
     /** The latest values of the drone, or what is known from the link while none has arrived. */
@@ -271,9 +272,9 @@ public class DroneRemoteScreen extends PanelScreen {
         return shown.state();
     }
 
-    /** Held or recalled: the hold button resumes instead (section 2.10). */
+    /** Held, recalled or carrying out a Command Center order: the hold button resumes instead (sections 2.10 and 7.10). */
     private boolean passive() {
-        return state() == DroneState.HOLDING || state() == DroneState.RECALLED;
+        return state().isResumable();
     }
 
     private Structure currentStructure() {
@@ -791,7 +792,7 @@ public class DroneRemoteScreen extends PanelScreen {
     /** Whether the player still holds a remote linked to this drone, or still has the Uplink open it came from. */
     private boolean holdsLink() {
         if (uplink) {
-            return UplinkScreen.isOpen();
+            return StationScreen.isOpen();
         }
         for (InteractionHand hand : InteractionHand.values()) {
             ItemStack stack = minecraft.player.getItemInHand(hand);
@@ -891,7 +892,7 @@ public class DroneRemoteScreen extends PanelScreen {
         if (getFocused() instanceof FieldBox) {
             setFocused(null);
         }
-        if (uplink && !FpvFeedClient.isActive() && UplinkScreen.reopen()) {
+        if (uplink && !FpvFeedClient.isActive() && StationScreens.reopen()) {
             return;
         }
         super.onClose();

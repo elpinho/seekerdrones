@@ -58,6 +58,8 @@ public class ModBlockLootProvider extends BlockLootSubProvider {
         add(radarStation, createSinglePropConditionTable(radarStation, RadarStationBlock.HALF, DoubleBlockHalf.LOWER));
         Block uplink = ModBlocks.UPLINK.get();
         add(uplink, createSinglePropConditionTable(uplink, RadarStationBlock.HALF, DoubleBlockHalf.LOWER));
+        Block commandCenter = ModBlocks.COMMAND_CENTER.get();
+        add(commandCenter, createSinglePropConditionTable(commandCenter, RadarStationBlock.HALF, DoubleBlockHalf.LOWER));
     }
 
     @Override

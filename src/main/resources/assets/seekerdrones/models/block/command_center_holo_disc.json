@@ -1,0 +1,361 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "seekerdrones:block/radar_station_casing",
+    "casing": "seekerdrones:block/radar_station_casing",
+    "foot": "seekerdrones:block/radar_station_foot",
+    "copper": "seekerdrones:block/radar_station_copper",
+    "side": "seekerdrones:block/radar_station_side_powered",
+    "table": "seekerdrones:block/command_center_table_powered",
+    "controls": "seekerdrones:block/command_center_controls_powered",
+    "lens": "seekerdrones:block/command_center_lens_powered",
+    "emitter": "seekerdrones:block/command_center_emitter_powered",
+    "holo_map": "seekerdrones:block/command_center_holo_map",
+    "holo_line": "seekerdrones:block/command_center_holo_line",
+    "holo_dim": "seekerdrones:block/command_center_holo_dim",
+    "holo_blip": "seekerdrones:block/command_center_holo_blip",
+    "holo_red": "seekerdrones:block/command_center_holo_red"
+  },
+  "elements": [
+    {
+      "from": [
+        7.75,
+        13,
+        7.75
+      ],
+      "to": [
+        8.25,
+        16,
+        8.25
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.75,
+            0,
+            8.25,
+            3
+          ],
+          "texture": "#holo_dim"
+        },
+        "south": {
+          "uv": [
+            7.75,
+            0,
+            8.25,
+            3
+          ],
+          "texture": "#holo_dim"
+        },
+        "east": {
+          "uv": [
+            7.75,
+            0,
+            8.25,
+            3
+          ],
+          "texture": "#holo_dim"
+        },
+        "west": {
+          "uv": [
+            7.75,
+            0,
+            8.25,
+            3
+          ],
+          "texture": "#holo_dim"
+        },
+        "up": {
+          "uv": [
+            7.75,
+            7.75,
+            8.25,
+            8.25
+          ],
+          "texture": "#holo_dim"
+        },
+        "down": {
+          "uv": [
+            7.75,
+            7.75,
+            8.25,
+            8.25
+          ],
+          "texture": "#holo_dim"
+        }
+      }
+    },
+    {
+      "from": [
+        1.5,
+        16,
+        1.5
+      ],
+      "to": [
+        14.5,
+        16.1,
+        14.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            1.5,
+            15.899999999999999,
+            14.5,
+            16.0
+          ],
+          "texture": "#holo_dim"
+        },
+        "south": {
+          "uv": [
+            1.5,
+            15.899999999999999,
+            14.5,
+            16.0
+          ],
+          "texture": "#holo_dim"
+        },
+        "east": {
+          "uv": [
+            1.5,
+            15.899999999999999,
+            14.5,
+            16.0
+          ],
+          "texture": "#holo_dim"
+        },
+        "west": {
+          "uv": [
+            1.5,
+            15.899999999999999,
+            14.5,
+            16.0
+          ],
+          "texture": "#holo_dim"
+        },
+        "up": {
+          "uv": [
+            1.5,
+            1.5,
+            14.5,
+            14.5
+          ],
+          "texture": "#holo_map"
+        },
+        "down": {
+          "uv": [
+            1.5,
+            1.5,
+            14.5,
+            14.5
+          ],
+          "texture": "#holo_map"
+        }
+      }
+    },
+    {
+      "from": [
+        4,
+        16,
+        9
+      ],
+      "to": [
+        7,
+        18,
+        12
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            9,
+            14,
+            12,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "south": {
+          "uv": [
+            4,
+            14,
+            7,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "east": {
+          "uv": [
+            4,
+            14,
+            7,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "west": {
+          "uv": [
+            9,
+            14,
+            12,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "up": {
+          "uv": [
+            4,
+            9,
+            7,
+            12
+          ],
+          "texture": "#holo_line"
+        },
+        "down": {
+          "uv": [
+            4,
+            9,
+            7,
+            12
+          ],
+          "texture": "#holo_dim"
+        }
+      }
+    },
+    {
+      "from": [
+        9,
+        16,
+        3
+      ],
+      "to": [
+        11,
+        19,
+        6
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            13,
+            7,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "south": {
+          "uv": [
+            9,
+            13,
+            11,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "east": {
+          "uv": [
+            10,
+            13,
+            13,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "west": {
+          "uv": [
+            3,
+            13,
+            6,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "up": {
+          "uv": [
+            9,
+            3,
+            11,
+            6
+          ],
+          "texture": "#holo_line"
+        },
+        "down": {
+          "uv": [
+            9,
+            3,
+            11,
+            6
+          ],
+          "texture": "#holo_dim"
+        }
+      }
+    },
+    {
+      "from": [
+        10,
+        16,
+        10
+      ],
+      "to": [
+        12,
+        17,
+        13
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            15,
+            6,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "south": {
+          "uv": [
+            10,
+            15,
+            12,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "east": {
+          "uv": [
+            3,
+            15,
+            6,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "west": {
+          "uv": [
+            10,
+            15,
+            13,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "up": {
+          "uv": [
+            10,
+            10,
+            12,
+            13
+          ],
+          "texture": "#holo_line"
+        },
+        "down": {
+          "uv": [
+            10,
+            10,
+            12,
+            13
+          ],
+          "texture": "#holo_dim"
+        }
+      }
+    }
+  ]
+}

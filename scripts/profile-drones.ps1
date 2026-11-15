@@ -299,6 +299,18 @@ $allScenarios = [ordered]@{
             Invoke-Rcon "seekerdrones energy set 700 @e[type=seekerdrones:drone]" | Out-Null
         }
     }
+    "command-centers" = @{
+        Description = "$Drones drones hovering among 10 powered Command Centers (stocked far beyond capacity via NBT), each using FE and recounting its intruder alarm over the drone index every scanInterval (5) ticks at radius 256. Viewer snapshots need a player with the screen open, which RCON can't do, so they aren't included."
+        Baseline = "idle"
+        Setup = {
+            foreach ($p in (Get-Grid 10 10 0)) {
+                $x = [Math]::Floor($p[0]); $z = [Math]::Floor($p[2])
+                Invoke-Rcon "setblock $x $groundY $z seekerdrones:command_center[half=lower]{Energy:2000000000}" | Out-Null
+                Invoke-Rcon "setblock $x $($groundY + 1) $z seekerdrones:command_center[half=upper]" | Out-Null
+            }
+            Summon-Grid "seekerdrones:drone" $Drones 3 ($groundY + 4)
+        }
+    }
     "patrol-obstacles" = @{
         Description = "$Drones drones patrolling (1 Patrol upgrade, 16-block radius) through 7-high walls, so waypoints often need paths or get skipped."
         Baseline = "empty"
@@ -349,7 +361,10 @@ function Invoke-Perf {
     while (-not $zip -and (Get-Date) -lt $deadline) {
         Start-Sleep -Seconds 1
         if (Test-Path $perfDir) {
-            $zip = Get-ChildItem $perfDir -Filter *.zip | Where-Object { $before -notcontains $_.FullName } | Select-Object -First 1
+            # -Filter *.zip also matches the .zip_tmp being written (Windows' 3-letter extension matching), so check the
+            # extension exactly and wait for the finished file.
+            $zip = Get-ChildItem $perfDir -Filter *.zip | Where-Object { $_.Extension -eq ".zip" -and $before -notcontains $_.FullName } |
+                Select-Object -First 1
         }
     }
     if (-not $zip) { throw "/perf did not produce a report" }

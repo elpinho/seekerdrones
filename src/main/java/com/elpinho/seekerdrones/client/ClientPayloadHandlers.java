@@ -2,6 +2,8 @@ package com.elpinho.seekerdrones.client;
 
 import com.elpinho.seekerdrones.network.RadarContactsPayload;
 import com.elpinho.seekerdrones.network.RadarTerrainPayload;
+import com.elpinho.seekerdrones.network.CommandCenterContactsPayload;
+import com.elpinho.seekerdrones.network.CommandCenterTerrainPayload;
 import com.elpinho.seekerdrones.network.UplinkContactsPayload;
 import com.elpinho.seekerdrones.network.UplinkTerrainPayload;
 import com.elpinho.seekerdrones.remote.RemoteReach;
@@ -37,7 +39,7 @@ public final class ClientPayloadHandlers {
     public static void handleRemoteStatus(RemoteStatusPayload payload) {
         Minecraft minecraft = Minecraft.getInstance();
         if (payload.open() && payload.uplink() && payload.reach() != RemoteReach.OK) {
-            // Through a Satellite Uplink, a drone that can't be reached doesn't open (section 7.9).
+            // Through a Satellite Uplink or Command Center, a drone that can't be reached doesn't open (section 7.9).
             DroneRemoteScreen.showSignalLost(payload.reach());
         } else if (payload.open()) {
             minecraft.setScreen(new DroneRemoteScreen(payload));
@@ -104,5 +106,13 @@ public final class ClientPayloadHandlers {
 
     public static void handleUplinkContacts(UplinkContactsPayload payload) {
         UplinkScreen.onContacts(payload);
+    }
+
+    public static void handleCommandCenterTerrain(CommandCenterTerrainPayload payload) {
+        CommandCenterScreen.onTerrain(payload);
+    }
+
+    public static void handleCommandCenterContacts(CommandCenterContactsPayload payload) {
+        CommandCenterScreen.onContacts(payload);
     }
 }

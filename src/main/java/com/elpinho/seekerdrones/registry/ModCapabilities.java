@@ -34,6 +34,8 @@ public final class ModCapabilities {
                 (station, side) -> station.getEnergyStorage());
         event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.UPLINK.get(),
                 (uplink, side) -> uplink.getEnergyStorage());
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.COMMAND_CENTER.get(),
+                (commandCenter, side) -> commandCenter.getEnergyStorage());
 
         event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.DEPLOYING_STATION.get(),
                 (station, side) -> station.getEnergyStorage());

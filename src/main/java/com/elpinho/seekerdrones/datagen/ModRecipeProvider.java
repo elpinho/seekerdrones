@@ -135,6 +135,20 @@ public class ModRecipeProvider extends RecipeProvider {
                 .unlockedBy(getHasName(ModItems.RADAR_STATION.get()), has(ModItems.RADAR_STATION.get()))
                 .save(output);
 
+        // Placeholder Command Center recipe until the art pass (DESIGN.md section 7.10): the Satellite Uplink at its core.
+        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ModItems.COMMAND_CENTER.get())
+                .pattern("GNG")
+                .pattern("DUD")
+                .pattern("ICI")
+                .define('G', Items.TINTED_GLASS)
+                .define('N', Items.NETHER_STAR)
+                .define('D', Items.DIAMOND_BLOCK)
+                .define('U', ModItems.UPLINK.get())
+                .define('I', Items.IRON_BLOCK)
+                .define('C', Items.COMPARATOR)
+                .unlockedBy(getHasName(ModItems.UPLINK.get()), has(ModItems.UPLINK.get()))
+                .save(output);
+
         buildBaseRecipes(output.withConditions(new NotCondition(new ModLoadedCondition(RepairFluid.MEKANISM))));
         buildMekanismAssembly(output.withConditions(new ModLoadedCondition(RepairFluid.MEKANISM)));
     }

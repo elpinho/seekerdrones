@@ -1,0 +1,33 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "C": {
+      "item": "minecraft:comparator"
+    },
+    "D": {
+      "item": "minecraft:diamond_block"
+    },
+    "G": {
+      "item": "minecraft:tinted_glass"
+    },
+    "I": {
+      "item": "minecraft:iron_block"
+    },
+    "N": {
+      "item": "minecraft:nether_star"
+    },
+    "U": {
+      "item": "seekerdrones:satellite_uplink"
+    }
+  },
+  "pattern": [
+    "GNG",
+    "DUD",
+    "ICI"
+  ],
+  "result": {
+    "count": 1,
+    "id": "seekerdrones:command_center"
+  }
+}

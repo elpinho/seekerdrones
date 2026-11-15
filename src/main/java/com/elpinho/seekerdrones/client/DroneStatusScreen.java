@@ -302,8 +302,9 @@ public class DroneStatusScreen extends PanelScreen {
     public static Kit.Light stateLight(DroneState state) {
         return switch (state) {
             case IDLE -> Kit.Light.IDLE;
-            case PATROLLING, CHASING, FOLLOWING, RECALLED, PILOTED -> Kit.Light.OK;
+            case PATROLLING, CHASING, FOLLOWING, RECALLED, PILOTED, MOVING, GUARDING -> Kit.Light.OK;
             case RETURNING, CHARGING, HOLDING -> Kit.Light.WARN;
+            case STRIKING -> Kit.Light.BAD;
         };
     }
 

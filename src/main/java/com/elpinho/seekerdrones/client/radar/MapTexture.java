@@ -29,14 +29,22 @@ public final class MapTexture implements AutoCloseable {
 
     /** Replaces the texture with a square of {@code size} pixels. */
     public void upload(int size, Pixels pixels) {
+        uploadRows(size, 0, size, pixels);
+    }
+
+    /**
+     * Replaces rows {@code from} (inclusive) to {@code to} (exclusive) of a square of {@code size} pixels, e.g. a slice
+     * of a map that arrives in parts. A new size starts from a blank (transparent) texture.
+     */
+    public void uploadRows(int size, int from, int to, Pixels pixels) {
         if (texture == null || this.size != size) {
             close();
-            texture = new DynamicTexture(size, size, false);
+            texture = new DynamicTexture(size, size, true);
             this.size = size;
             Minecraft.getInstance().getTextureManager().register(location, texture);
         }
         NativeImage image = texture.getPixels();
-        for (int row = 0; row < size; row++) {
+        for (int row = Math.max(0, from); row < Math.min(size, to); row++) {
             for (int column = 0; column < size; column++) {
                 // NativeImage takes ABGR.
                 int argb = pixels.argb(column, row);

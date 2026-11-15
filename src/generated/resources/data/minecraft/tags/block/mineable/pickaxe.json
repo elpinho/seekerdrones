@@ -5,6 +5,7 @@
     "seekerdrones:programming_station",
     "seekerdrones:deploying_station",
     "seekerdrones:radar_station",
-    "seekerdrones:satellite_uplink"
+    "seekerdrones:satellite_uplink",
+    "seekerdrones:command_center"
   ]
 }

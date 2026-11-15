@@ -2,6 +2,7 @@ package com.elpinho.seekerdrones.gametest;
 
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.placeChargingStation;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.pollUntil;
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.reloadDrone;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.removePlayer;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.server;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.spawnDrone;
@@ -1105,7 +1106,7 @@ public class RemoteGameTests {
         String id = newId();
         DroneEntity original = spawnDrone(helper, 4, 3, 4, data(id));
         original.hold();
-        DroneEntity loaded = reload(helper, original);
+        DroneEntity loaded = reloadDrone(helper, original);
         helper.assertValueEqual(loaded.getState(), DroneState.HOLDING, "state after loading");
         helper.assertTrue(loaded.isPassive(), "passive");
         helper.runAfterDelay(10, () -> {
@@ -1123,7 +1124,7 @@ public class RemoteGameTests {
         original.recall(player);
         DroneEntity[] current = {original};
         pollUntil(helper, () -> original.getState() == DroneState.HOLDING, 60, () -> {
-            DroneEntity loaded = reload(helper, original);
+            DroneEntity loaded = reloadDrone(helper, original);
             current[0] = loaded;
             helper.assertValueEqual(loaded.getState(), DroneState.HOLDING, "state after loading");
             pollUntil(helper, () -> !loaded.isPassive(), 60, () -> {
@@ -1154,7 +1155,7 @@ public class RemoteGameTests {
         DroneEntity original = spawnDrone(helper, 4, 3, 7, data(id));
         ServerPlayer player = spawnPlayer(helper, UUID.randomUUID(), 4.5, 1, 0.5, 0);
         original.recall(player);
-        DroneEntity loaded = reload(helper, original);
+        DroneEntity loaded = reloadDrone(helper, original);
         helper.assertValueEqual(loaded.getState(), DroneState.RECALLED, "state after loading");
         helper.assertTrue(loaded.isPassive(), "passive");
         removePlayer(helper, player);
@@ -1299,15 +1300,5 @@ public class RemoteGameTests {
         remote.set(ModDataComponents.REMOTE_LINK, RemoteLink.of(drone.snapshotData()));
         player.setItemInHand(InteractionHand.MAIN_HAND, remote);
         return remote;
-    }
-
-    private static DroneEntity reload(GameTestHelper helper, DroneEntity original) {
-        // saveWithoutId still writes the UUID: discard the original before adding the copy.
-        CompoundTag tag = original.saveWithoutId(new CompoundTag());
-        original.discard();
-        DroneEntity loaded = ModEntityTypes.DRONE.get().create(helper.getLevel());
-        loaded.load(tag);
-        helper.getLevel().addFreshEntity(loaded);
-        return loaded;
     }
 }

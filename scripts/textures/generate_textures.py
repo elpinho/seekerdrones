@@ -1,5 +1,5 @@
 """Generates the mod's placeholder textures (until the commissioned art replaces them), and the models whose geometry
-is laid out together with their textures: the 3D Drone Remote, the Radar Station and the Satellite Uplink.
+is laid out together with their textures: the 3D Drone Remote, the Radar Station, the Satellite Uplink and the Command Center.
 
 Everything is drawn from scratch with a shared palette; no vanilla textures are copied. Run from anywhere:
 
@@ -1802,6 +1802,149 @@ def satellite_uplink_models():
     }
 
 
+# --- Drone Command Center -----------------------------------------------------------------------------------------
+#
+# The top radar tier (DESIGN.md sections 7.6 and 7.10): a holotable, built like the Radar Station and the Uplink from
+# the Radar Station's part textures. The table is the block model; the hologram above it (the terrain disc and the
+# floating blips) is separate models that CommandCenterRenderer draws translucent and full-bright while powered. The
+# hologram is generic, never the real map.
+
+# The table top: dark glass with a faint grid (lit while powered) and the emitter well in the middle, in a bezel.
+COMMAND_CENTER_TABLE = [
+    "6666666666666665",
+    "6xxxxzxxxxzxxxx1",
+    "6xyyyzyyyyzyyyx1",
+    "6xyyyzyyyyzyyyx1",
+    "6zzzzzzzzzzzzzz1",
+    "6xyyyz0000zyyyx1",
+    "6xyyy000000yyyx1",
+    "6xyyy000000yyyx1",
+    "6xyyy000000yyyx1",
+    "6xyyy000000yyyx1",
+    "6xyyyz0000zyyyx1",
+    "6zzzzzzzzzzzzzz1",
+    "6xyyyzyyyyzyyyx1",
+    "6xyyyzyyyyzyyyx1",
+    "6xxxxzxxxxzxxxx1",
+    "5111111111111111",
+]
+COMMAND_CENTER_TABLE_POWERED = [row.replace("z", "f") for row in COMMAND_CENTER_TABLE]
+# The front lip: a row of keys and two status lights (green and amber), dark while unpowered.
+COMMAND_CENTER_CONTROLS_POWERED = [
+    "6666666666666665",
+    "6322222222222231",
+    "632i2i2i22G2A231",
+    "6322222222222231",
+    "5111111111111111",
+] + ["6322222222222231"] * 11
+COMMAND_CENTER_CONTROLS = [row.replace("G", "i").replace("A", "i") for row in COMMAND_CENTER_CONTROLS_POWERED]
+COMMAND_CENTER_LENS_POWERED = ["tttttttttttttttt"] * 2 + ["tKKKKKKKKKKKKKKt"] * 12 + ["tttttttttttttttt"] * 2
+COMMAND_CENTER_LENS = ["0000000000000000"] * 2 + ["xyyyyyyyyyyyyyyx"] * 12 + ["0000000000000000"] * 2
+COMMAND_CENTER_EMITTER_POWERED = ["tttttttttttttttt"] * 16
+COMMAND_CENTER_EMITTER = ["iiiiiiiiiiiiiiii"] * 16
+# The hologram, drawn translucent: a contour-line terrain on the disc, and solid tones for the relief and blips.
+COMMAND_CENTER_HOLO_MAP = [
+    "TTTTTTTTTTTTTTTT",
+    "T..tt......t...T",
+    "T.t..t....t.t..T",
+    "T.t...tttt...t.T",
+    "T..t.........t.T",
+    "T...tt....tt.t.T",
+    "T.....t..t..t..T",
+    "T..tt..tt...t..T",
+    "T.t..t......t..T",
+    "T.t..t...ttt...T",
+    "T..tt...t......T",
+    "T......t...tt..T",
+    "T..t..t...t..t.T",
+    "T.t.t..t...tt..T",
+    "T..t....t......T",
+    "TTTTTTTTTTTTTTTT",
+]
+COMMAND_CENTER_HOLO = {
+    "holo_map": COMMAND_CENTER_HOLO_MAP,
+    "holo_line": ["t" * 16] * 16,
+    "holo_dim": ["T" * 16] * 16,
+    "holo_blip": ["K" * 16] * 16,
+    "holo_red": ["U" * 16] * 16,
+}
+# How opaque the hologram's textures are (the renderer draws them translucent and full-bright).
+HOLO_ALPHA = 165
+
+
+def hologram(rows):
+    """A hologram texture: machine colors with the hologram's opacity, and '.' left clear."""
+    palette = {key: color[:3] + (HOLO_ALPHA,) for key, color in MACHINE_PALETTE.items()}
+    palette["."] = (0, 0, 0, 0)
+    return grid(rows, palette)
+
+
+def command_center_table():
+    """The table: plinth, pedestal with vents and conduits, the top, the front lip, the emitter well and the pins."""
+    return [
+        radar_box([0, 0, 0], [16, 3, 16], {"all": "foot", "up": "casing", "down": "casing"}),
+        radar_box([2.5, 3, 2.5], [13.5, 10, 13.5], {"all": "casing", "east": "side", "west": "side"}),
+        radar_box([4, 3, 13.5], [6, 10, 14.5], "copper"),
+        radar_box([10, 3, 13.5], [12, 10, 14.5], "copper"),
+        radar_box([0, 10, 0], [16, 12, 16], {"all": "casing", "up": "table"}),
+        radar_box([0.5, 12, 0], [15.5, 13, 2.5], {"all": "casing", "up": "controls"}, uv={"up": [0, 0, 16, 5]}),
+        radar_box([5, 12, 5], [11, 12.5, 11], "copper"),
+        radar_box([6, 12.5, 6], [10, 13, 10], {"all": "copper", "up": "lens"}),
+        *[radar_box([x, 12, z], [x + 1, 14, z + 1], {"all": "casing", "up": "emitter"}) for x, z in ((1, 4), (14, 4), (1, 14), (14, 14))],
+    ]
+
+
+def command_center_holo_disc():
+    """The beam from the lens, the contour-map disc (at y 16, 3 px over the lens) and its relief. Turned about (8, 8)
+    by the renderer."""
+    y = 16
+    return [
+        radar_box([7.75, 13, 7.75], [8.25, y, 8.25], "holo_dim"),
+        radar_box([1.5, y, 1.5], [14.5, y + 0.1, 14.5], {"all": "holo_dim", "up": "holo_map", "down": "holo_map"}),
+        radar_box([4, y, 9], [7, y + 2, 12], {"all": "holo_dim", "up": "holo_line"}),
+        radar_box([9, y, 3], [11, y + 3, 6], {"all": "holo_dim", "up": "holo_line"}),
+        radar_box([10, y, 10], [12, y + 1, 13], {"all": "holo_dim", "up": "holo_line"}),
+    ]
+
+
+def command_center_textures(powered):
+    radar = "seekerdrones:block/radar_station"
+    center = "seekerdrones:block/command_center"
+    lit_suffix = "_powered" if powered else ""
+    return {
+        "particle": radar + "_casing",
+        "casing": radar + "_casing", "foot": radar + "_foot", "copper": radar + "_copper",
+        "side": radar + "_side" + lit_suffix,
+        "table": center + "_table" + lit_suffix, "controls": center + "_controls" + lit_suffix,
+        "lens": center + "_lens" + lit_suffix, "emitter": center + "_emitter" + lit_suffix,
+        **{name: center + "_" + name for name in COMMAND_CENTER_HOLO},
+    }
+
+
+def command_center_model(elements, powered):
+    # No ambient occlusion, like the Radar Station: parts above y = 16 would be shaded as if inside the block above.
+    return {"ambientocclusion": False, "textures": command_center_textures(powered), "elements": elements}
+
+
+def command_center_models():
+    """Block model JSONs by name (under models/block). The blockstate comes from ModBlockStateProvider. The hologram
+    parts: the disc, a blip (a 1 px cube at the model's origin corner, moved by the renderer) and a stem one pixel tall
+    (scaled by the renderer)."""
+    item = command_center_model(command_center_table(), False)
+    item["display"] = RADAR_STATION_ITEM_DISPLAY
+    return {
+        "command_center": command_center_model(command_center_table(), False),
+        "command_center_powered": command_center_model(command_center_table(), True),
+        "command_center_holo_disc": command_center_model(command_center_holo_disc(), True),
+        "command_center_holo_blip": command_center_model([radar_box([0, 0, 0], [1, 1, 1], "holo_blip")], True),
+        "command_center_holo_blip_red": command_center_model([radar_box([0, 0, 0], [1, 1, 1], "holo_red")], True),
+        "command_center_holo_stem": command_center_model([radar_box([0.4, 0, 0.4], [0.6, 1, 0.6], "holo_dim")], True),
+        # The upper half draws nothing (the hologram is the renderer's); it only needs break particles.
+        "command_center_upper": {"textures": {"particle": "seekerdrones:block/radar_station_casing"}},
+        "command_center_item": item,
+    }
+
+
 MACHINES = {
     "machine_bottom": MACHINE_BOTTOM,
     "charging_station_side": CHARGING_STATION_SIDE,
@@ -1841,6 +1984,14 @@ MACHINES = {
     "radar_station_screen": radar_station_screen(),
     "satellite_uplink_dish": SATELLITE_UPLINK_DISH,
     "satellite_uplink_screen": satellite_uplink_screen(),
+    "command_center_table": COMMAND_CENTER_TABLE,
+    "command_center_table_powered": COMMAND_CENTER_TABLE_POWERED,
+    "command_center_controls": COMMAND_CENTER_CONTROLS,
+    "command_center_controls_powered": COMMAND_CENTER_CONTROLS_POWERED,
+    "command_center_lens": COMMAND_CENTER_LENS,
+    "command_center_lens_powered": COMMAND_CENTER_LENS_POWERED,
+    "command_center_emitter": COMMAND_CENTER_EMITTER,
+    "command_center_emitter_powered": COMMAND_CENTER_EMITTER_POWERED,
 }
 # Animated faces: name -> (frames, game ticks per frame).
 ANIMATED_MACHINES = {
@@ -1873,6 +2024,8 @@ def outputs():
         textures[f"item/{name}_upgrade.png"] = upgrade(name)
     for name, rows in MACHINES.items():
         textures[f"block/{name}.png"] = machine(rows)
+    for name, rows in COMMAND_CENTER_HOLO.items():
+        textures[f"block/command_center_{name}.png"] = hologram(rows)
     for name, (frames, frametime) in ANIMATED_MACHINES.items():
         textures[f"block/{name}.png"] = animation(frames, frametime)
     return textures
@@ -1937,7 +2090,8 @@ def main():
             img.resize((img.width * 16, img.height * 16), Image.NEAREST).save(preview)
     models = {"item/drone_remote_3d": remote_3d_model_json(),
               **{f"block/{name}": model for name, model in radar_station_models().items()},
-              **{f"block/{name}": model for name, model in satellite_uplink_models().items()}}
+              **{f"block/{name}": model for name, model in satellite_uplink_models().items()},
+              **{f"block/{name}": model for name, model in command_center_models().items()}}
     for name, model in models.items():
         path = MODELS / f"{name}.json"
         path.parent.mkdir(parents=True, exist_ok=True)

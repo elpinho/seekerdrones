@@ -27,6 +27,8 @@ Status: `idea` | `decided`
 - **Transparent drone upgrade** (`idea`): an upgrade that makes the drone (semi-)transparent or invisible. Could be part of the Quiet upgrade above as one "Stealth" upgrade, or separate.
 
 ## Drone GUI and visuals
+
+- **Square area for the Uplink and Command Center** (`idea`, requested 2026-11-15, postponed): make the Satellite Uplink's and the Command Center's area a square instead of a circle (DESIGN.md §7.9, §7.10), so it fills their square map with no hatched corners. That touches the shared area check (`RadarMachineBlockEntity.inArea`), which also decides what the drone snapshots, the intruder alarm, the station reach rule and the Command Center's orders cover. It also touches the map's edge and hatching (`StationMap`), the Command Center's aim check, and the FPV signal, which goes by distance as a fraction of the radius. **Open:** whether the Radar Station's round scope stays round (probably, since its sweep is circular), and whether `radius` becomes a half-width.
   - It depends on the new drone model (ROADMAP.md M10). Tell the artist so the model and animations work at any scale.
 
 ## Sounds

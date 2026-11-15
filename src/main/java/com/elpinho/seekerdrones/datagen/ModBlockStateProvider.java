@@ -34,6 +34,7 @@ public class ModBlockStateProvider extends BlockStateProvider {
         programmingStation();
         radarStation();
         satelliteUplink();
+        commandCenter();
     }
 
     /**
@@ -71,6 +72,23 @@ public class ModBlockStateProvider extends BlockStateProvider {
                 : ConfiguredModel.builder().modelFile(upper).build());
         // The item shows the whole Uplink, with the dish pointing up.
         itemModels().withExistingParent("satellite_uplink", modLoc("block/satellite_uplink_item"));
+    }
+
+    /**
+     * Two blocks tall like the Radar Station (DESIGN.md section 7.10). The lower half carries the holotable; the
+     * hologram is drawn by CommandCenterRenderer. The upper half draws nothing.
+     */
+    private void commandCenter() {
+        ModelFile idle = models().getExistingFile(modLoc("block/command_center"));
+        ModelFile powered = models().getExistingFile(modLoc("block/command_center_powered"));
+        ModelFile upper = models().getExistingFile(modLoc("block/command_center_upper"));
+        getVariantBuilder(ModBlocks.COMMAND_CENTER.get()).forAllStates(state -> TwoBlockMachineBlock.isLower(state)
+                ? ConfiguredModel.builder()
+                        .modelFile(state.getValue(TwoBlockMachineBlock.POWERED) ? powered : idle)
+                        .rotationY(((int) state.getValue(TwoBlockMachineBlock.FACING).toYRot() + 180) % 360)
+                        .build()
+                : ConfiguredModel.builder().modelFile(upper).build());
+        itemModels().withExistingParent("command_center", modLoc("block/command_center_item"));
     }
 
     /**

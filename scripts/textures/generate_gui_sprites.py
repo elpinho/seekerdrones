@@ -589,6 +589,12 @@ ICONS = {
     "back": ([
         "...a.....", "..aa.....", ".aaaaaaaa", "aaaaaaaaa", "aaaaaaaaa", ".aaaaaaaa", "..aa.....", "...a....."],
         {"a": (64, 64, 64, 255)}),
+    # The station screens' list sort button (DESIGN.md sections 7.9 and 7.10): what it sorts by, then the direction.
+    "sort_distance": ([".ttt.", "t...t", "t.t.t", "t...t", ".ttt."], {"t": (143, 229, 214, 255)}),
+    "sort_name": (["..t..", ".t.t.", "t...t", "ttttt", "t...t"], {"t": (143, 229, 214, 255)}),
+    "sort_state": (["ttttt", ".....", "tttt.", ".....", "tt..."], {"t": (143, 229, 214, 255)}),
+    "sort_down": (["ttttt", ".ttt.", "..t.."], {"t": (143, 229, 214, 255)}),
+    "sort_up": (["..t..", ".ttt.", "ttttt"], {"t": (143, 229, 214, 255)}),
 }
 
 

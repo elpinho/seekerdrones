@@ -5,6 +5,7 @@ import com.elpinho.seekerdrones.deploying.DeployingStationMenu;
 import com.elpinho.seekerdrones.factory.DroneFactoryMenu;
 import com.elpinho.seekerdrones.programming.ProgrammingStationMenu;
 import com.elpinho.seekerdrones.radar.RadarStationMenu;
+import com.elpinho.seekerdrones.commandcenter.CommandCenterMenu;
 import com.elpinho.seekerdrones.uplink.UplinkMenu;
 import com.elpinho.seekerdrones.station.ChargingStationMenu;
 
@@ -30,4 +31,6 @@ public class ModMenuTypes {
             MENU_TYPES.register("radar_station", () -> IMenuTypeExtension.create(RadarStationMenu::new));
     public static final DeferredHolder<MenuType<?>, MenuType<UplinkMenu>> UPLINK =
             MENU_TYPES.register("satellite_uplink", () -> IMenuTypeExtension.create(UplinkMenu::new));
+    public static final DeferredHolder<MenuType<?>, MenuType<CommandCenterMenu>> COMMAND_CENTER =
+            MENU_TYPES.register("command_center", () -> IMenuTypeExtension.create(CommandCenterMenu::new));
 }

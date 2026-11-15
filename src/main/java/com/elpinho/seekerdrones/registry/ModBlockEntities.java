@@ -5,6 +5,7 @@ import com.elpinho.seekerdrones.deploying.DeployingStationBlockEntity;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
 import com.elpinho.seekerdrones.programming.ProgrammingStationBlockEntity;
 import com.elpinho.seekerdrones.radar.RadarStationBlockEntity;
+import com.elpinho.seekerdrones.commandcenter.CommandCenterBlockEntity;
 import com.elpinho.seekerdrones.uplink.UplinkBlockEntity;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
 
@@ -40,4 +41,8 @@ public class ModBlockEntities {
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<UplinkBlockEntity>> UPLINK =
             BLOCK_ENTITY_TYPES.register("satellite_uplink",
                     () -> BlockEntityType.Builder.of(UplinkBlockEntity::new, ModBlocks.UPLINK.get()).build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<CommandCenterBlockEntity>> COMMAND_CENTER =
+            BLOCK_ENTITY_TYPES.register("command_center",
+                    () -> BlockEntityType.Builder.of(CommandCenterBlockEntity::new, ModBlocks.COMMAND_CENTER.get()).build(null));
 }

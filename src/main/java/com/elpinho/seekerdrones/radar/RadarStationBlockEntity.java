@@ -70,8 +70,8 @@ public class RadarStationBlockEntity extends RadarMachineBlockEntity<TerrainMap>
     }
 
     @Override
-    protected CustomPacketPayload terrainPayload(TerrainMap terrain) {
-        return new RadarTerrainPayload(worldPosition, terrain);
+    protected List<CustomPacketPayload> terrainPayloads(TerrainMap terrain) {
+        return List.of(new RadarTerrainPayload(worldPosition, terrain));
     }
 
     @Override

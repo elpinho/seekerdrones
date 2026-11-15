@@ -21,10 +21,10 @@ import com.elpinho.seekerdrones.network.EditRemoteSettingsPayload;
 import com.elpinho.seekerdrones.network.LinkGlowPayload;
 import com.elpinho.seekerdrones.network.RemoteStatusPayload;
 import com.elpinho.seekerdrones.programming.ProgramRules;
+import com.elpinho.seekerdrones.radar.RemoteStationBlockEntity;
+import com.elpinho.seekerdrones.radar.RemoteStationMenu;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModSounds;
-import com.elpinho.seekerdrones.uplink.UplinkBlockEntity;
-import com.elpinho.seekerdrones.uplink.UplinkMenu;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
@@ -90,53 +90,53 @@ public final class RemoteControl {
     }
 
     /**
-     * How a player reaches a drone's remote controls (sections 2.10 and 7.9): a Drone Remote linked to it in hand, or
-     * a Satellite Uplink whose screen they have open.
+     * How a player reaches a drone's remote controls (sections 2.10, 7.9 and 7.10): a Drone Remote linked to it in
+     * hand, or a Satellite Uplink or Command Center whose screen they have open.
      *
-     * @param link   the remote's link, or for the Uplink one made from the drone (for the screen's header)
-     * @param uplink the Uplink, or null for a handheld remote
+     * @param link    the remote's link, or for a station one made from the drone (for the screen's header)
+     * @param station the station, or null for a handheld remote
      */
-    public record Access(RemoteLink link, @Nullable UplinkBlockEntity uplink) {
-        public boolean viaUplink() {
-            return uplink != null;
+    public record Access(RemoteLink link, @Nullable RemoteStationBlockEntity<?> station) {
+        public boolean viaStation() {
+            return station != null;
         }
     }
 
     /**
-     * How the player may reach this drone's remote controls right now, if at all. While a Satellite Uplink's menu is
-     * open (and still valid), it replaces the remote in hand (section 7.9); otherwise the player must hold a remote
-     * linked to the drone.
+     * How the player may reach this drone's remote controls right now, if at all. While a station's menu is open (and
+     * still valid), it replaces the remote in hand (section 7.9); otherwise the player must hold a remote linked to
+     * the drone.
      */
     public static Optional<Access> access(ServerPlayer player, String droneId) {
-        if (player.containerMenu instanceof UplinkMenu menu) {
-            UplinkBlockEntity uplink = menu.getUplink();
-            if (uplink == null || uplink.getLevel() == null || droneId.isEmpty() || !menu.stillValid(player)) {
+        if (player.containerMenu instanceof RemoteStationMenu menu) {
+            RemoteStationBlockEntity<?> station = menu.getStation();
+            if (station == null || station.getLevel() == null || droneId.isEmpty() || !menu.stillValid(player)) {
                 return Optional.empty();
             }
-            DroneEntity drone = DroneIndex.find(uplink.getLevel(), droneId);
+            DroneEntity drone = DroneIndex.find(station.getLevel(), droneId);
             RemoteLink link = drone != null ? RemoteLink.of(drone.snapshotData()) : new RemoteLink(droneId, "", DyeColor.WHITE);
-            return Optional.of(new Access(link, uplink));
+            return Optional.of(new Access(link, station));
         }
         return heldLink(player, droneId).map(link -> new Access(link, null));
     }
 
-    /** Finds the drone by the rules of how the player reaches it: the remote's ({@link #find}) or the Uplink's. */
+    /** Finds the drone by the rules of how the player reaches it: the remote's ({@link #find}) or the station's. */
     public static Target find(ServerPlayer player, String droneId, Access access) {
-        return access.uplink() != null ? findThroughUplink(player, droneId, access.uplink()) : find(player, droneId);
+        return access.station() != null ? findThroughStation(player, droneId, access.station()) : find(player, droneId);
     }
 
     /**
-     * The Satellite Uplink's reach rule (section 7.9), in place of {@code remote.range} and holding the remote: the
-     * Uplink is powered, the drone is loaded, in the Uplink's dimension and inside its area, and the player is its
-     * operator, with no server-operator bypass (the Uplink is gameplay, not moderation). The player having the
-     * Uplink's menu open is checked by {@link #access}. The distance is from the Uplink, horizontally.
+     * The station reach rule (sections 7.9 and 7.10), in place of {@code remote.range} and holding the remote: the
+     * station is powered, the drone is loaded, in the station's dimension and inside its area, and the player is its
+     * operator, with no server-operator bypass (the map is gameplay, not moderation). The player having the station's
+     * menu open is checked by {@link #access}. The distance is from the station, horizontally.
      */
-    public static Target findThroughUplink(ServerPlayer player, String droneId, UplinkBlockEntity uplink) {
+    public static Target findThroughStation(ServerPlayer player, String droneId, RemoteStationBlockEntity<?> station) {
         if (droneId.isEmpty()) {
             return Target.of(RemoteReach.NOT_DEPLOYED);
         }
-        if (uplink.isRemoved() || !uplink.isPowered() || !(uplink.getLevel() instanceof ServerLevel level)) {
-            return Target.of(RemoteReach.NO_POWER);
+        if (station.isRemoved() || !station.isPowered() || !(station.getLevel() instanceof ServerLevel level)) {
+            return Target.of(station.noPowerReach());
         }
         DroneEntity drone = DroneIndex.find(level, droneId);
         if (drone == null) {
@@ -148,9 +148,9 @@ public final class RemoteControl {
         if (!DronePermissions.isOperator(player.server, drone.snapshotData(), player.getUUID())) {
             return Target.of(RemoteReach.DENIED);
         }
-        Vec3 center = Vec3.atCenterOf(uplink.getBlockPos());
+        Vec3 center = Vec3.atCenterOf(station.getBlockPos());
         int distance = (int) Math.sqrt(Mth.square(drone.getX() - center.x) + Mth.square(drone.getZ() - center.z));
-        return new Target(uplink.inArea(drone.getX(), drone.getZ()) ? RemoteReach.OK : RemoteReach.OUT_OF_AREA, drone, distance);
+        return new Target(station.inArea(drone.getX(), drone.getZ()) ? RemoteReach.OK : station.outOfAreaReach(), drone, distance);
     }
 
     /** The link of a Drone Remote in either of the player's hands that is linked to this drone, if any. */
@@ -179,7 +179,7 @@ public final class RemoteControl {
                 : Optional.empty();
         ServerPlayer pilot = target.drone() != null ? FpvFeeds.pilotOf(target.drone()) : null;
         send(player, new RemoteStatusPayload(open, link, target.reach(), target.distance(), status,
-                pilot != null ? pilot.getGameProfile().getName() : "", access.viaUplink()));
+                pilot != null ? pilot.getGameProfile().getName() : "", access.viaStation()));
     }
 
     /** Skipped for connections that didn't negotiate the channel (e.g. GameTest fake players). */

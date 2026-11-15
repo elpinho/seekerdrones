@@ -88,9 +88,6 @@ public class DroneEntity extends PathfinderMob {
     private static final String TAG_REST_POSITION = "RestPosition";
     private static final String TAG_STATE = "State";
     private static final String TAG_TARGET = "Target";
-    private static final String TAG_RECALL_PLAYER = "RecallPlayer";
-    private static final String TAG_RECALL_HOVER_LEFT = "RecallHoverLeft";
-    private static final String TAG_RECALL_HOME = "RecallHome";
 
     /** The follow range the path finder's node budget was sized for (vanilla's default follow range). */
     private static final float BASE_FOLLOW_RANGE = 16.0F;
@@ -105,9 +102,6 @@ public class DroneEntity extends PathfinderMob {
     private static final float TURN_DONE_ANGLE = 1.0F;
     /** Below this horizontal speed (blocks/tick), a drone that faces its direction of travel keeps its facing. */
     private static final double FACE_MOVEMENT_MIN_SPEED = 0.03;
-
-    /** How close (blocks) a recalled drone must get to its spot by the player before it hovers there (section 2.10). */
-    private static final double RECALL_REACH_DISTANCE = 0.75;
 
     /** Server-side drone state. Health lives in the entity itself and is copied back by {@link #snapshotData()}. */
     @Nullable
@@ -161,21 +155,9 @@ public class DroneEntity extends PathfinderMob {
     private final DroneCharging charging = new DroneCharging(this);
     private final DronePatrol patrol = new DronePatrol(this);
     private final DronePursuit pursuit = new DronePursuit(this);
+    private final DroneOrders orders = new DroneOrders(this);
 
     // --- Drone Remote (server only, section 2.10) ---
-    /** The player a RECALLED drone flies to. */
-    @Nullable
-    private UUID recallPlayer;
-    /**
-     * Ticks a recalled drone has left to hold by the player before it goes back on its own, or -1 while it is still
-     * flying to them (RECALLED) or for a Hold from the remote, which has no timeout (HOLDING).
-     */
-    private int recallHoverLeft = -1;
-    /** Where a recalled drone without Patrol goes back to afterwards, or null. */
-    @Nullable
-    private Vec3 recallHome;
-    /** How far in front of the player the recall spot is, shortened if the full distance is blocked. */
-    private double recallRange;
     /** The drone ID this drone is under in the {@link DroneIndex}, or null while it isn't indexed. */
     @Nullable
     private String indexedId;
@@ -485,6 +467,10 @@ public class DroneEntity extends PathfinderMob {
         if (state == DroneState.CHARGING || state == DroneState.RETURNING) {
             return DroneReason.Info.of(charging.stationReason(state));
         }
+        DroneReason.Info order = orders.reason(state);
+        if (order != null) {
+            return order;
+        }
         if (state == DroneState.CHASING || state == DroneState.FOLLOWING) {
             if (lostSightSince >= 0) {
                 int ticksLeft = ServerConfig.get(ServerConfig.DRONE_LOST_SIGHT_TIMEOUT) - (tickCount - lostSightSince);
@@ -636,11 +622,12 @@ public class DroneEntity extends PathfinderMob {
             updateFacing(null);
             return;
         }
-        if (state == DroneState.HOLDING || state == DroneState.RECALLED) {
-            // Passive: no scanning, chasing or claiming (section 2.10). The return threshold still overrides this.
-            tickPassive(state, staggered);
+        if (orders.tickPassive(state, staggered)) {
+            // Hold, Recall, Move or Strike: no scanning, chasing or claiming (sections 2.10 and 7.10). The return
+            // threshold still overrides them.
             return;
         }
+        orders.tickGuardTimer();
         if (pendingTargetId != null) {
             resolvePendingTarget(staggered);
             return;
@@ -650,7 +637,9 @@ public class DroneEntity extends PathfinderMob {
                 scanForTarget(data);
             }
             if (target == null && !drifting) {
-                if (charging.hasHomeGoal()) {
+                if (orders.isGuarding()) {
+                    orders.tickGuardHover(staggered);
+                } else if (charging.hasHomeGoal()) {
                     charging.flyHome(data, staggered);
                 } else {
                     patrol.tick(data, staggered);
@@ -673,7 +662,7 @@ public class DroneEntity extends PathfinderMob {
      * turning once it faces more than {@code drone.facingTolerance} away, then eases into the turn at up to
      * {@code drone.turnSpeed}, so small target movements don't make it twitch.
      */
-    private void updateFacing(@Nullable Vec3 lookAt) {
+    void updateFacing(@Nullable Vec3 lookAt) {
         double dx;
         double dz;
         if (lookAt != null) {
@@ -929,6 +918,11 @@ public class DroneEntity extends PathfinderMob {
         return GlobalPos.of(level().dimension(), blockPosition());
     }
 
+    /** Sets the rest position, e.g. the spot a drone without Patrol guarded (section 7.10). */
+    void setRestPosition(GlobalPos position) {
+        restPosition = position;
+    }
+
     /** Makes where the drone is now its rest position (patrol center fallback 4, section 3.2), and returns it. */
     GlobalPos restHere() {
         restPosition = currentPosition();
@@ -1058,7 +1052,7 @@ public class DroneEntity extends PathfinderMob {
      * back to (section 5.3).
      */
     void startReturning(BlockPos station) {
-        clearRecall();
+        orders.clear();
         TargetClaims.release(this);
         target = null;
         pendingTargetId = null;
@@ -1261,15 +1255,7 @@ public class DroneEntity extends PathfinderMob {
         }
         charging.save(tag);
         energy.save(tag);
-        if (isPassive()) {
-            if (recallPlayer != null) {
-                tag.putUUID(TAG_RECALL_PLAYER, recallPlayer);
-            }
-            tag.putInt(TAG_RECALL_HOVER_LEFT, recallHoverLeft);
-        }
-        if (recallHome != null) {
-            Vec3.CODEC.encodeStart(NbtOps.INSTANCE, recallHome).result().ifPresent(pos -> tag.put(TAG_RECALL_HOME, pos));
-        }
+        orders.save(tag);
     }
 
     @Override
@@ -1288,21 +1274,20 @@ public class DroneEntity extends PathfinderMob {
         pendingTargetId = null;
         charging.load(tag);
         energy.load(tag);
+        // Restores Hold, Recall, Move, guarding and Strike, and keeps a guard order for a drone loaded mid-chase.
+        boolean ordered = orders.load(tag, state);
         if (tag.hasUUID(TAG_TARGET) && (state == DroneState.CHASING || state == DroneState.FOLLOWING)) {
             pendingTargetId = tag.getUUID(TAG_TARGET);
             setState(state);
         } else if (charging.station() != null && (state == DroneState.RETURNING || state == DroneState.CHARGING)) {
             // Claims aren't saved: a docked drone claims its station again and re-docks, without a second dock clunk.
             charging.resumeAfterLoad(state == DroneState.CHARGING);
-        } else if (state == DroneState.HOLDING || state == DroneState.RECALLED) {
+        } else if (ordered) {
             charging.forgetStation();
-            recallPlayer = tag.hasUUID(TAG_RECALL_PLAYER) ? tag.getUUID(TAG_RECALL_PLAYER) : null;
-            recallHoverLeft = tag.contains(TAG_RECALL_HOVER_LEFT) ? tag.getInt(TAG_RECALL_HOVER_LEFT) : -1;
-            recallHome = tag.contains(TAG_RECALL_HOME) ? Vec3.CODEC.parse(NbtOps.INSTANCE, tag.get(TAG_RECALL_HOME)).result().orElse(null) : null;
-            recallRange = -1;
             setState(state);
         } else {
             charging.forgetStation();
+            orders.clear();
             setState(DroneState.IDLE);
         }
     }
@@ -1314,17 +1299,27 @@ public class DroneEntity extends PathfinderMob {
         return getDroneData().droneId();
     }
 
-    /** Whether the drone is HOLDING or RECALLED: it ignores targets and holds no claim. */
+    /** Whether the drone is HOLDING, RECALLED, MOVING or STRIKING: it ignores targets and holds no claim. */
     public boolean isPassive() {
-        DroneState state = getState();
-        return state == DroneState.HOLDING || state == DroneState.RECALLED;
+        return DroneOrders.isPassive(getState());
+    }
+
+    /** Whether the drone carries out an order that Resume (the remote) or Release (the Command Center) ends. */
+    public boolean hasResumableOrder() {
+        return DroneOrders.isResumable(getState()) || orders.isGuarding();
+    }
+
+    /** The Command Center order the drone carries out, if any (section 7.10). Server side only. */
+    @Nullable
+    public DroneOrder.Info getOrder() {
+        return orders.info();
     }
 
     /**
-     * Drops everything the drone was doing before a remote command takes over: the target (and its claim), a
-     * station it was flying to or docked at, a drift and the patrol or home flight.
+     * Drops everything the drone was doing before an order takes over: the target (and its claim), a station it was
+     * flying to or docked at, a drift and the patrol or home flight.
      */
-    private void dropActivity() {
+    void dropActivity() {
         DroneState state = getState();
         if (state == DroneState.RETURNING || state == DroneState.CHARGING) {
             charging.abandon();
@@ -1342,48 +1337,47 @@ public class DroneEntity extends PathfinderMob {
         stopNavigating();
     }
 
-    private void clearRecall() {
-        recallPlayer = null;
-        recallHoverLeft = -1;
-        recallHome = null;
-    }
-
     /**
      * Recall: flies to {@code remote.recallDistance} blocks in front of the player at eye level, tracking them (RECALLED),
      * then holds there (HOLDING) for {@code remote.recallHoverTicks} and goes back to its patrol, unless resumed first
      * (section 2.10). A drone without Patrol goes back to where it was recalled. Works on a docked drone too.
      */
     public void recall(Player player) {
-        Vec3 home = null;
-        if (getState() == DroneState.RECALLED || getState() == DroneState.HOLDING && recallHoverLeft >= 0) {
-            // Recalled again: it still goes back to where it was first recalled.
-            home = recallHome;
-        } else if (!DroneStats.isPatrolling(getDroneData())) {
-            home = Vec3.atBottomCenterOf(blockPosition());
-        }
-        dropActivity();
-        recallPlayer = player.getUUID();
-        recallHoverLeft = -1;
-        recallRange = -1;
-        recallHome = home;
-        setState(DroneState.RECALLED);
+        orders.recall(player);
     }
 
     /** Hold: drops any target and hovers where it is until resumed (section 2.10). Works on a docked drone too. */
     public void hold() {
-        dropActivity();
-        clearRecall();
-        setState(DroneState.HOLDING);
+        orders.hold();
     }
 
     /**
-     * Resume ends Hold or Recall: the drone patrols again, or hovers where it is without Patrol. A recalled drone
-     * without Patrol goes back to where it was recalled, as when its hold times out (section 2.10).
+     * Resume (the remote) or Release (the Command Center): ends Hold, Recall, Move, guarding or Strike, and the drone
+     * goes back to normal behavior at once (sections 2.10 and 7.10). A recalled drone without Patrol goes back to where
+     * it was recalled, as when its hold times out. Returns false if there was nothing to end.
      */
-    public void resume() {
-        if (isPassive()) {
-            endRecall();
+    public boolean resume() {
+        return orders.release();
+    }
+
+    /**
+     * Move (section 7.10): flies to {@code commandCenter.moveHeight} blocks above {@code top} (the top block's top
+     * center at the spot), passive, then guards the spot. Works on a docked drone too.
+     */
+    public void moveTo(Vec3 top) {
+        orders.move(top);
+    }
+
+    /**
+     * Strike (section 7.10): rushes to {@code top} (the top block's top center at the spot), passive, and detonates
+     * there. Returns false, and does nothing, without an Explosive upgrade.
+     */
+    public boolean strike(Vec3 top) {
+        if (!DroneStats.isExplosive(getDroneData())) {
+            return false;
         }
+        orders.strike(top);
+        return true;
     }
 
     /**
@@ -1414,71 +1408,6 @@ public class DroneEntity extends PathfinderMob {
         return true;
     }
 
-    /**
-     * HOLDING and RECALLED (section 2.10): a RECALLED drone flies to the player, then holds there with the recall
-     * timeout running. A held drone only hovers.
-     */
-    private void tickPassive(DroneState state, boolean staggered) {
-        double acceleration = ServerConfig.get(ServerConfig.DRONE_ACCELERATION);
-        if (state == DroneState.RECALLED) {
-            MinecraftServer server = level().getServer();
-            Player player = recallPlayer != null && server != null ? server.getPlayerList().getPlayer(recallPlayer) : null;
-            if (player != null && player.isAlive() && player.level() == level()) {
-                Vec3 spot = recallSpot(player, staggered);
-                if (distanceToSqr(spot) > RECALL_REACH_DISTANCE * RECALL_REACH_DISTANCE
-                        && steerTowards(spot, ServerConfig.get(ServerConfig.DRONE_CRUISE_SPEED), acceleration, spot, staggered, true)) {
-                    updateFacing(player.getEyePosition());
-                    return;
-                }
-            }
-            // There, can't get any closer, or the player left: hold here, going back on its own after the timeout.
-            recallPlayer = null;
-            recallHoverLeft = ServerConfig.get(ServerConfig.REMOTE_RECALL_HOVER_TICKS);
-            setState(DroneState.HOLDING);
-        }
-        if (pathGoal != null) {
-            stopNavigating();
-        }
-        ((DroneMoveControl) moveControl).hold(acceleration);
-        updateFacing(null);
-        if (recallHoverLeft >= 0 && --recallHoverLeft <= 0) {
-            endRecall();
-        }
-    }
-
-    /**
-     * Where a recalled drone stops: {@code remote.recallDistance} blocks in front of the player at eye level, or closer
-     * if that spot is blocked. The free distance is looked up on the staggered tick only.
-     */
-    private Vec3 recallSpot(Player player, boolean staggered) {
-        Vec3 eye = player.getEyePosition();
-        Vec3 forward = Vec3.directionFromRotation(0, player.getYRot());
-        double distance = ServerConfig.get(ServerConfig.REMOTE_RECALL_DISTANCE);
-        double feetOffset = getBbHeight() / 2;
-        if (staggered || recallRange < 0) {
-            recallRange = distance;
-            for (double range : new double[] {distance, distance / 2, 0}) {
-                if (hasRoomAt(eye.add(forward.scale(range)).subtract(0, feetOffset, 0))) {
-                    recallRange = range;
-                    break;
-                }
-            }
-        }
-        return eye.add(forward.scale(recallRange)).subtract(0, feetOffset, 0);
-    }
-
-    /**
-     * Ends a hold or recall: patrols again, or a drone without Patrol flies back to where it was recalled (or hovers
-     * where it is after a plain Hold).
-     */
-    private void endRecall() {
-        charging.setHomeGoal(recallHome);
-        clearRecall();
-        patrol.reset();
-        recheckDirectPath = true;
-        setState(DroneState.IDLE);
-    }
-
     // --- Remote piloting (section 2.13) ---
 
     public boolean isPiloted() {
@@ -1488,7 +1417,7 @@ public class DroneEntity extends PathfinderMob {
     /** An operator takes control: the drone drops what it was doing and stops its AI until piloting ends. */
     public void startPiloting() {
         dropActivity();
-        clearRecall();
+        orders.clear();
         pilotInput = PilotInput.NONE;
         boosting = false;
         setState(DroneState.PILOTED);

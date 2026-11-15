@@ -1,0 +1,89 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "seekerdrones:block/radar_station_casing",
+    "casing": "seekerdrones:block/radar_station_casing",
+    "foot": "seekerdrones:block/radar_station_foot",
+    "copper": "seekerdrones:block/radar_station_copper",
+    "side": "seekerdrones:block/radar_station_side_powered",
+    "table": "seekerdrones:block/command_center_table_powered",
+    "controls": "seekerdrones:block/command_center_controls_powered",
+    "lens": "seekerdrones:block/command_center_lens_powered",
+    "emitter": "seekerdrones:block/command_center_emitter_powered",
+    "holo_map": "seekerdrones:block/command_center_holo_map",
+    "holo_line": "seekerdrones:block/command_center_holo_line",
+    "holo_dim": "seekerdrones:block/command_center_holo_dim",
+    "holo_blip": "seekerdrones:block/command_center_holo_blip",
+    "holo_red": "seekerdrones:block/command_center_holo_red"
+  },
+  "elements": [
+    {
+      "from": [
+        0.4,
+        0,
+        0.4
+      ],
+      "to": [
+        0.6,
+        1,
+        0.6
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            15.4,
+            15,
+            15.6,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "south": {
+          "uv": [
+            0.4,
+            15,
+            0.6,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "east": {
+          "uv": [
+            15.4,
+            15,
+            15.6,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "west": {
+          "uv": [
+            0.4,
+            15,
+            0.6,
+            16
+          ],
+          "texture": "#holo_dim"
+        },
+        "up": {
+          "uv": [
+            0.4,
+            0.4,
+            0.6,
+            0.6
+          ],
+          "texture": "#holo_dim"
+        },
+        "down": {
+          "uv": [
+            0.4,
+            0.4,
+            0.6,
+            0.6
+          ],
+          "texture": "#holo_dim"
+        }
+      }
+    }
+  ]
+}

@@ -9,8 +9,8 @@ import net.minecraft.util.ByIdMap;
 
 /**
  * Whether a player can reach a Drone Remote's linked drone right now (DESIGN.md section 2.10), or a drone opened from a
- * Satellite Uplink (section 7.9). Anything but
- * {@link #OK} disables the remote's controls.
+ * Satellite Uplink or Command Center (sections 7.9 and 7.10). Anything but {@link #OK} disables the remote's controls.
+ * New values go at the end: the stream codec goes by ordinal.
  */
 public enum RemoteReach {
     OK,
@@ -23,7 +23,11 @@ public enum RemoteReach {
     /** Through a Satellite Uplink (section 7.9): the Uplink has no power. */
     NO_POWER,
     /** Through a Satellite Uplink (section 7.9): the drone is outside the Uplink's area. */
-    OUT_OF_AREA;
+    OUT_OF_AREA,
+    /** Through a Command Center (section 7.10): the Command Center has no power. */
+    COMMAND_CENTER_NO_POWER,
+    /** Through a Command Center (section 7.10): the drone is outside the Command Center's area. */
+    COMMAND_CENTER_OUT_OF_AREA;
 
     private static final IntFunction<RemoteReach> BY_ID = ByIdMap.continuous(Enum::ordinal, values(), ByIdMap.OutOfBoundsStrategy.ZERO);
     public static final StreamCodec<ByteBuf, RemoteReach> STREAM_CODEC = ByteBufCodecs.idMapper(BY_ID, Enum::ordinal);

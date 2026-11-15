@@ -1,13 +1,15 @@
 package com.elpinho.seekerdrones.uplink;
 
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.assertAlarm;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.placeTwoBlock;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.removePlayer;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.server;
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.setSeekTarget;
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.signal;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.spawnDrone;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.spawnPlayer;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.spawnStationaryZombie;
 
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +27,7 @@ import com.elpinho.seekerdrones.drone.DroneState;
 import com.elpinho.seekerdrones.drone.DroneStats;
 import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.feed.FpvFeeds;
+import com.elpinho.seekerdrones.network.MapMarkers;
 import com.elpinho.seekerdrones.network.UplinkContactsPayload;
 import com.elpinho.seekerdrones.operator.OperatorGroups;
 import com.elpinho.seekerdrones.registry.ModBlocks;
@@ -313,7 +316,7 @@ public class UplinkGameTests {
             helper.assertTrue(Math.abs(contact.yaw() - own.getYRot()) < 1e-3, "Contact should carry the heading");
             helper.assertTrue(contact.label().equals("Alpha") && contact.color() == DyeColor.RED, "Contact should carry the label and color, got " + contact.label() + " " + contact.color());
             helper.assertTrue(contact.patrol().isPresent(), "A drone with Patrol should carry its patrol ring");
-            UplinkContactsPayload.Patrol patrol = contact.patrol().get();
+            MapMarkers.Patrol patrol = contact.patrol().get();
             helper.assertTrue(Math.abs(patrol.dx() - 2.0F) < 1e-3 && Math.abs(patrol.dz() - 2.0F) < 1e-3, "Patrol center should be relative to the Uplink (2, 2), got " + patrol);
             helper.assertTrue(patrol.radius() == DroneStats.patrolRadius(own.snapshotData()) && patrol.radius() > 0, "Patrol radius should be the drone's, got " + patrol.radius());
             UplinkContactsPayload.Identified groupContact = payload.identified().stream().filter(c -> c.droneId().equals("grp-" + tag)).findFirst().orElseThrow();
@@ -439,14 +442,14 @@ public class UplinkGameTests {
             registry.add(theirs, Optional.of(otherPlacer));
             registry.add(noPlacer, Optional.empty());
             registry.add(outside, Optional.of(viewerId));
-            Set<UplinkContactsPayload.Station> stations = Set.copyOf(contacts(helper, uplink, viewer).stations());
+            Set<MapMarkers.Station> stations = Set.copyOf(contacts(helper, uplink, viewer).stations());
             BlockPos base = helper.absolutePos(rel);
-            helper.assertTrue(stations.contains(new UplinkContactsPayload.Station(mine.getX() - base.getX(), mine.getZ() - base.getZ())), "The viewer's own station should be listed, saw " + stations);
-            helper.assertTrue(stations.contains(new UplinkContactsPayload.Station(viaGroup.getX() - base.getX(), viaGroup.getZ() - base.getZ())),
+            helper.assertTrue(stations.contains(new MapMarkers.Station(mine.getX() - base.getX(), mine.getZ() - base.getZ())), "The viewer's own station should be listed, saw " + stations);
+            helper.assertTrue(stations.contains(new MapMarkers.Station(viaGroup.getX() - base.getX(), viaGroup.getZ() - base.getZ())),
                     "A station placed by the owner of a group the viewer operates should be listed, saw " + stations);
-            helper.assertTrue(!stations.contains(new UplinkContactsPayload.Station(theirs.getX() - base.getX(), theirs.getZ() - base.getZ())), "Another player's station must be hidden");
-            helper.assertTrue(!stations.contains(new UplinkContactsPayload.Station(noPlacer.getX() - base.getX(), noPlacer.getZ() - base.getZ())), "A station with no placer must be hidden");
-            helper.assertTrue(!stations.contains(new UplinkContactsPayload.Station(outside.getX() - base.getX(), outside.getZ() - base.getZ())), "A station outside the area must be hidden");
+            helper.assertTrue(!stations.contains(new MapMarkers.Station(theirs.getX() - base.getX(), theirs.getZ() - base.getZ())), "Another player's station must be hidden");
+            helper.assertTrue(!stations.contains(new MapMarkers.Station(noPlacer.getX() - base.getX(), noPlacer.getZ() - base.getZ())), "A station with no placer must be hidden");
+            helper.assertTrue(!stations.contains(new MapMarkers.Station(outside.getX() - base.getX(), outside.getZ() - base.getZ())), "A station outside the area must be hidden");
         } finally {
             for (BlockPos pos : List.of(mine, viaGroup, theirs, noPlacer, outside)) {
                 registry.remove(pos);
@@ -477,16 +480,6 @@ public class UplinkGameTests {
     // 8. Tracking target
     // =====================================================================================================
 
-    private static void setTarget(DroneEntity drone, net.minecraft.world.entity.Entity target) {
-        try {
-            Field field = DroneEntity.class.getDeclaredField("target");
-            field.setAccessible(true);
-            field.set(drone, target);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
     @GameTest(template = "empty", timeoutTicks = 20, batch = RADIUS_BATCH)
     public static void uplinkIdentifiedDroneCarriesItsTrackingTargetAndUnidentifiedNeverDo(GameTestHelper helper) {
         BlockPos rel = new BlockPos(4, 1, 4);
@@ -501,15 +494,15 @@ public class UplinkGameTests {
         ServerPlayer targetPlayer = spawnPlayer(helper, UUID.randomUUID(), 2.5, 1, 7.5, 0);
         ServerPlayer viewer = spawnPlayer(helper, viewerId, 1, 1, 7, 0);
         try {
-            setTarget(tracking, zombie);
-            setTarget(tracksPlayer, targetPlayer);
-            setTarget(others, zombie);
+            setSeekTarget(tracking, zombie);
+            setSeekTarget(tracksPlayer, targetPlayer);
+            setSeekTarget(others, zombie);
             UplinkContactsPayload payload = contacts(helper, uplink, viewer);
             Vec3 center = Vec3.atCenterOf(helper.absolutePos(rel));
 
             UplinkContactsPayload.Identified zombieContact = payload.identified().stream().filter(c -> c.droneId().equals("trk-" + tag)).findFirst().orElseThrow();
             helper.assertTrue(zombieContact.target().isPresent(), "A drone tracking a zombie should carry the target");
-            UplinkContactsPayload.Target target = zombieContact.target().get();
+            MapMarkers.Target target = zombieContact.target().get();
             helper.assertTrue(Math.abs(target.dx() - (zombie.getX() - center.x)) < 1e-3 && Math.abs(target.dz() - (zombie.getZ() - center.z)) < 1e-3,
                     "Target position should be relative to the Uplink, got " + target);
             helper.assertTrue(target.type() == EntityType.ZOMBIE, "Target type should be zombie, got " + target.type());
@@ -538,16 +531,6 @@ public class UplinkGameTests {
     // =====================================================================================================
     // 7. Intruder alarm (batch: uplink.radius = 8). Drones stay within 4 blocks of the Uplink's center.
     // =====================================================================================================
-
-    private static int signal(GameTestHelper helper, BlockPos rel) {
-        return helper.getBlockState(rel).getAnalogOutputSignal(helper.getLevel(), helper.absolutePos(rel));
-    }
-
-    private static void assertAlarm(GameTestHelper helper, UplinkBlockEntity uplink, BlockPos rel, int expected) {
-        helper.assertTrue(uplink.getAlarm() == expected, "Alarm should be " + expected + ", is " + uplink.getAlarm());
-        helper.assertTrue(signal(helper, rel) == expected, "Lower half's comparator output should be " + expected + ", is " + signal(helper, rel));
-        helper.assertTrue(signal(helper, rel.above()) == expected, "Upper half's comparator output should be " + expected + ", is " + signal(helper, rel.above()));
-    }
 
     @GameTest(template = "empty", timeoutTicks = 40, batch = RADIUS_BATCH)
     public static void uplinkAlarmCountsDronesInTheAreaThePlacerIsNotAnOperatorOfWithNobodyWatching(GameTestHelper helper) {
@@ -755,7 +738,7 @@ public class UplinkGameTests {
             helper.assertTrue(RemoteControl.access(player, id).isEmpty(), "Without the menu open and no remote in hand there is no access");
             openMenu(player, uplink);
             Optional<RemoteControl.Access> access = RemoteControl.access(player, id);
-            helper.assertTrue(access.isPresent() && access.get().viaUplink() && access.get().uplink() == uplink, "With the menu open, access is through the Uplink");
+            helper.assertTrue(access.isPresent() && access.get().viaStation() && access.get().station() == uplink, "With the menu open, access is through the Uplink");
             helper.assertTrue(access.get().link().droneId().equals(id), "The link should be for the drone");
             helper.assertTrue(RemoteControl.access(player, "").isEmpty(), "An empty drone ID gets no access");
             // Walks away: the menu is no longer valid (reach check).
@@ -777,7 +760,7 @@ public class UplinkGameTests {
         ServerPlayer player = spawnPlayer(helper, uuid, 4.5, 1, 1.5, 0);
         try {
             openMenu(player, uplink);
-            RemoteControl.Target target = RemoteControl.findThroughUplink(player, id, uplink);
+            RemoteControl.Target target = RemoteControl.findThroughStation(player, id, uplink);
             helper.assertValueEqual(target.reach(), RemoteReach.OK, "reach");
             helper.assertTrue(target.drone() == drone, "The drone should be found");
             helper.assertTrue(Math.abs(target.distance() - 4) <= 1, "The distance is measured from the Uplink horizontally (about 4), got " + target.distance());
@@ -798,8 +781,8 @@ public class UplinkGameTests {
         try {
             openMenu(player, uplink);
             helper.assertTrue(!uplink.isPowered(), "Fixture: unpowered");
-            helper.assertValueEqual(RemoteControl.findThroughUplink(player, id, uplink).reach(), RemoteReach.NO_POWER, "reach");
-            helper.assertTrue(RemoteControl.findThroughUplink(player, id, uplink).drone() == null, "No drone is revealed without power");
+            helper.assertValueEqual(RemoteControl.findThroughStation(player, id, uplink).reach(), RemoteReach.NO_POWER, "reach");
+            helper.assertTrue(RemoteControl.findThroughStation(player, id, uplink).drone() == null, "No drone is revealed without power");
         } finally {
             removePlayer(helper, player);
         }
@@ -821,9 +804,9 @@ public class UplinkGameTests {
         ServerPlayer player = spawnPlayer(helper, uuid, 4.5, 1, 1.5, 0);
         try {
             openMenu(player, uplink);
-            helper.assertValueEqual(RemoteControl.findThroughUplink(player, newId(), uplink).reach(), RemoteReach.NOT_DEPLOYED, "unknown drone");
-            helper.assertValueEqual(RemoteControl.findThroughUplink(player, id, uplink).reach(), RemoteReach.OTHER_DIMENSION, "drone in the Nether");
-            helper.assertValueEqual(RemoteControl.findThroughUplink(player, "", uplink).reach(), RemoteReach.NOT_DEPLOYED, "empty ID");
+            helper.assertValueEqual(RemoteControl.findThroughStation(player, newId(), uplink).reach(), RemoteReach.NOT_DEPLOYED, "unknown drone");
+            helper.assertValueEqual(RemoteControl.findThroughStation(player, id, uplink).reach(), RemoteReach.OTHER_DIMENSION, "drone in the Nether");
+            helper.assertValueEqual(RemoteControl.findThroughStation(player, "", uplink).reach(), RemoteReach.NOT_DEPLOYED, "empty ID");
         } finally {
             drone.discard();
             removePlayer(helper, player);
@@ -843,8 +826,8 @@ public class UplinkGameTests {
         ServerPlayer player = spawnPlayer(helper, uuid, 1.5, 1, 3.5, 0);
         try {
             openMenu(player, uplink);
-            helper.assertValueEqual(RemoteControl.findThroughUplink(player, inside, uplink).reach(), RemoteReach.OK, "exactly at the radius");
-            RemoteControl.Target target = RemoteControl.findThroughUplink(player, outside, uplink);
+            helper.assertValueEqual(RemoteControl.findThroughStation(player, inside, uplink).reach(), RemoteReach.OK, "exactly at the radius");
+            RemoteControl.Target target = RemoteControl.findThroughStation(player, outside, uplink);
             helper.assertValueEqual(target.reach(), RemoteReach.OUT_OF_AREA, "outside the radius");
             helper.assertTrue(target.drone() == far, "The drone is still returned (with the distance) for the screen's header");
         } finally {
@@ -862,8 +845,8 @@ public class UplinkGameTests {
         try {
             openMenu(op, uplink);
             helper.assertTrue(op.hasPermissions(2), "Fixture: a server operator");
-            helper.assertValueEqual(RemoteControl.findThroughUplink(op, id, uplink).reach(), RemoteReach.DENIED, "reach for an op who isn't the drone's operator");
-            helper.assertTrue(RemoteControl.findThroughUplink(op, id, uplink).drone() == null, "A non-operator learns nothing about the drone");
+            helper.assertValueEqual(RemoteControl.findThroughStation(op, id, uplink).reach(), RemoteReach.DENIED, "reach for an op who isn't the drone's operator");
+            helper.assertTrue(RemoteControl.findThroughStation(op, id, uplink).drone() == null, "A non-operator learns nothing about the drone");
         } finally {
             removePlayer(helper, op);
         }

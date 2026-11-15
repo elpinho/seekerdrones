@@ -38,6 +38,8 @@ public class ModItems {
             properties -> new DoubleHighBlockItem(ModBlocks.RADAR_STATION.get(), properties));
     public static final DeferredItem<BlockItem> UPLINK = ITEMS.registerItem("satellite_uplink",
             properties -> new DoubleHighBlockItem(ModBlocks.UPLINK.get(), properties));
+    public static final DeferredItem<BlockItem> COMMAND_CENTER = ITEMS.registerItem("command_center",
+            properties -> new DoubleHighBlockItem(ModBlocks.COMMAND_CENTER.get(), properties));
 
     // Intermediate components (DESIGN.md section 7.5).
     public static final DeferredItem<Item> DRONE_ROTOR = ITEMS.registerSimpleItem("drone_rotor");

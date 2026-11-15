@@ -3,6 +3,7 @@ package com.elpinho.seekerdrones;
 import org.slf4j.Logger;
 
 import com.elpinho.seekerdrones.command.SeekerDronesCommand;
+import com.elpinho.seekerdrones.config.ClientConfig;
 import com.elpinho.seekerdrones.config.ServerConfig;
 import com.elpinho.seekerdrones.datagen.SeekerDronesDataGenerators;
 import com.elpinho.seekerdrones.drone.DroneIndex;
@@ -58,6 +59,7 @@ public class SeekerDrones {
         ModAttachments.ATTACHMENT_TYPES.register(modEventBus);
 
         modContainer.registerConfig(ModConfig.Type.SERVER, ServerConfig.SPEC);
+        modContainer.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
 
         modEventBus.addListener(ModEntityTypes::registerAttributes);
         modEventBus.addListener(ModCapabilities::register);

@@ -1,6 +1,8 @@
 package com.elpinho.seekerdrones.gametest;
 
+import java.lang.reflect.Field;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
@@ -10,7 +12,9 @@ import javax.annotation.Nullable;
 import com.elpinho.seekerdrones.deploying.DeployingStationBlockEntity;
 import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
+import com.elpinho.seekerdrones.drone.UpgradeType;
 import com.elpinho.seekerdrones.programming.ProgrammingStationBlockEntity;
+import com.elpinho.seekerdrones.radar.RemoteStationBlockEntity;
 import com.elpinho.seekerdrones.radar.TwoBlockMachineBlock;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
@@ -21,11 +25,13 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.PacketFlow;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.network.CommonListenerCookie;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Zombie;
@@ -34,6 +40,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
@@ -251,5 +258,91 @@ public final class GameTestUtil {
     /** Drones within {@code radius} blocks of the absolute position {@code center}. */
     public static List<DroneEntity> dronesNear(GameTestHelper helper, Vec3 center, double radius) {
         return helper.getLevel().getEntitiesOfClass(DroneEntity.class, new AABB(center, center).inflate(radius));
+    }
+
+    /**
+     * Removes the barrier box the GameTest framework builds around a structure (a ring one block outside the 9 x 6 x 9
+     * "empty" template, walls and a roof one block above it), so drones can fly out of it and the world surface above a
+     * column is the column's own top. Tests that fly drones to spots above or outside the structure need it.
+     */
+    public static void clearTestBarriers(GameTestHelper helper) {
+        for (int x = -1; x <= 9; x++) {
+            for (int y = 0; y <= 7; y++) {
+                for (int z = -1; z <= 9; z++) {
+                    BlockPos rel = new BlockPos(x, y, z);
+                    if (helper.getBlockState(rel).is(Blocks.BARRIER)) {
+                        helper.setBlock(rel, Blocks.AIR);
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Drone data fixtures ---
+
+    /** A fresh drone ID that no other test uses. */
+    public static String newDroneId() {
+        return "T" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+
+    /** A short random tag for telling this test's drones apart from other tests' in a shared snapshot. */
+    public static String randomTag() {
+        return UUID.randomUUID().toString().substring(0, 6);
+    }
+
+    /** Plain drone data with this ID: no owner, no group, no upgrades. */
+    public static DroneData droneData(String id) {
+        return DroneData.createNew().withDroneId(id);
+    }
+
+    /** Drone data owned by a player nobody in the test is. */
+    public static DroneData foreignDroneData(String id) {
+        return droneData(id).withOwnerId(Optional.of(UUID.randomUUID()));
+    }
+
+    /** Drone data with an FPV Camera. */
+    public static DroneData cameraDroneData(String id) {
+        return droneData(id).withUpgradeCount(UpgradeType.FPV_CAMERA, 1);
+    }
+
+    /**
+     * Makes the drone track {@code target} without running its AI (a chase or follow would need line of sight and ticks),
+     * so snapshots that carry the tracked entity can be checked.
+     */
+    public static void setSeekTarget(DroneEntity drone, Entity target) {
+        try {
+            Field field = DroneEntity.class.getDeclaredField("target");
+            field.setAccessible(true);
+            field.set(drone, target);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Saves the drone to NBT and loads it into a new entity in the level, as a chunk reload would. {@code saveWithoutId}
+     * still writes the UUID, so the original is discarded before the copy is added.
+     */
+    public static DroneEntity reloadDrone(GameTestHelper helper, DroneEntity original) {
+        CompoundTag tag = original.saveWithoutId(new CompoundTag());
+        original.discard();
+        DroneEntity loaded = ModEntityTypes.DRONE.get().create(helper.getLevel());
+        loaded.load(tag);
+        helper.getLevel().addFreshEntity(loaded);
+        return loaded;
+    }
+
+    // --- Intruder alarm (Satellite Uplink and Command Center) ---
+
+    /** The comparator output of the block at {@code rel}. */
+    public static int signal(GameTestHelper helper, BlockPos rel) {
+        return helper.getBlockState(rel).getAnalogOutputSignal(helper.getLevel(), helper.absolutePos(rel));
+    }
+
+    /** Asserts the station's alarm and the comparator output of both of its halves (the lower one at {@code rel}). */
+    public static void assertAlarm(GameTestHelper helper, RemoteStationBlockEntity<?> station, BlockPos rel, int expected) {
+        helper.assertTrue(station.getAlarm() == expected, "Alarm should be " + expected + ", is " + station.getAlarm());
+        helper.assertTrue(signal(helper, rel) == expected, "Lower half's comparator output should be " + expected + ", is " + signal(helper, rel));
+        helper.assertTrue(signal(helper, rel.above()) == expected, "Upper half's comparator output should be " + expected + ", is " + signal(helper, rel.above()));
     }
 }

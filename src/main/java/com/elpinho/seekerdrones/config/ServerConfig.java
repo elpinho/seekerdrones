@@ -169,6 +169,18 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue UPLINK_TERRAIN_CHUNKS_PER_TICK;
     public static final ModConfigSpec.IntValue UPLINK_TERRAIN_REFRESH_INTERVAL;
     public static final ModConfigSpec.IntValue UPLINK_PULSE_TICKS;
+    public static final ModConfigSpec.IntValue COMMAND_CENTER_ENERGY_CAPACITY;
+    public static final ModConfigSpec.IntValue COMMAND_CENTER_ENERGY_PER_TICK;
+    public static final ModConfigSpec.IntValue COMMAND_CENTER_RADIUS;
+    public static final ModConfigSpec.IntValue COMMAND_CENTER_SCAN_INTERVAL;
+    public static final ModConfigSpec.IntValue COMMAND_CENTER_DETAIL_INTERVAL;
+    public static final ModConfigSpec.IntValue COMMAND_CENTER_TERRAIN_CHUNKS_PER_TICK;
+    public static final ModConfigSpec.IntValue COMMAND_CENTER_TERRAIN_REFRESH_INTERVAL;
+    public static final ModConfigSpec.IntValue COMMAND_CENTER_MOVE_HEIGHT;
+    public static final ModConfigSpec.IntValue COMMAND_CENTER_GUARD_TICKS;
+    public static final ModConfigSpec.DoubleValue COMMAND_CENTER_MOVE_SPREAD;
+    public static final ModConfigSpec.IntValue COMMAND_CENTER_MOVE_TIMEOUT_TICKS;
+    public static final ModConfigSpec.DoubleValue COMMAND_CENTER_STRIKE_SPEED_FACTOR;
 
     // === remote ===
     public static final ModConfigSpec.IntValue REMOTE_RANGE;
@@ -592,6 +604,45 @@ public class ServerConfig {
         UPLINK_PULSE_TICKS = BUILDER
                 .comment("Ticks for one pulse of the blips on the Satellite Uplink's map (client-side).")
                 .defineInRange("pulseTicks", 40, 2, 1200);
+        BUILDER.pop();
+
+        BUILDER.comment("Drone Command Center (DESIGN.md section 7.10).").push("commandCenter");
+        COMMAND_CENTER_ENERGY_CAPACITY = BUILDER
+                .comment("FE a Command Center can store.")
+                .defineInRange("energyCapacity", 500_000, 1, Integer.MAX_VALUE);
+        COMMAND_CENTER_ENERGY_PER_TICK = BUILDER
+                .comment("FE a Command Center uses every tick while it has enough, whether or not anyone has its screen open.")
+                .defineInRange("energyPerTick", 4_000, 0, Integer.MAX_VALUE);
+        COMMAND_CENTER_RADIUS = BUILDER
+                .comment("Radius (blocks) of the area a Command Center shows, opens remotes in, gives orders in and counts intruders in.")
+                .defineInRange("radius", 256, 8, 512);
+        COMMAND_CENTER_SCAN_INTERVAL = BUILDER
+                .comment("How often (ticks) viewers get the drones' positions, and the intruder alarm is recounted.")
+                .defineInRange("scanInterval", 5, 1, 1200);
+        COMMAND_CENTER_DETAIL_INTERVAL = BUILDER
+                .comment("How often (ticks) viewers get the drones' details (health, energy, upgrades, state, patrol ring, order).")
+                .defineInRange("detailInterval", 20, 1, 1200);
+        COMMAND_CENTER_TERRAIN_CHUNKS_PER_TICK = BUILDER
+                .comment("Chunks a Command Center reads per tick while it builds its terrain map.")
+                .defineInRange("terrainChunksPerTick", 16, 1, 64);
+        COMMAND_CENTER_TERRAIN_REFRESH_INTERVAL = BUILDER
+                .comment("How often (ticks) the terrain map is rebuilt while someone has a Command Center's screen open.")
+                .defineInRange("terrainRefreshInterval", 600, 20, 72_000);
+        COMMAND_CENTER_MOVE_HEIGHT = BUILDER
+                .comment("How high (blocks) above the top block at the spot a Move order flies the drone.")
+                .defineInRange("moveHeight", 8, 1, 64);
+        COMMAND_CENTER_GUARD_TICKS = BUILDER
+                .comment("How long (ticks) a drone guards the spot of a Move order after it arrives.")
+                .defineInRange("guardTicks", 2_400, 1, 72_000);
+        COMMAND_CENTER_MOVE_SPREAD = BUILDER
+                .comment("The most (blocks) each drone's Move spot is moved at random along each axis, so a group doesn't stack on one block.")
+                .defineInRange("moveSpread", 1.0, 0.0, 8.0);
+        COMMAND_CENTER_MOVE_TIMEOUT_TICKS = BUILDER
+                .comment("Ticks a Move or Strike order has to reach its spot before it is dropped.")
+                .defineInRange("moveTimeoutTicks", 1_200, 20, 72_000);
+        COMMAND_CENTER_STRIKE_SPEED_FACTOR = BUILDER
+                .comment("A striking drone's speed the whole way to the spot, as a fraction of drone.maxSpeed.")
+                .defineInRange("strikeSpeedFactor", 0.8, 0.05, 1.0);
         BUILDER.pop();
 
         BUILDER.push("remote");

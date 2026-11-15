@@ -1,0 +1,58 @@
+{
+  "variants": {
+    "facing=east,half=lower,powered=false": {
+      "model": "seekerdrones:block/command_center",
+      "y": 90
+    },
+    "facing=east,half=lower,powered=true": {
+      "model": "seekerdrones:block/command_center_powered",
+      "y": 90
+    },
+    "facing=east,half=upper,powered=false": {
+      "model": "seekerdrones:block/command_center_upper"
+    },
+    "facing=east,half=upper,powered=true": {
+      "model": "seekerdrones:block/command_center_upper"
+    },
+    "facing=north,half=lower,powered=false": {
+      "model": "seekerdrones:block/command_center"
+    },
+    "facing=north,half=lower,powered=true": {
+      "model": "seekerdrones:block/command_center_powered"
+    },
+    "facing=north,half=upper,powered=false": {
+      "model": "seekerdrones:block/command_center_upper"
+    },
+    "facing=north,half=upper,powered=true": {
+      "model": "seekerdrones:block/command_center_upper"
+    },
+    "facing=south,half=lower,powered=false": {
+      "model": "seekerdrones:block/command_center",
+      "y": 180
+    },
+    "facing=south,half=lower,powered=true": {
+      "model": "seekerdrones:block/command_center_powered",
+      "y": 180
+    },
+    "facing=south,half=upper,powered=false": {
+      "model": "seekerdrones:block/command_center_upper"
+    },
+    "facing=south,half=upper,powered=true": {
+      "model": "seekerdrones:block/command_center_upper"
+    },
+    "facing=west,half=lower,powered=false": {
+      "model": "seekerdrones:block/command_center",
+      "y": 270
+    },
+    "facing=west,half=lower,powered=true": {
+      "model": "seekerdrones:block/command_center_powered",
+      "y": 270
+    },
+    "facing=west,half=upper,powered=false": {
+      "model": "seekerdrones:block/command_center_upper"
+    },
+    "facing=west,half=upper,powered=true": {
+      "model": "seekerdrones:block/command_center_upper"
+    }
+  }
+}

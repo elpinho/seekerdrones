@@ -58,6 +58,11 @@ public final class ModNetwork {
                 (payload, context) -> ClientPayloadHandlers.handleUplinkTerrain(payload));
         registrar.playToClient(UplinkContactsPayload.TYPE, UplinkContactsPayload.STREAM_CODEC,
                 (payload, context) -> ClientPayloadHandlers.handleUplinkContacts(payload));
+        registrar.playToClient(CommandCenterTerrainPayload.TYPE, CommandCenterTerrainPayload.STREAM_CODEC,
+                (payload, context) -> ClientPayloadHandlers.handleCommandCenterTerrain(payload));
+        registrar.playToClient(CommandCenterContactsPayload.TYPE, CommandCenterContactsPayload.STREAM_CODEC,
+                (payload, context) -> ClientPayloadHandlers.handleCommandCenterContacts(payload));
+        registrar.playToServer(CommandCenterOrderPayload.TYPE, CommandCenterOrderPayload.STREAM_CODEC, CommandCenterOrderPayload::handle);
         registrar.playBidirectional(EnergyUnitPayload.TYPE, EnergyUnitPayload.STREAM_CODEC, new DirectionalPayloadHandler<>(
                 (payload, context) -> EnergyFormat.setClientUnit(payload.unit()),
                 EnergyUnitPayload::handleOnServer));
