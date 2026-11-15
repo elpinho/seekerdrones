@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.uplink;
 
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.eachTick;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.assertAlarm;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.placeTwoBlock;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.removePlayer;
@@ -173,7 +174,7 @@ public class UplinkGameTests {
         energy.receiveEnergy(perTick * 20, false);
         int[] last = {-1};
         int[] drops = {0};
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             int now = energy.getEnergyStored();
             if (last[0] >= 0 && (now != last[0] || drops[0] > 0)) {
                 helper.assertTrue(last[0] - now == perTick, "FE should drop by exactly " + perTick + " per tick, went " + last[0] + " -> " + now);
@@ -235,7 +236,7 @@ public class UplinkGameTests {
         int perTick = perTick();
         List<Boolean> seen = new ArrayList<>();
         List<Boolean> upperSeen = new ArrayList<>();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             seen.add(helper.getBlockState(rel).getValue(UplinkBlock.POWERED));
             upperSeen.add(helper.getBlockState(rel.above()).getValue(UplinkBlock.POWERED));
         });
@@ -260,7 +261,7 @@ public class UplinkGameTests {
         UplinkBlockEntity uplink = placeUplink(helper, rel);
         uplink.getEnergyStorage().receiveEnergy(perTick() * 30, false);
         List<Boolean> seen = new ArrayList<>();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (helper.getTick() >= 3) {
                 seen.add(helper.getBlockState(rel).getValue(UplinkBlock.POWERED));
             }
@@ -593,7 +594,7 @@ public class UplinkGameTests {
         far.moveTo(far.getX(), far.getY(), far.getZ() - 9);
         leaving.setNoGravity(true);
         AtomicBoolean moved = new AtomicBoolean();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             helper.assertTrue(uplink.getAlarm() <= 2, "A drone outside the area must not count, alarm=" + uplink.getAlarm());
             if (!moved.get()) {
                 // Two drones inside the area count, the one outside doesn't.
@@ -619,7 +620,7 @@ public class UplinkGameTests {
         AtomicBoolean sawTwo = new AtomicBoolean();
         helper.runAfterDelay(55, () -> helper.fail("Never saw the alarm drop: sawTwo=" + sawTwo + ", powered=" + uplink.isPowered() + ", alarm=" + uplink.getAlarm()
                 + ", FE=" + uplink.getEnergyStorage().getEnergyStored()));
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (uplink.isPowered() && uplink.getAlarm() == 2) {
                 sawTwo.set(true);
                 helper.assertTrue(signal(helper, rel) == 2 && signal(helper, rel.above()) == 2, "Both halves should show the alarm while powered");
@@ -654,13 +655,13 @@ public class UplinkGameTests {
         AtomicInteger waited = new AtomicInteger();
         AtomicInteger maxAlarm = new AtomicInteger();
         AtomicInteger maxOut = new AtomicInteger();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             maxAlarm.accumulateAndGet(uplink.getAlarm(), Math::max);
             maxOut.accumulateAndGet(out.getOutputSignal(), Math::max);
         });
         helper.runAfterDelay(145, () -> helper.fail("Stuck in phase " + phase.get() + " (max alarm " + maxAlarm + ", max comparator " + maxOut + "): alarm=" + uplink.getAlarm() + ", comparator=" + out.getOutputSignal()
                 + ", powered=" + uplink.isPowered() + ", FE=" + uplink.getEnergyStorage().getEnergyStored()));
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             switch (phase.get()) {
                 case 0 -> {
                     // The count goes 0 -> 2: the comparator follows.
@@ -1005,7 +1006,7 @@ public class UplinkGameTests {
             helper.assertTrue(FpvFeeds.isViewing(player), "Fixture: the feed should have started");
             started.set(true);
         });
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (started.get() && !uplink.isPowered()) {
                 boolean viewing = FpvFeeds.isViewing(player);
                 removePlayer(helper, player);
@@ -1027,7 +1028,7 @@ public class UplinkGameTests {
         helper.assertTrue(FpvFeeds.isViewing(player), "Fixture: the feed should have started");
         int ticks = 2 * ServerConfig.get(ServerConfig.CAMERA_RECHECK_INTERVAL) + 3;
         AtomicInteger waited = new AtomicInteger();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             helper.assertTrue(FpvFeeds.isViewing(player), "The feed should keep going (the Uplink replaces the remote) after " + waited.get() + " ticks");
             if (waited.incrementAndGet() >= ticks) {
                 removePlayer(helper, player);

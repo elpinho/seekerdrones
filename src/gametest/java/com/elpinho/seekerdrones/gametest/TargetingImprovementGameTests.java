@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.gametest;
 
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.eachTick;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.dronesNear;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.runCommand;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.spawnStationaryZombie;
@@ -107,7 +108,7 @@ public class TargetingImprovementGameTests {
         int cap = (int) DroneStats.sightRange(drone.snapshotData()) + 4;
         ServerConfig.DRONE_MAX_PURSUIT_RANGE.set(cap);
         AtomicBoolean moved = new AtomicBoolean(false);
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (!moved.get() && drone.getSeekTarget() == zombie) {
                 double pursuit = DroneStats.pursuitRange(drone.snapshotData());
                 if (pursuit != cap) {

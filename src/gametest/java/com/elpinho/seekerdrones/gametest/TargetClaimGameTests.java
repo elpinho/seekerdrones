@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.gametest;
 
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.eachTick;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.spawnDrone;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.spawnStationaryZombie;
 
@@ -108,7 +109,7 @@ public class TargetClaimGameTests {
         DroneEntity b = spawnDrone(helper, 4, 30, 4, zombieData());
         Zombie zombie = spawnStationaryZombie(helper, 4, 1, 7);
         AtomicBoolean moved = new AtomicBoolean(false);
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (!moved.get() && a.getSeekTarget() == zombie) {
                 helper.assertTrue(b.getSeekTarget() == null, "B is out of sight range and should have no target yet");
                 Vec3 pos = helper.absoluteVec(new Vec3(4.5, 29, 7.5));
@@ -130,7 +131,7 @@ public class TargetClaimGameTests {
         Zombie zombie = spawnStationaryZombie(helper, 2, 1, 5);
         AtomicBoolean drained = new AtomicBoolean(false);
         DroneEntity[] winner = new DroneEntity[1];
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (!drained.get()) {
                 DroneEntity w = a.getSeekTarget() == zombie ? a : b.getSeekTarget() == zombie ? b : null;
                 if (w == null) {
@@ -188,7 +189,7 @@ public class TargetClaimGameTests {
         DroneEntity b = spawnDrone(helper, 5, 3, 3, transmitting);
         spawnStationaryZombie(helper, 4, 1, 7);
         AtomicInteger chasing = new AtomicInteger();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             // Every acquisition passes through CHASING, so at most one drone may ever have shown it.
             if (a.getState() == DroneState.CHASING || a.getState() == DroneState.FOLLOWING) {
                 chasing.incrementAndGet();
@@ -307,7 +308,7 @@ public class TargetClaimGameTests {
         DroneEntity[] b = new DroneEntity[1];
         DroneEntity[] copy = new DroneEntity[1];
         AtomicInteger ticksAfterReload = new AtomicInteger();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             switch (phase.get()) {
                 case 0 -> {
                     if (a.getSeekTarget() == zombie) {
@@ -350,7 +351,7 @@ public class TargetClaimGameTests {
         Zombie zombie = spawnStationaryZombie(helper, 4, 1, 7);
         AtomicBoolean switched = new AtomicBoolean(false);
         AtomicInteger after = new AtomicInteger();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (!switched.get()) {
                 if (a.getSeekTarget() == zombie && b.getSeekTarget() == zombie) {
                     a.setDroneData(a.snapshotData().withOwnerId(Optional.of(y)));
@@ -381,7 +382,7 @@ public class TargetClaimGameTests {
         Zombie zombie = spawnStationaryZombie(helper, 4, 1, 7);
         AtomicBoolean switched = new AtomicBoolean(false);
         DroneEntity[] winner = new DroneEntity[1];
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (!switched.get()) {
                 DroneEntity w = a.getSeekTarget() == zombie ? a : b.getSeekTarget() == zombie ? b : null;
                 if (w == null) {
@@ -442,7 +443,7 @@ public class TargetClaimGameTests {
             }
             AtomicInteger ticks = new AtomicInteger();
             AtomicInteger maxSeen = new AtomicInteger();
-            helper.onEachTick(() -> {
+            eachTick(helper, () -> {
                 int live = 0;
                 for (DroneEntity drone : drones) {
                     if (!drone.isRemoved() && drone.getSeekTarget() == zombie) {

@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.gametest;
 
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.eachTick;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.placeChargingStation;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.pollUntil;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.reloadDrone;
@@ -603,7 +604,7 @@ public class RemoteGameTests {
             helper.assertTrue(TargetClaims.canClaim(rival, zombie), "Recall releases the claim");
             Vec3 eye = player.getEyePosition();
             AtomicInteger settled = new AtomicInteger();
-            helper.onEachTick(() -> {
+            eachTick(helper, () -> {
                 helper.assertTrue(drone.getSeekTarget() == null, "A recalled drone must not scan for a target even with one in view");
                 helper.assertTrue(drone.isPassive(), "Should stay RECALLED (flying) or HOLDING (arrived), state=" + drone.getState());
                 Vec3 center = drone.position().add(0, drone.getBbHeight() / 2, 0);
@@ -629,7 +630,7 @@ public class RemoteGameTests {
         linkedRemote(player, drone);
         RemoteControl.command(player, id, RemoteCommand.RECALL);
         AtomicInteger ticks = new AtomicInteger();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             helper.assertTrue(drone.getSeekTarget() == null, "A recalled drone must not hold a target, got " + drone.getSeekTarget());
             helper.assertTrue(drone.isPassive(), "state=" + drone.getState());
             if (ticks.incrementAndGet() >= 45) {
@@ -730,7 +731,7 @@ public class RemoteGameTests {
             helper.assertTrue(TargetClaims.canClaim(rival, zombie), "Hold releases the claim");
             Vec3 at = drone.position();
             AtomicInteger ticks = new AtomicInteger();
-            helper.onEachTick(() -> {
+            eachTick(helper, () -> {
                 helper.assertTrue(drone.getSeekTarget() == null, "A held drone must not scan or chase");
                 helper.assertTrue(drone.getState() == DroneState.HOLDING, "state=" + drone.getState());
                 helper.assertTrue(drone.position().distanceTo(at) < 1.0, "A held drone hovers in place, moved " + drone.position().distanceTo(at));
@@ -751,17 +752,13 @@ public class RemoteGameTests {
         linkedRemote(player, drone);
         RemoteControl.command(player, id, RemoteCommand.HOLD);
         helper.assertValueEqual(drone.getState(), DroneState.HOLDING, "state after Hold");
-        AtomicBoolean fired = new AtomicBoolean();
         helper.runAfterDelay(20, () -> {
-            if (!fired.compareAndSet(false, true)) {
-                return; // runAfterDelay callbacks that register tick handlers can run a second time
-            }
             helper.assertValueEqual(drone.getState(), DroneState.HOLDING, "still held");
             Vec3 at = drone.position();
             RemoteControl.command(player, id, RemoteCommand.RESUME);
             helper.assertFalse(drone.getState() == DroneState.HOLDING, "Resume ends Hold, state=" + drone.getState());
             AtomicInteger moved = new AtomicInteger();
-            helper.onEachTick(() -> {
+            eachTick(helper, () -> {
                 if (drone.position().distanceTo(at) > 1.5) {
                     removePlayer(helper, player);
                     helper.succeed();
@@ -926,7 +923,7 @@ public class RemoteGameTests {
         ServerPlayer player = spawnPlayer(helper, UUID.randomUUID(), 1.5, 1, 0.5, 0);
         linkedRemote(player, drone);
         AtomicBoolean sent = new AtomicBoolean();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (!sent.get()) {
                 helper.assertTrue(!drone.isRemoved(), "The drone exploded before the command could be sent");
                 if (drone.getSeekTarget() == zombie) {

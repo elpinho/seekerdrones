@@ -78,11 +78,35 @@ public final class GameTestUtil {
     }
 
     /**
+     * Runs {@code task} once per tick until the test finishes. Use this instead of {@code GameTestHelper.onEachTick},
+     * which isn't safe from inside a callback.
+     *
+     * <p>Why: {@code GameTestInfo} keeps its {@code runAfterDelay}/{@code runAtTickTime} callbacks in a fastutil
+     * {@code Object2LongOpenHashMap} and iterates it every tick while running them. Vanilla {@code onEachTick} (and
+     * {@code failIfEver}) adds one entry per remaining tick at once. Called from inside a callback, that grows the map
+     * past its fill limit mid-iteration, the map rehashes, and the live iterator is left pointing into the old layout:
+     * it skips or repeats callbacks, deletes the wrong entry, or runs off its array and throws a
+     * {@code NullPointerException} ({@code "this.wrapped" is null}) that crashes the whole GameTest server. Callbacks
+     * hash by identity, so whether it crashes changes from run to run. This keeps exactly one pending entry and
+     * reschedules it each tick, which never triggers a rehash. A callback adding one entry is safe: the new entry is
+     * either picked up in a later tick or, if the iterator reaches it, not yet due.
+     */
+    public static void eachTick(GameTestHelper helper, Runnable task) {
+        helper.runAtTickTime(helper.getTick(), () -> eachTickStep(helper, task));
+    }
+
+    private static void eachTickStep(GameTestHelper helper, Runnable task) {
+        task.run();
+        // A fresh lambda each step: re-registering the running instance would be removed right after it returns.
+        helper.runAtTickTime(helper.getTick() + 1, () -> eachTickStep(helper, task));
+    }
+
+    /**
      * Polls {@code condition} every tick for up to {@code ticks} ticks, running {@code onReady} as soon as it's true,
-     * or {@code onTimeout} if it never becomes true in time. Exactly one of them runs: the GameTest tick queue can run
-     * a poll chain twice when callbacks register more handlers, so the chain latches once it's done. Each step
-     * reschedules with a fresh lambda: {@code GameTestInfo} keys {@code runAtTickTime} by the {@code Runnable}'s
-     * identity, so re-registering the same instance from inside its own call gets cancelled.
+     * or {@code onTimeout} if it never becomes true in time. Exactly one of them runs; the latch is a safety net. Each
+     * step reschedules with a fresh lambda: {@code GameTestInfo} keys {@code runAtTickTime} by the {@code Runnable}'s
+     * identity, so re-registering the same instance from inside its own call gets cancelled. It keeps a single pending
+     * entry, so it's safe from inside other callbacks (see {@link #eachTick}).
      */
     public static void pollUntil(GameTestHelper helper, BooleanSupplier condition, int ticks, Runnable onReady, Runnable onTimeout) {
         pollStep(helper, condition, ticks, onReady, onTimeout, new AtomicBoolean());

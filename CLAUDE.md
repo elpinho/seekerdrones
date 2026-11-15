@@ -25,4 +25,5 @@ These rules come from the codebase review of 2026-11-14. Follow them so the same
 - **Test code stays out of the release jar.** GameTests, their helpers and their structures go in the `src/gametest` source set, never in `src/main`. The main source set must not reference test classes. If a test needs package-private access, put it in the same package under `src/gametest`.
 - **Saves and network code must keep working when things are added.** Add new enum values (such as `UpgradeType`) at the end: stream codecs and slot layouts go by ordinal. Save by name, keep existing NBT tag names when moving code around, and make loading tolerate missing or removed entries.
 - **Don't commit generated or cache files** (`__pycache__`, `.cache`, build output). Add them to `.gitignore`. Data-generator output in `src/generated` is the exception and is committed.
+- **GameTests never use `helper.onEachTick` or `helper.failIfEver`.** Called from inside a callback, they crash the whole GameTest server (see `GameTestUtil.eachTick`, the safe replacement).
 - **CI runs the GameTests.** A change isn't done until `./gradlew build` and the GameTest suite pass.

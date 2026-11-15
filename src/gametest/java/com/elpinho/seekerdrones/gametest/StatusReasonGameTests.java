@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.gametest;
 
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.eachTick;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.placeChargingStation;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.pollUntil;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.spawnStationaryZombie;
@@ -145,7 +146,7 @@ public class StatusReasonGameTests {
         DroneEntity drone = spawn(helper, 4, 3, 3, zombieData());
         Zombie zombie = spawnStationaryZombie(helper, 4, 1, 8);
         AtomicReference<Boolean> hidden = new AtomicReference<>(false);
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (!hidden.get()) {
                 if (drone.getSeekTarget() == zombie && (drone.getState() == DroneState.CHASING || drone.getState() == DroneState.FOLLOWING)) {
                     helper.assertTrue(drone.resolveReason().reason() != DroneReason.TARGET_OUT_OF_SIGHT, "Visible target must not report out of sight");
@@ -179,7 +180,7 @@ public class StatusReasonGameTests {
         DroneEntity drone = spawn(helper, 4, 3, 3, zombieData());
         Zombie zombie = spawnStationaryZombie(helper, 4, 1, 8);
         AtomicReference<Integer> phase = new AtomicReference<>(0);
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             DroneReason.Info info = drone.resolveReason();
             switch (phase.get()) {
                 case 0 -> {
@@ -246,7 +247,7 @@ public class StatusReasonGameTests {
         DroneEntity b = spawn(helper, 5, 3, 3, zombieData());
         Zombie zombie = spawnStationaryZombie(helper, 4, 1, 7);
         AtomicReference<DroneEntity> loser = new AtomicReference<>();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (loser.get() == null) {
                 DroneEntity candidate = a.getSeekTarget() == zombie && b.getSeekTarget() == null ? b
                         : b.getSeekTarget() == zombie && a.getSeekTarget() == null ? a : null;

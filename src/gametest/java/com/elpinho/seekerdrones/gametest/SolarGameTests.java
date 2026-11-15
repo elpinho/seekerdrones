@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.gametest;
 
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.eachTick;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.placeChargingStation;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.pollUntil;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.runCommand;
@@ -36,6 +37,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.biome.Biomes;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.inventory.Slot;
@@ -85,17 +87,16 @@ public class SolarGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 20, skyAccess = true, batch = DAY)
+    @GameTest(template = "empty", timeoutTicks = 40, skyAccess = true, batch = DAY)
     public static void solarIsZeroUnderARoof(GameTestHelper helper) {
         helper.setDayTime(6000);
-        roof(helper);
-        helper.runAfterDelay(SETTLE, () -> {
+        roofThen(helper, () -> helper.runAfterDelay(SETTLE, () -> {
             double open = DroneStats.solarPerTick(solarData(4), helper.getLevel(), helper.absolutePos(new BlockPos(0, 3, 0)));
             helper.assertTrue(open > 0, "Sanity: beside the roof there is sky access, was " + open);
             double actual = DroneStats.solarPerTick(solarData(4), helper.getLevel(), helper.absolutePos(DRONE_REL));
             helper.assertTrue(actual == 0, "Under a roof Solar should generate 0, was " + actual);
             helper.succeed();
-        });
+        }));
     }
 
     @GameTest(template = "empty", timeoutTicks = 20, skyAccess = true, batch = DAY)
@@ -197,8 +198,13 @@ public class SolarGameTests {
     private static void checkEnergyEvent(GameTestHelper helper, int upgrades, boolean roofed) {
         helper.setDayTime(6000);
         if (roofed) {
-            roof(helper);
+            roofThen(helper, () -> measureEnergyEvents(helper, upgrades, true));
+        } else {
+            measureEnergyEvents(helper, upgrades, false);
         }
+    }
+
+    private static void measureEnergyEvents(GameTestHelper helper, int upgrades, boolean roofed) {
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), DRONE_REL);
         DroneData data = solarData(upgrades);
         int start = DroneStats.maxEnergy(data) / 2;
@@ -235,7 +241,7 @@ public class SolarGameTests {
         int max = DroneStats.maxEnergy(data);
         drone.setDroneData(data.withEnergy(max - 100));
         int[] ticksAtMax = {0};
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             int energy = drone.getEnergy();
             helper.assertTrue(energy <= max, "Energy must never exceed the max, was " + energy + "/" + max);
             if (energy == max) {
@@ -278,10 +284,13 @@ public class SolarGameTests {
         helper.succeed();
     }
 
-    @GameTest(template = "empty", timeoutTicks = 60, skyAccess = true, batch = DAY)
+    @GameTest(template = "empty", timeoutTicks = 80, skyAccess = true, batch = DAY)
     public static void solarDroneUnderARoofStillReturnsAtTheGrossThreshold(GameTestHelper helper) {
         helper.setDayTime(6000);
-        roof(helper);
+        roofThen(helper, () -> checkReturnsAtGrossThreshold(helper));
+    }
+
+    private static void checkReturnsAtGrossThreshold(GameTestHelper helper) {
         BlockPos stationRel = new BlockPos(4, 3, 7);
         ChargingStationBlockEntity station = placeChargingStation(helper, stationRel);
         station.getEnergyStorage().receiveEnergy(Integer.MAX_VALUE, false);
@@ -322,16 +331,15 @@ public class SolarGameTests {
         }, () -> helper.fail("Solar rate never became positive, was " + drone.getSolarRate()));
     }
 
-    @GameTest(template = "empty", timeoutTicks = 100, skyAccess = true, batch = DAY)
+    @GameTest(template = "empty", timeoutTicks = 140, skyAccess = true, batch = DAY)
     public static void solarRateDropsToZeroAfterLosingSkyAccess(GameTestHelper helper) {
         helper.setDayTime(6000);
         DroneEntity drone = helper.spawn(ModEntityTypes.DRONE.get(), DRONE_REL);
         drone.setDroneData(solarData(1).withEnergy(DroneStats.maxEnergy(solarData(1)) / 2));
-        pollUntil(helper, () -> drone.getSolarRate() > 0, 60, () -> {
-            roof(helper);
+        pollUntil(helper, () -> drone.getSolarRate() > 0, 60, () -> roofThen(helper, () -> {
             pollUntil(helper, () -> drone.getSolarRate() == 0, 60, helper::succeed,
                     () -> helper.fail("getSolarRate() should follow the last drain down to 0 under a roof, was " + drone.getSolarRate()));
-        }, () -> helper.fail("Solar rate never became positive"));
+        }), () -> helper.fail("Solar rate never became positive"));
     }
 
     // --- 5. Energy factor, slot limits ---
@@ -486,13 +494,22 @@ public class SolarGameTests {
         return DroneData.createNew().withUpgradeCount(UpgradeType.SOLAR, count);
     }
 
-    /** A 5x5 stone roof above the drone's column, high enough not to touch the drone. */
-    private static void roof(GameTestHelper helper) {
+    /**
+     * Builds a 5x5 stone roof above the drone's column, high enough not to touch the drone, and runs {@code then} once
+     * the roof's shadow has reached the drone position. {@code canSeeSky} reads sky light, which the threaded light
+     * engine recomputes a few ticks after the blocks are placed (later on a loaded CI machine), so checking after a
+     * fixed delay was flaky. If the light never updates the test fails with its own message.
+     */
+    private static void roofThen(GameTestHelper helper, Runnable then) {
         for (int x = 2; x <= 6; x++) {
             for (int z = 2; z <= 6; z++) {
                 helper.setBlock(new BlockPos(x, 6, z), Blocks.STONE);
             }
         }
+        BlockPos under = helper.absolutePos(DRONE_REL);
+        ServerLevel level = helper.getLevel();
+        pollUntil(helper, () -> level.getBrightness(LightLayer.SKY, under) < level.getMaxLightLevel(), 15, then,
+                () -> helper.fail("Sanity: the sky light under the roof never updated, still " + level.getBrightness(LightLayer.SKY, under)));
     }
 
     /** Fills {@code slots} upgrade slots with every type except Solar, up to each type's cap. */

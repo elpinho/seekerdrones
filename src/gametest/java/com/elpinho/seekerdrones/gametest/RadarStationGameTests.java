@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.gametest;
 
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.eachTick;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.removePlayer;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.server;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.spawnDrone;
@@ -147,7 +148,7 @@ public class RadarStationGameTests {
         energy.receiveEnergy(perTick * 20, false);
         int[] last = {-1};
         int[] drops = {0};
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             int now = energy.getEnergyStored();
             if (last[0] >= 0 && (now != last[0] || drops[0] > 0)) {
                 // Once it has started using FE it must use exactly energyPerTick on every tick.
@@ -199,7 +200,7 @@ public class RadarStationGameTests {
         RadarStationBlockEntity station = placeStation(helper, rel);
         int perTick = energyPerTick();
         List<Boolean> seen = new ArrayList<>();
-        helper.onEachTick(() -> seen.add(powered(helper, rel)));
+        eachTick(helper, () -> seen.add(powered(helper, rel)));
         // Exactly two ticks of FE, given after a few empty ticks.
         helper.runAfterDelay(5, () -> station.getEnergyStorage().receiveEnergy(perTick * 2, false));
         helper.runAfterDelay(15, () -> {
@@ -224,7 +225,7 @@ public class RadarStationGameTests {
         RadarStationBlockEntity station = placeStation(helper, rel);
         station.getEnergyStorage().receiveEnergy(energyPerTick() * 30, false);
         List<Boolean> seen = new ArrayList<>();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (helper.getTick() >= 3) {
                 seen.add(powered(helper, rel));
             }

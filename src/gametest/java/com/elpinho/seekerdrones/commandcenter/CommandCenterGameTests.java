@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.commandcenter;
 
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.eachTick;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.assertAlarm;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.cameraDroneData;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.clearTestBarriers;
@@ -220,7 +221,7 @@ public class CommandCenterGameTests {
         energy.receiveEnergy(perTick * 20, false);
         int[] last = {-1};
         int[] drops = {0};
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             int now = energy.getEnergyStored();
             if (last[0] >= 0 && (now != last[0] || drops[0] > 0)) {
                 helper.assertTrue(last[0] - now == perTick, "FE should drop by exactly " + perTick + " per tick, went " + last[0] + " -> " + now);
@@ -289,7 +290,7 @@ public class CommandCenterGameTests {
         int perTick = perTick();
         List<Boolean> seen = new java.util.ArrayList<>();
         List<Boolean> upperSeen = new java.util.ArrayList<>();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             seen.add(helper.getBlockState(rel).getValue(com.elpinho.seekerdrones.radar.TwoBlockMachineBlock.POWERED));
             upperSeen.add(helper.getBlockState(rel.above()).getValue(com.elpinho.seekerdrones.radar.TwoBlockMachineBlock.POWERED));
         });
@@ -476,7 +477,7 @@ public class CommandCenterGameTests {
         AtomicInteger own = new AtomicInteger();
         AtomicInteger ownWith = new AtomicInteger();
         AtomicInteger ownWithout = new AtomicInteger();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             CommandCenterContactsPayload payload = contacts(helper, station, viewer);
             boolean details = namedOrFail(helper, payload, "own-" + tag).details().isPresent();
             helper.assertTrue(namedOrFail(helper, payload, "oth-" + tag).details().isPresent() == details, "Own and other drones' details come together");
@@ -752,7 +753,7 @@ public class CommandCenterGameTests {
         AtomicBoolean sawTwo = new AtomicBoolean();
         helper.runAfterDelay(55, () -> helper.fail("Never saw the alarm drop: sawTwo=" + sawTwo + ", powered=" + station.isPowered() + ", alarm=" + station.getAlarm()
                 + ", FE=" + station.getEnergyStorage().getEnergyStored()));
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (station.isPowered() && station.getAlarm() == 2) {
                 sawTwo.set(true);
                 helper.assertTrue(com.elpinho.seekerdrones.gametest.GameTestUtil.signal(helper, rel) == 2
@@ -999,7 +1000,7 @@ public class CommandCenterGameTests {
             helper.assertTrue(FpvFeeds.isViewing(player), "Fixture: the feed should have started");
             started.set(true);
         });
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (started.get() && !station.isPowered()) {
                 boolean viewing = FpvFeeds.isViewing(player);
                 removePlayer(helper, player);
@@ -1024,7 +1025,7 @@ public class CommandCenterGameTests {
             helper.assertTrue(drone.isPiloted(), "Fixture: the drone should be piloted");
             started.set(true);
         });
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (started.get() && !station.isPowered()) {
                 boolean piloted = drone.isPiloted() || FpvFeeds.isViewing(player);
                 removePlayer(helper, player);
