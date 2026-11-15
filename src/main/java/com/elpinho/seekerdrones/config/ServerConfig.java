@@ -155,6 +155,13 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue DEPLOYING_STATION_ENERGY_CAPACITY;
     public static final ModConfigSpec.DoubleValue DEPLOYING_STATION_LAUNCH_HEIGHT;
     public static final ModConfigSpec.IntValue DEPLOYING_STATION_CHECK_INTERVAL;
+    public static final ModConfigSpec.IntValue RADAR_STATION_ENERGY_CAPACITY;
+    public static final ModConfigSpec.IntValue RADAR_STATION_ENERGY_PER_TICK;
+    public static final ModConfigSpec.IntValue RADAR_STATION_RADIUS;
+    public static final ModConfigSpec.IntValue RADAR_STATION_SWEEP_TICKS;
+    public static final ModConfigSpec.IntValue RADAR_STATION_SCAN_INTERVAL;
+    public static final ModConfigSpec.IntValue RADAR_STATION_TERRAIN_REFRESH_INTERVAL;
+    public static final ModConfigSpec.IntValue RADAR_STATION_TERRAIN_CHUNKS_PER_TICK;
 
     // === remote ===
     public static final ModConfigSpec.IntValue REMOTE_RANGE;
@@ -530,6 +537,30 @@ public class ServerConfig {
         DEPLOYING_STATION_CHECK_INTERVAL = BUILDER
                 .comment("How often (ticks) a Deploying Station retries a drone that couldn't be deployed yet.")
                 .defineInRange("checkInterval", 10, 1, 1200);
+        BUILDER.pop();
+
+        BUILDER.comment("Drone Radar Station (DESIGN.md section 7.8).").push("radarStation");
+        RADAR_STATION_ENERGY_CAPACITY = BUILDER
+                .comment("FE a Radar Station can store.")
+                .defineInRange("energyCapacity", 100_000, 1, Integer.MAX_VALUE);
+        RADAR_STATION_ENERGY_PER_TICK = BUILDER
+                .comment("FE a Radar Station uses every tick while it has enough, whether or not anyone has its screen open.")
+                .defineInRange("energyPerTick", 300, 0, Integer.MAX_VALUE);
+        RADAR_STATION_RADIUS = BUILDER
+                .comment("Radius (blocks) of the area a Radar Station shows. The screen draws 2 px per block, so larger values make the map's pixels smaller.")
+                .defineInRange("radius", 48, 8, 128);
+        RADAR_STATION_SWEEP_TICKS = BUILDER
+                .comment("Ticks for one turn of the radar sweep. A drone's blip is revealed when the sweep passes it.")
+                .defineInRange("sweepTicks", 60, 10, 1200);
+        RADAR_STATION_SCAN_INTERVAL = BUILDER
+                .comment("How often (ticks) players with a Radar Station's screen open get their drones' positions.")
+                .defineInRange("scanInterval", 20, 1, 1200);
+        RADAR_STATION_TERRAIN_REFRESH_INTERVAL = BUILDER
+                .comment("How often (ticks) the terrain map is rebuilt while someone has a Radar Station's screen open.")
+                .defineInRange("terrainRefreshInterval", 600, 20, 72_000);
+        RADAR_STATION_TERRAIN_CHUNKS_PER_TICK = BUILDER
+                .comment("Chunks a Radar Station reads per tick while it builds its terrain map.")
+                .defineInRange("terrainChunksPerTick", 4, 1, 64);
         BUILDER.pop();
 
         BUILDER.push("remote");

@@ -3,6 +3,7 @@ package com.elpinho.seekerdrones.registry;
 import com.elpinho.seekerdrones.deploying.DeployingStationBlockEntity;
 import com.elpinho.seekerdrones.drone.DroneItemEnergy;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlockEntity;
+import com.elpinho.seekerdrones.radar.RadarStationBlockEntity;
 import com.elpinho.seekerdrones.station.ChargingStationBlockEntity;
 
 import net.neoforged.neoforge.capabilities.Capabilities;
@@ -29,6 +30,8 @@ public final class ModCapabilities {
                 (station, side) -> station.getEnergyStorage());
         event.registerBlockEntity(Capabilities.ItemHandler.BLOCK, ModBlockEntities.PROGRAMMING_STATION.get(),
                 (station, side) -> station.getAutomationItems());
+        event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.RADAR_STATION.get(),
+                (station, side) -> station.getEnergyStorage());
 
         event.registerBlockEntity(Capabilities.EnergyStorage.BLOCK, ModBlockEntities.DEPLOYING_STATION.get(),
                 (station, side) -> station.getEnergyStorage());

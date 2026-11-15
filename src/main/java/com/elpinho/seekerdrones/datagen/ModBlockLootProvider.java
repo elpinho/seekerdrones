@@ -2,6 +2,7 @@ package com.elpinho.seekerdrones.datagen;
 
 import java.util.Set;
 
+import com.elpinho.seekerdrones.radar.RadarStationBlock;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 
@@ -9,6 +10,7 @@ import net.minecraft.core.HolderLookup;
 import net.minecraft.data.loot.BlockLootSubProvider;
 import net.minecraft.world.flag.FeatureFlags;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.level.storage.loot.LootTable;
 import net.minecraft.world.level.storage.loot.entries.LootItem;
@@ -51,6 +53,9 @@ public class ModBlockLootProvider extends BlockLootSubProvider {
                 .add(LootItem.lootTableItem(deployingStation)
                         .apply(CopyComponentsFunction.copyComponents(CopyComponentsFunction.Source.BLOCK_ENTITY)
                                 .include(ModDataComponents.DEPLOYING_STATION.get()))))));
+        // The Radar Station is two blocks tall; only the lower half drops it (DESIGN.md section 7.8).
+        Block radarStation = ModBlocks.RADAR_STATION.get();
+        add(radarStation, createSinglePropConditionTable(radarStation, RadarStationBlock.HALF, DoubleBlockHalf.LOWER));
     }
 
     @Override

@@ -10,6 +10,7 @@ import com.elpinho.seekerdrones.drone.DroneData;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.energy.EnergyFormat;
 import com.elpinho.seekerdrones.energy.EnergyUnit;
+import com.elpinho.seekerdrones.registry.ModBlockEntities;
 import com.elpinho.seekerdrones.registry.ModDataComponents;
 import com.elpinho.seekerdrones.registry.ModEntityTypes;
 import com.elpinho.seekerdrones.registry.ModItems;
@@ -41,6 +42,7 @@ public class SeekerDronesClient {
         modEventBus.addListener(SeekerDronesClient::registerLayerDefinitions);
         modEventBus.addListener(SeekerDronesClient::registerItemColors);
         modEventBus.addListener(SeekerDronesClient::registerScreens);
+        modEventBus.addListener(RadarStationRenderer::registerModels);
         // The Drone Remote is held in both hands (DESIGN.md section 2.10).
         modEventBus.addListener(RemoteHandRenderer::registerClientExtensions);
         NeoForge.EVENT_BUS.addListener(RemoteHandRenderer::onRenderHand);
@@ -69,10 +71,12 @@ public class SeekerDronesClient {
         event.register(ModMenuTypes.PROGRAMMING_STATION.get(), ProgrammingStationScreen::new);
         event.register(ModMenuTypes.DEPLOYING_STATION.get(), DeployingStationScreen::new);
         event.register(ModMenuTypes.CHARGING_STATION.get(), ChargingStationScreen::new);
+        event.register(ModMenuTypes.RADAR_STATION.get(), RadarStationScreen::new);
     }
 
     private static void registerRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(ModEntityTypes.DRONE.get(), DroneRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntities.RADAR_STATION.get(), RadarStationRenderer::new);
     }
 
     private static void registerLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {

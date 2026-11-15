@@ -6,6 +6,7 @@ import com.elpinho.seekerdrones.deploying.DeployingStationBlock;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlock;
 import com.elpinho.seekerdrones.machine.MachineWorkingState;
 import com.elpinho.seekerdrones.programming.ProgrammingStationBlock;
+import com.elpinho.seekerdrones.radar.RadarStationBlock;
 import com.elpinho.seekerdrones.registry.ModBlocks;
 import com.elpinho.seekerdrones.station.ChargingStationBlock;
 
@@ -30,6 +31,26 @@ public class ModBlockStateProvider extends BlockStateProvider {
         droneFactory();
         deployingStation();
         programmingStation();
+        radarStation();
+    }
+
+    /**
+     * Two blocks tall (DESIGN.md section 7.8). The lower half carries the whole static model, which faces north and is
+     * turned by FACING; the head is drawn by RadarStationRenderer. The upper half draws nothing. The models come from
+     * scripts/textures/generate_textures.py, laid out with their textures.
+     */
+    private void radarStation() {
+        ModelFile idle = models().getExistingFile(modLoc("block/radar_station"));
+        ModelFile powered = models().getExistingFile(modLoc("block/radar_station_powered"));
+        ModelFile upper = models().getExistingFile(modLoc("block/radar_station_upper"));
+        getVariantBuilder(ModBlocks.RADAR_STATION.get()).forAllStates(state -> RadarStationBlock.isLower(state)
+                ? ConfiguredModel.builder()
+                        .modelFile(state.getValue(RadarStationBlock.POWERED) ? powered : idle)
+                        .rotationY(((int) state.getValue(RadarStationBlock.FACING).toYRot() + 180) % 360)
+                        .build()
+                : ConfiguredModel.builder().modelFile(upper).build());
+        // The item shows the whole station, base and head.
+        itemModels().withExistingParent("radar_station", modLoc("block/radar_station_item"));
     }
 
     /**

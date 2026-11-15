@@ -1,6 +1,9 @@
 package com.elpinho.seekerdrones.drone;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -62,6 +65,12 @@ public final class DroneIndex {
     public static Set<String> ids(LevelAccessor level) {
         Map<String, DroneEntity> levelDrones = DRONES.get(level);
         return levelDrones != null ? Set.copyOf(levelDrones.keySet()) : Set.of();
+    }
+
+    /** The loaded drones in the level, e.g. for the Radar Station's scan (section 7.8). A live view: don't keep it. */
+    public static Collection<DroneEntity> drones(LevelAccessor level) {
+        Map<String, DroneEntity> levelDrones = DRONES.get(level);
+        return levelDrones != null ? Collections.unmodifiableCollection(levelDrones.values()) : List.of();
     }
 
     /** Drops a level's drones, e.g. when it unloads. */

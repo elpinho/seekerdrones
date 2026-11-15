@@ -4,11 +4,13 @@ import com.elpinho.seekerdrones.SeekerDrones;
 import com.elpinho.seekerdrones.deploying.DeployingStationBlock;
 import com.elpinho.seekerdrones.factory.DroneFactoryBlock;
 import com.elpinho.seekerdrones.programming.ProgrammingStationBlock;
+import com.elpinho.seekerdrones.radar.RadarStationBlock;
 import com.elpinho.seekerdrones.station.ChargingStationBlock;
 
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.material.PushReaction;
 import net.neoforged.neoforge.registries.DeferredBlock;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -42,4 +44,14 @@ public class ModBlocks {
                     .strength(3.5F, 6.0F)
                     .requiresCorrectToolForDrops()
                     .sound(SoundType.METAL)));
+
+    public static final DeferredBlock<RadarStationBlock> RADAR_STATION = BLOCKS.register("radar_station",
+            () -> new RadarStationBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.METAL)
+                    .strength(3.5F, 6.0F)
+                    .requiresCorrectToolForDrops()
+                    .sound(SoundType.METAL)
+                    // Two blocks tall with a custom model (DESIGN.md section 7.8).
+                    .noOcclusion()
+                    .pushReaction(PushReaction.BLOCK)));
 }

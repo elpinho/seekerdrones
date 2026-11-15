@@ -174,9 +174,9 @@ A handheld item for controlling one deployed drone without catching it. Upgrades
 - **Item texture:** an RC-controller-style handset: a screen on top, twin antennas and two sticks. The antenna tips and the grips are a tint layer in the linked drone's color, gray when unlinked.
 - **Recipe:** shaped crafting-table recipe, with a Mekanism variant (section 7.5). The ingredients are placeholders until M10.
 
-### 2.11 Drone Dashboard (later, details to be designed)
+### 2.11 Drone Dashboard (replaced by the radar machines)
 
-A remote screen for operators that shows a drone's POV (the FPV feed, section 2.12) and a **map of drone positions**. It's still planned but comes after the FPV feed, which opens only from the Drone Remote and the operator command for now. Whether it's a new item, a block or part of the Drone Remote, which drones it lists, and how the map is synced (within the performance rules of section 8.4) are still to be decided with the user. The drone ID (section 2.8) identifies drones on it. The FPV feed is built so that the dashboard can open it later.
+The planned dashboard (a map of drone positions that can open a drone's FPV feed) became a line of machines: the **Drone Radar Station** (section 7.8), which shows the map, and the future **Drone Satellite Uplink** and **Drone Command Center** (section 11), which add opening a drone's remote screen and FPV feed from the map, and giving orders.
 
 ### 2.12 FPV feed
 
@@ -463,6 +463,7 @@ Drone Operators control who can interact with drones. A drone's operators come f
 | Link a Drone Remote, or use its commands and settings | Yes (checked on every use, section 2.10) |
 | Watch a drone's FPV feed from the Drone Remote | Yes (re-checked while watching, section 2.12) |
 | Pilot a drone from the Drone Remote | Yes (re-checked while piloting, section 2.13) |
+| See a drone on a Drone Radar Station's screen | Yes, per viewer (section 7.8). Anyone may open the screen. **No** server-operator bypass. |
 | Receive Transmitter notifications | Yes (all online operators) |
 | Exempt from being targeted by Player Seek | Yes |
 | Insert/extract drones in machines (manually or by automation) | **No**. Machines never check permissions, so automation keeps working. |
@@ -668,11 +669,12 @@ Upgrade and Charging Station recipes stay placeholders until the v1 balance pass
   - **Drone Factory:** it faces the player when placed (cosmetic only). The front is a viewport into the assembly bay, with the drone seen from above (rotor rings at the corners, the canopy in the middle, the lens at the front) and the status light. Seen from the front, the left side is a toothed drum, the right side an exhaust fan, the back the parts intake (a slatted grate) and the top a blueprint screen with the drone's outline. While working, the status light turns green and everything but the back moves. The front loops a drone being made: a scan line draws it as a teal hologram, metal fills it in from the body outward, the canopy takes its color, the lens lights and the rotors spin (each the opposite way to its neighbors), then it breaks up. The drum's ridges roll, the fan spins, and a soft glow runs out along the blueprint's lines. Animated textures run on a global clock, so the loop never follows the actual build progress, and the faces never show energy, fluid or progress. The drum stands in for a cog: a turning cog can't keep its shape on a 16-pixel grid, but rolling ridges move in a straight line and stay exact. The fan's blades are thin lines along a fixed curve, so they keep their shape as they turn.
   - **Programming Station:** it faces the player when placed (the facing only decides where the front is, section 7.2). The front is a terminal with lines of code, the Direct/Template switch and the status light. Seen from the front, the left side is the upgrade input, a 3×3 bay of cards with labels in upgrade colors, and the right side a console showing the GUI's drone bay (the drone on its patrol ring), the Direct/Template rocker and a row of upgrade pips. The back is a heatsink with a copper heat pipe and the top an uplink dish with a redstone emitter. While working, all five faces play one shared loop of three install beats (48 frames at 2 ticks each). They stay in step because animated textures run on a global clock and start together. In each beat a card glows and sinks into its slot, the dish's emitter flares and a teal ring ripples out, the console's next pip lights green, a warm glint runs along the heat pipe and the terminal types a line of code, while the drone circles its ring once and the status light is green. The cards and pips reset at the end of the loop, so they never stand for real counts, and the faces never show energy or progress.
   - **Charging Station:** it faces the player when placed (cosmetic only). The front is a cell in a glass chamber (a faint teal core glows in it while idle), the back a capacitor bank and the sides vents with a light strip. While working, the chamber fills with an animated green glow (a drifting glob with sparks), and the capacitor contacts, the light strip, the status lights and the top pad light up. The faces never show the stored energy or fluid, and `repairing` has no texture of its own (the hearts show it).
+  - **Drone Radar Station** (section 7.8): it faces the player when placed (cosmetic only) and is 2 blocks tall, with one custom model covering both blocks. It uses `powered` instead of `working`. The base is a console: a plinth with a hazard band, a desk in front with a small screen panel leaning back on it like a lectern (a round scope and a status light), a body with cooling fins down both sides and a light strip in each side grille, a deck with a copper turntable seat, and copper cable conduits down the back. A lattice mast with a copper collar rises from the deck into the upper block and carries the turning head: a turntable and yoke, a reflector dish (a center panel and two angled wings, concave toward the front), a feed arm with a copper horn in front of the dish, and a red beacon on top. While `powered`, the side strips, the beacon and the screen light up (the screen plays a generic animated sweep with blips on the global clock, 30 frames at 2 ticks each, one loop per default sweep), and the head turns clockwise in step with the screen's sweep (drawn by a block entity renderer on the client, so it costs the server nothing). The screen never shows the real map or real drones (those are only in the GUI). Unpowered, the head stops where it is, the beacon is dark red and the screen is dark glass.
   - **Deploying Station:** it faces the player when placed (cosmetic only). The top looks down the open launch shaft (rail lights, the pad at the bottom, a hazard-striped rim). The front has the launch button under a glass cover, the Auto/Manual lever and a redstone port that lights up while `triggered`. The sides have guide rails with two upward chevrons: the lower one lights up while `loaded`, and while `launching` light sweeps quickly up both (animated, 1 tick per frame; animated textures run on a global clock, so the sweep loops instead of starting with the launch). The back is a glass window into the shaft. Like the GUI, it never shows energy, and auto-deploy isn't shown.
 
 ### 7.7 GUI and texture style
 
-Every screen (the four machines, the drone status screen and the side tab panels: the Factory's Operators and the Charging Station's Owner and Upgrades) and every machine block follows one style, so the M10 artist (ROADMAP.md) repaints parts instead of redesigning layouts.
+Every screen (the machines, the drone status screen and the side tab panels: the Factory's Operators and the Charging Station's Owner and Upgrades) and every machine block follows one style, so the M10 artist (ROADMAP.md) repaints parts instead of redesigning layouts.
 
 - **GUI kit:** the vanilla gray beveled frame, plus a dark recessed "display" (teal text) for status, previews and editors. Every part is a nine-slice GUI sprite in `textures/gui/sprites` (scaling set in its `.mcmeta`), drawn by `client/gui/Kit`. The placeholder sprites come from `scripts/textures/generate_gui_sprites.py`. Small text is the normal font at 0.75 scale.
   - **Gauges:** energy is green, health red, and fluids use the fluid's texture. All share one scale: short notches on one edge, long ones at quarters. Gauges next to a display match its height, and side-by-side gauges have the same width. Exact values are in tooltips.
@@ -690,6 +692,33 @@ Every screen (the four machines, the drone status screen and the side tab panels
   - Different faces show different parts. Animated `working` textures run on a global clock, so they loop instead of following real progress. Motion is organic, not literal shapes.
   - Low contrast between the frame and the body, and no flat single-color fills.
 
+### 7.8 Drone Radar Station
+
+A machine whose screen shows a radar map of the terrain around it and the viewer's own drones on it. It's the first of three planned tiers. The other two, the **Drone Satellite Uplink** and the **Drone Command Center**, are future work (section 11). It replaces the Drone Dashboard idea (section 2.11).
+
+- **Energy:** an FE buffer of `radarStation.energyCapacity`, filled on every side of the lower block (the upper block has no energy access). It uses `radarStation.energyPerTick` (300 FE/t) **all the time**, whether or not anyone has the screen open: it's always scanning. Higher tiers will use more. With less FE than one tick's use it is **unpowered**: it uses nothing, the screen shows **No power**, the sweep stops, the blips fade out and the server sends no drone data. It has no items and no other automation.
+- **Who can open it:** anyone. Each viewer only sees **their own drones**: the drones they are an operator of (section 6.3), worked out per viewer, so two players at the same station see different drones. Unowned drones and drones with an unknown group never show. There's **no** server-operator bypass (section 6.2): the radar is gameplay, not moderation.
+- **Area:** a circle of radius `radarStation.radius` (48) blocks around the station, in its dimension. Drones count at any height. North is always up, and the map doesn't zoom or pan.
+- **Terrain:** a top-down height map of the whole circle in **monochrome green phosphor**, shaded like a vanilla map: each column is brighter or darker depending on its height compared with the column to its north, with a slight overall tint by height relative to the station. Water is a darker, flatter tone so coastlines read. There are no block colors (they are a higher-tier feature).
+  - **Surface:** in dimensions with a ceiling (the Nether), each column's top is the highest non-air block **at or below the station's Y level**, so the map shows the floor the station stands on instead of the bedrock roof. Elsewhere it's the world surface.
+  - **The whole area is always shown**, loaded or not. Loaded chunks are read directly. Chunks that aren't loaded are read from their **saved data on disk**, off the main thread, without loading them into the world (the "no chunk loading" rule, section 3.6, still holds). Only chunks that were never generated stay blank, as a flat dark tone.
+  - The server builds the map, a few chunks per tick (`radarStation.terrainChunksPerTick`), and caches it in the block entity (not saved). It sends the finished map once to each player who opens the screen and refreshes it every `radarStation.terrainRefreshInterval` ticks, **only while someone has the screen open**. The map is a height byte per column, relative to the station's Y, plus a water flag per column; the client shades it.
+- **Drones and the sweep:** a sweep line turns once every `radarStation.sweepTicks` (60 ticks, 3 s), clockwise from north, with a fading phosphor trail behind it.
+  - While the screen is open (and powered), the server sends each viewer a snapshot of their drones in the circle every `radarStation.scanInterval` (20) ticks: drone ID, x/z position, label and color. It reads them from the per-level drone index (section 2.10), with no entity search.
+  - A drone's blip is **revealed when the sweep passes its bearing**, at its position in the latest snapshot, and then fades out over one turn. A drone that moved shows at its new spot on the next pass. A drone that left the circle or isn't loaded gets no blip on the next pass. The screen never shows a drone the sweep hasn't passed since the screen opened.
+  - A soft ping plays on reveal, at most once per sweep turn (client-side, quiet). **To do (sound sourcing):** it's a placeholder vanilla note-block bell for now.
+- **Blips:** a small square in the drone's dye color (the text color, `DyeColor.getTextColor`, like the item tooltip, section 2.1) with a dark outline, and the label in small text next to it (the drone ID if it has no label). When two labels would overlap, the later one is hidden. Hovering a blip shows `<label> - <drone ID>` in the drone's color. No other details (health, energy, upgrades) at this tier.
+- **Markers:** the station at the center, and the viewing player as an arrow pointing where they look (while inside the circle). Range rings at a third and two thirds of the radius and the outer edge, with a crosshair through the center, and the ring distances in small text.
+- **Screen** (the machine GUI kit, section 7.7): the energy gauge on the left (the FE/t use in its tooltip) as tall as the scope, the round scope in a dark display at **2 px per block** (the map is 97 × 97 blocks, so the display is 198 × 198), and a status strip under both: Scanning (green, with the number of contacts), No power (red), or Building map (amber, while the first terrain map is still on its way). There's no contact list. Side tab: the energy unit (section 5.4). The frame is 230 × 236.
+- **Visuals** (section 7.6): the map is drawn **only in the screen**, never on the block. The block's `powered` state (it had the FE for its last tick, written only when it changes, and only on the lower block) turns the dish and lights the side strips, the beacon and the screen.
+- **Size and placement:** 1 × 1 and **2 blocks tall**, like a door. It can only be placed where the block above is replaceable and inside the world's height limit; otherwise placement fails. Placing the lower block places the upper one.
+  - Breaking either half breaks both. Only the lower half drops the item, so it drops exactly one. In creative, breaking either half drops nothing.
+  - The lower block holds everything: the block entity, the FE buffer and the ticking. Right-clicking the upper block opens the lower block's screen, and Jade shows the lower block's info on either half.
+  - The collision box follows the base roughly (plinth, desk, body, deck) on the lower block, and the mast plus the area the dish sweeps on the upper block.
+  - Pistons can't push it. Rotating or mirroring it (e.g. in a structure) keeps both halves facing the same way.
+- **Jade:** a line for No power.
+- **Recipe:** a placeholder until M10 (a Compass and an Observer as its core).
+
 ---
 
 ## 8. Technical Notes
@@ -702,7 +731,7 @@ Every screen (the four machines, the drone status screen and the side tab panels
 ### 8.2 Drone data component (`seekerdrones:drone_data`)
 
 The component is a record with a `Codec` and a `StreamCodec`, holding:
-- `droneId` (string): the persistent, readable ID from section 2.8. It survives item/entity conversion and is also meant for the FPV feed (section 2.12) and future features such as the dashboard map.
+- `droneId` (string): the persistent, readable ID from section 2.8. It survives item/entity conversion and is also meant for the FPV feed (section 2.12) and the Drone Radar Station's map (section 7.8).
 - `groupId` (optional UUID): the Operator Group. Empty on drones that weren't built by a Factory (e.g. creative/`/give`). See section 6.2 and 6.3 for how permission checks treat a drone without a group or with an unknown group.
 - `ownerId` (optional UUID): the player who first hand-deployed the drone (section 6.3). Only used while the drone has no group.
 - `ownerName` (string, empty if unknown): the owner's name, saved when ownership is set and refreshed when the owner redeploys the drone. It's only for the tooltip, because clients can't resolve offline players' names.
@@ -749,6 +778,7 @@ The drone entity saves the same data in its entity NBT. Only the fields the clie
 - **Programming Station:** the mode, a progress bar and "Installing *X*" during an install step, and "Charging the drone" while it charges one (with no install step running). In Template mode with a drone in the slot: Complete, Waiting for upgrades, Waiting for energy to charge the drone (it matches the program but isn't full and the station has no FE), Drone has extra upgrades, or Re-insert the drone. A template over the limits is shown even without a drone.
 - **Deploying Station:** Auto-deploy On or Off, and a line for Not enough energy or Space above blocked.
 - **Charging Station:** with a drone docking or docked, its status (Drone docking, Charging, Repairing, Out of power) and the drone's label (or ID).
+- **Drone Radar Station:** a line for No power.
 
 ---
 
@@ -861,6 +891,13 @@ All values below are placeholders.
 | `deployingStation.energyCapacity` | 50 000 FE | FE the station can store |
 | `deployingStation.launchHeight` | 0.8 blocks | How far the upward boost lifts a deployed drone; at most 1 (section 7.3) |
 | `deployingStation.checkInterval` | 10 ticks | How often a waiting drone is retried |
+| `radarStation.energyCapacity` | 100 000 FE | FE the Radar Station can store |
+| `radarStation.energyPerTick` | 300 FE | Used every tick while it has enough FE, screen open or not (section 7.8) |
+| `radarStation.radius` | 48 blocks | Radius of the area the radar shows |
+| `radarStation.sweepTicks` | 60 ticks | One turn of the sweep |
+| `radarStation.scanInterval` | 20 ticks | How often viewers get their drones' positions |
+| `radarStation.terrainRefreshInterval` | 600 ticks | How often the terrain map is rebuilt while someone has the screen open |
+| `radarStation.terrainChunksPerTick` | 4 | Chunks the terrain map reads per tick while it's being built |
 | `sounds.resortInterval` | 20 ticks | How often each client re-picks which drones play the loops (section 2.9) |
 | `sounds.flying.maxPlaying` | 8 | Nearest drones that play the flying loop; approaching Explosive drones go first |
 | `sounds.flying.fullSpeed` | 1.0 blocks/tick | Speed at which the flying loop reaches its max volume and pitch |
@@ -896,5 +933,72 @@ These are agreed ideas for later versions. **Do not implement, stub or scaffold 
 - **Chunk loading** by drones (in any form, including behind a config).
 - **Target Tagger** item to mark one specific entity as a target.
 - **Operator Group ownership transfer.**
+- **Higher radar tiers** (after the Drone Radar Station, section 7.8). Each tier uses more FE than the one before, covers a wider area and refreshes faster, and its recipe takes the tier below. Like the Radar Station, the map is drawn only in the screen, never on the block. The Drone Satellite Uplink is designed below (2026-11-15) but **still out of v1 scope**: don't implement it until the user asks. The Command Center's gameplay is agreed, and its GUI, model, textures and numbers are still to be designed.
+  - **Drone Satellite Uplink** (the Advanced tier). The user approved the GUI layout (B), the unidentified marker (the gray diamond) and the model on 2026-11-15. Drafts: `build/uplink_draft/` (`mock_gui.py`, `uplink_model_draft.py`; regenerate them, since `build/` isn't committed). All numbers are placeholders in the server config under `uplink.*`.
+    - **Block:** 1 × 1 and 2 blocks tall, with the same placement, breaking, half, shape, piston and Jade rules as the Radar Station (section 7.8), so that code is shared. It faces the player when placed (cosmetic only) and records its placer's UUID (for the intruder alarm). It has `powered` like the Radar Station.
+    - **Energy:** an FE buffer of `uplink.energyCapacity` (200,000) on every side of the lower block, using `uplink.energyPerTick` (1,200 FE/t) all the time. With less than one tick's worth it's unpowered: the screen shows **No power**, blips fade out, no drone data is sent, the alarm output drops to 0, and any remote session through it ends.
+    - **Who can open it:** anyone. Per viewer, a drone is **identified** if the viewer is its operator (section 6.3), and **unidentified** otherwise, including unowned drones and drones with an unknown group. There's no server-operator bypass.
+    - **Area:** a circle of radius `uplink.radius` (128) around the station, at any height, in its dimension.
+    - **Terrain:** **vanilla map colors**. Each column is one byte, like a vanilla map pixel: the top block's `MapColor` id and a brightness from the height compared with the column to its north (water: from its depth, with the checker pattern). The server works this out when it builds the map, so the client just draws `MapColor` colors. The rest is like the Radar Station:
+      - the Nether floor rule,
+      - saved-but-unloaded chunks read from disk off-thread, with never-generated chunks left blank (color 0, drawn dark),
+      - built a few chunks per tick (`uplink.terrainChunksPerTick`, 8),
+      - refreshed every `uplink.terrainRefreshInterval` (600) ticks, and only while someone has the screen open.
+      - At radius 128 the map is 257 × 257 bytes (about 66 KB) per send.
+    - **Snapshots:** while the screen is open, each viewer gets a snapshot every `uplink.scanInterval` (10) ticks, read from the drone index (no entity search).
+      - **Identified drones:** ID, x/y/z, heading (yaw), label, color, and the patrol center and radius (if it has the Patrol upgrade).
+      - **Unidentified drones:** position, y and heading only. No ID, so the client can't look them up.
+      - **Charging Stations** in the area from the station registry: only those whose placer the viewer is an operator of (the stations the viewer's drones could use, section 5.2), so the map doesn't reveal other players' bases.
+    - **Blips:** there's no sweep. Every blip **pulses**: its opacity eases between 55% and 100% over `uplink.pulseTicks` (40). It jumps to its new position on each snapshot, without interpolation.
+      - **Identified:** the Radar Station's blip (a dye-colored square with a dark outline and the label in small text). After the label comes the **altitude cue** in gray: `▲12` or `▼4`, the drone's Y minus the station's Y, hidden within ±1. A **heading tail** of 5 fading dots trails behind it, opposite its yaw.
+      - **Unidentified:** a gray diamond with a dark outline, with the altitude cue and the tail. No label and no color. Hovering shows only "Unidentified drone", and clicking does nothing.
+      - When labels overlap, the later one is hidden (as in section 7.8).
+    - **Hovering an identified drone:** a white outline on the blip, the tooltip `<label> - <ID>` in the drone's color with "Click to open remote" in gray under it, and its **patrol ring** on the map (dashed, in the drone's color, with a dot at the center). There's no ring without a Patrol upgrade.
+    - **Other markers:** this Uplink (a white square with a red dot), Charging Stations (a small teal pad), the viewing player's arrow, the area's edge (a thin teal circle) with the outside hatched dark, a north marker at the top left and a scale bar at the bottom left (e.g. "32 m", with the zoom level).
+    - **Map and zoom:** a **square** map, 198 × 198 like the Radar Station's scope. Zoom buttons (+ and −) sit at its top right, inside the map.
+      - The mouse wheel steps through **FIT** (the whole circle, about 0.77 px per block), **×1**, **×2** and **×4** px per block, **anchored on the mouse**: the block under the cursor stays under it.
+      - The view is kept inside the area's bounding square. There's **no drag-to-pan**, because left-drag is kept for the Command Center's box selection. To move around, the player zooms out and back in elsewhere.
+      - The screen opens at FIT.
+    - **Opening a drone's remote screen** (the station reach rule): clicking an identified blip opens that drone's **Drone Remote screen** (section 2.10) on top of the Uplink screen. Esc or Back returns to the map.
+      - The Uplink's **menu stays open the whole time**, including during the FPV feed and piloting (sections 2.12 and 2.13). This replaces `remote.range` and "holding the linked remote".
+      - Each remote action and each `camera.recheckInterval` check requires all of these:
+        - the player still has this Uplink's menu open (its `stillValid` reach check passes),
+        - the station is powered,
+        - the drone is loaded, in the same dimension and inside the area,
+        - the player is still its operator (no server-operator bypass here).
+      - If any check fails, the session ends with "Signal lost" (for a feed), and the player goes back to the Uplink screen if it's still valid, or else everything closes.
+      - Closing the Uplink screen ends everything.
+      - The FPV signal bars and static use the drone's distance from the station as a fraction of `uplink.radius`.
+      - Unidentified drones can't be opened.
+    - **Intruder alarm:** a comparator output equal to the number of drones in the area that the **placer** isn't an operator of, capped at 15. Machines never check the viewer: this is the placer rule, like the Charging Station's. While powered, the block entity counts them from the drone index every `uplink.scanInterval` ticks, whether or not anyone is watching. It updates neighbors only when the count changes. With no recorded placer, every owned drone counts and unowned drones don't.
+    - **Screen** (the machine GUI kit, section 7.7; layout B in the drafts): the frame is 304 × 236. From left to right: the energy gauge (12 × 198, with the FE/t use in its tooltip), the map, and a **My drones** list (70 × 198). A status strip runs under all three.
+      - **My drones** lists the viewer's identified drones in the area, nearest first, in the latest snapshot. Each row has a dye-colored square, the label (or the ID) in its color and the distance in meters, all in small text. A last line, "Unidentified: N", is in amber while N > 0. The list scrolls with the mouse wheel when it's longer than the panel; over the map, the wheel zooms instead.
+      - Hovering a row highlights it and acts like hovering that drone's blip (white outline, patrol ring), even when the blip is outside the zoomed view. Clicking a row opens that drone's remote, like clicking its blip.
+      - **Linked**, green: "Linked - N drones, M unidentified".
+      - **Downloading map**, amber: until the first terrain map arrives.
+      - **No power**, red.
+      - Side tabs: the energy unit, and Redstone (explains the alarm output).
+    - **Visuals** (section 7.6):
+      - **Model:** the Radar Station's console and plinth, with a **flat-panel screen** on a bracket at the front instead of the leaning scope. On the deck, a copper turntable seat and a short pedestal carry an **az-el mount**: a turntable with a fork (it turns in yaw) holding a white **sky dish** on an axle (it tilts in pitch). The dish is a center panel with four petals angled up, plus a feed post with a receiver and a small tracking light. The dish is drawn pointing straight up, and the block entity renderer turns the fork and tilts the dish.
+      - **While `powered`:**
+        - the side strips and the tracking light light up,
+        - the screen plays a generic colored map with a scan line and a blinking contact (animated on the global clock; it never shows the real map),
+        - the dish **slowly re-aims**: every 8 to 14 s it eases over 2 s to a new random bearing and an elevation of 30° to 65°. This is client-only and cosmetic, seeded by the block position.
+      - **Unpowered:** the dish stops where it is, and the screen is dark glass.
+    - **Jade:** a No power line.
+    - **Recipe:** a placeholder until the art pass, with the Radar Station at its core.
+    - **Config (`uplink.*`):** `energyCapacity`, `energyPerTick`, `radius`, `scanInterval`, `terrainChunksPerTick`, `terrainRefreshInterval`, `pulseTicks`.
+  - **Drone Command Center** (model idea: a holotable with a generic animated hologram above it, not the real map):
+    - The widest area, and blips are **always shown**, updated faster than the Uplink.
+    - **Tooltips:** for the viewer's drones, health, energy, upgrades and targets. For other drones, health only.
+    - Other players' drones are drawn with their **color and label** (still no other details, and their remote screen doesn't open).
+    - A **line from each drone to the entity it's tracking** or rushing to explode.
+    - Hovering a drone shows its patrol ring.
+    - **Group orders:** click and drag a box to select drones. Every drone of the viewer's in the box when the mouse is released stays selected, even if it leaves the box. A mode picker sits at the selection outline's corner, and after picking a mode the player clicks a spot on the map. Modes:
+      - **Move:** fly to the spot at normal pace and hold there, with a timeout like Recall.
+      - **Patrol Here:** the spot becomes the patrol center.
+      - **Strike:** rush to the spot and detonate, like an Explosive chase but with a capped top speed to save energy. Only drones with the Explosive upgrade can take it, it asks for a confirm click, and it follows `upgrades.explosive.blockDamage`.
+      - **Hold**, **Return to Charge** and **Release** (drop the order and go back to normal behavior).
+    - Orders can't take drones into unloaded chunks (no chunk loading, section 3.6), and the return threshold (section 5.2) overrides any order.
 
 Dropped: Charging Stations that charge more than one drone at a time. Players build more stations instead, and the charging queue (section 5.3) shares one station between drones.

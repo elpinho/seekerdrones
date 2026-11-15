@@ -31,6 +31,14 @@ public class ModLanguageProvider extends LanguageProvider {
         addBlock(ModBlocks.DRONE_FACTORY, "Drone Factory");
         addBlock(ModBlocks.PROGRAMMING_STATION, "Drone Programming Station");
         addBlock(ModBlocks.DEPLOYING_STATION, "Drone Deploying Station");
+        addBlock(ModBlocks.RADAR_STATION, "Drone Radar Station");
+        add("screen.seekerdrones.radar_station", "Drone Radar Station");
+        add("screen.seekerdrones.radar_station.energy_use", "Uses %s");
+        add("screen.seekerdrones.radar_station.no_power", "NO POWER");
+        add("screen.seekerdrones.radar_station.status.no_power", "No power");
+        add("screen.seekerdrones.radar_station.status.building", "Building map...");
+        add("screen.seekerdrones.radar_station.status.scanning", "Scanning - %s contacts");
+        add("jade.seekerdrones.radar_station.no_power", "No power");
         add("tooltip.seekerdrones.deploying_station.auto_deploy_off", "Auto-deploy: Off");
         add("tooltip.seekerdrones.machine_upgrades", "%s Upgrades: %s");
         add("screen.seekerdrones.energy", "Energy");

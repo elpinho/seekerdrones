@@ -8,7 +8,7 @@ import net.neoforged.neoforge.network.handling.DirectionalPayloadHandler;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
 public final class ModNetwork {
-    private static final String PROTOCOL_VERSION = "7";
+    private static final String PROTOCOL_VERSION = "8";
 
     private ModNetwork() {}
 
@@ -50,6 +50,10 @@ public final class ModNetwork {
                 (payload, context) -> ClientPayloadHandlers.handleFpvEnd(payload));
         registrar.playToClient(FpvStatusPayload.TYPE, FpvStatusPayload.STREAM_CODEC,
                 (payload, context) -> ClientPayloadHandlers.handleFpvStatus(payload));
+        registrar.playToClient(RadarTerrainPayload.TYPE, RadarTerrainPayload.STREAM_CODEC,
+                (payload, context) -> ClientPayloadHandlers.handleRadarTerrain(payload));
+        registrar.playToClient(RadarContactsPayload.TYPE, RadarContactsPayload.STREAM_CODEC,
+                (payload, context) -> ClientPayloadHandlers.handleRadarContacts(payload));
         registrar.playBidirectional(EnergyUnitPayload.TYPE, EnergyUnitPayload.STREAM_CODEC, new DirectionalPayloadHandler<>(
                 (payload, context) -> EnergyFormat.setClientUnit(payload.unit()),
                 EnergyUnitPayload::handleOnServer));

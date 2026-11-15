@@ -1,5 +1,5 @@
-"""Generates the mod's placeholder textures (until the commissioned art replaces them), and the 3D Drone Remote
-model, whose geometry is laid out together with its texture.
+"""Generates the mod's placeholder textures (until the commissioned art replaces them), and the models whose geometry
+is laid out together with their textures: the 3D Drone Remote and the Radar Station.
 
 Everything is drawn from scratch with a shared palette; no vanilla textures are copied. Run from anywhere:
 
@@ -682,6 +682,10 @@ MACHINE_PALETTE = {
     "A": (226, 150, 40, 255),  # Template mode amber
     "w": (96, 60, 150, 255),  # card purple
     "m": (150, 110, 210, 255),  # card purple, lit
+    "F": (14, 40, 24, 255),  # phosphor, dark
+    "J": (20, 58, 34, 255),  # phosphor, faint
+    "Q": (150, 30, 26, 255),  # beacon red
+    "U": (255, 90, 70, 255),  # beacon lit
 }
 
 
@@ -1318,6 +1322,343 @@ def programming_station_working(frames=48, beat=16):
     return out
 
 
+# --- Drone Radar Station ------------------------------------------------------------------------------------------
+#
+# Unlike the other machines, the Radar Station is a custom model two blocks tall (DESIGN.md section 7.6): a console
+# base, a lattice mast and a turning head with a reflector dish, drawn by RadarStationRenderer. The textures are parts
+# mapped onto the model's boxes, not whole faces. The script writes the models too (radar_station_models), since their
+# geometry and UVs are laid out with these textures. Front = north; coordinates are in the lower block's model space,
+# y from 0 to 32.
+
+# Body plates: two panels with seams and rivets.
+RADAR_STATION_CASING = [
+    "6666666666666665",
+    "6333333333333331",
+    "6322222222222231",
+    "6828222222228281",
+    "6322222222222231",
+    "6322222222222231",
+    "6322222222222231",
+    "6333333333333331",
+    "0000000000000000",
+    "6666666666666665",
+    "6322222222222231",
+    "6828222222228281",
+    "6322222222222231",
+    "6322222222222231",
+    "6333333333333331",
+    "5111111111111111",
+]
+# Body sides: a cooling grille with a light strip across the middle, lit while powered.
+RADAR_STATION_SIDE = [
+    "6666666666666665",
+    "6333333333333331",
+    "6300000000000031",
+    "6344444444444431",
+    "6300000000000031",
+    "6344444444444431",
+    "6300000000000031",
+    "63eeeeeeeeeeee31",
+    "6322222222222231",
+    "6300000000000031",
+    "6344444444444431",
+    "6300000000000031",
+    "6344444444444431",
+    "6322222222222231",
+    "6333333333333331",
+    "5111111111111111",
+]
+RADAR_STATION_SIDE_POWERED = lit(RADAR_STATION_SIDE, (0, 0, 15, 15), {"e": "G"})
+# The plinth: plain plates with bolts and a hazard band along the bottom.
+RADAR_STATION_FOOT = [
+    "2222222222222222",
+    "2222222222222222",
+    "2222222222222222",
+    "2222222222222222",
+    "2222222222222222",
+    "2222222222222222",
+    "2822222222222282",
+    "2222222222222222",
+    "2222222222222222",
+    "2222222222222222",
+    "2222222222222222",
+    "2222222222222222",
+    "2822222222222282",
+    "2222222222222222",
+    "YYZZYYZZYYZZYYZZ",
+    "1111111111111111",
+]
+# The top deck: vent slats in front of and behind the turntable seat.
+RADAR_STATION_DECK = [
+    "7777777777777774",
+    "7000000000000003",
+    "7344444444444443",
+    "7000000000000003",
+    "7344444444444443",
+    "7222222222222223",
+    "7222222222222223",
+    "7222222222222223",
+    "7222222222222223",
+    "7222222222222223",
+    "7222222222222223",
+    "7000000000000003",
+    "7344444444444443",
+    "7000000000000003",
+    "7344444444444443",
+    "3111111111111111",
+]
+# Copper: the turntable, the mast collar, the back conduits and the feed horn.
+RADAR_STATION_COPPER = [
+    "dcccccccccccccca",
+    "cbbbbbbbbbbbbbba",
+    "cbccbbbbbccbbbba",
+    "cbbbbbbbbbbbbbba",
+    "abbbbbcbbbbbbcba",
+    "cbbbbbbbbbbbbbba",
+    "cbbcbbbbbbbcbbba",
+    "cbbbbbbbbbbbbbba",
+    "cbbbbbbcbbbbbbba",
+    "cbbbbbbbbbbbbbba",
+    "cbcbbbbbbbcbbbba",
+    "cbbbbbbbbbbbbbba",
+    "cbbbbbcbbbbbbbba",
+    "cbbbbbbbbbbbbcba",
+    "cbbbbbbbbbbbbbba",
+    "aaaaaaaaaaaaaaaa",
+]
+# The mast: a lattice tower of diagonal struts.
+RADAR_STATION_MAST = [
+    "7006700670067006",
+    "6705670567056705",
+    "0670067006700670",
+    "0067006700670067",
+    "7006700670067006",
+    "6705670567056705",
+    "0670067006700670",
+    "0067006700670067",
+    "7006700670067006",
+    "6705670567056705",
+    "0670067006700670",
+    "0067006700670067",
+    "7006700670067006",
+    "6705670567056705",
+    "0670067006700670",
+    "0067006700670067",
+]
+# The reflector's concave side: a teal mesh in a frame.
+RADAR_STATION_DISH = [
+    "7777777777777777",
+    "7tTtTtTtTtTtTtT3",
+    "7TxTxTxTxTxTxTx3",
+    "7tTtTtTtTtTtTtT3",
+    "7TxTxTxTxTxTxTx3",
+    "7tTtTtTtTtTtTtT3",
+    "7TxTxTxTxTxTxTx3",
+    "7tTtTtTtTtTtTtT3",
+    "7TxTxTxTxTxTxTx3",
+    "7tTtTtTtTtTtTtT3",
+    "7TxTxTxTxTxTxTx3",
+    "7tTtTtTtTtTtTtT3",
+    "7TxTxTxTxTxTxTx3",
+    "7tTtTtTtTtTtTtT3",
+    "7TxTxTxTxTxTxTx3",
+    "3333333333333331",
+]
+# The reflector's back: ribs.
+RADAR_STATION_DISH_BACK = [
+    "6666666666666665",
+    "6252525252525251",
+    "6252525252525251",
+    "6252525252525251",
+    "6777777777777771",
+    "6252525252525251",
+    "6252525252525251",
+    "6252525252525251",
+    "6777777777777771",
+    "6252525252525251",
+    "6252525252525251",
+    "6252525252525251",
+    "6777777777777771",
+    "6252525252525251",
+    "6252525252525251",
+    "5111111111111111",
+]
+# The beacon on top of the dish: dark red, bright while powered.
+RADAR_STATION_BEACON = ["Q" * 16] * 16
+RADAR_STATION_BEACON_POWERED = ["U" * 16] * 16
+
+# The screen panel is 12 x 10 pixels, so its face uses the texture's 12 x 10 area at (2, 3) one to one: the round
+# scope (10 px across) centered with a 1 px border, and the status light in the bottom-right corner.
+RADAR_STATION_SCREEN_AREA = (2, 3, 12, 10)
+
+
+def radar_station_screen(frame=None, frames=30):
+    """The screen: dark glass while idle (frame=None); while powered, a generic sweep with two blips that light up as
+    it passes. It never shows the real map or drones."""
+    rows = [list("2" * 16) for _ in range(16)]
+    ax, ay, aw, ah = RADAR_STATION_SCREEN_AREA
+    for y in range(ay, ay + ah):
+        for x in range(ax, ax + aw):
+            edge_top, edge_left = y == ay, x == ax
+            edge_bottom, edge_right = y == ay + ah - 1, x == ax + aw - 1
+            rows[y][x] = "6" if edge_top or edge_left else "1" if edge_bottom or edge_right else "2"
+    cx, cy, radius = ax + 5.5, ay + 4.5, 4.9
+    for y in range(ay, ay + ah):
+        for x in range(ax, ax + aw):
+            dx, dy = x - cx, y - cy
+            r = math.hypot(dx, dy)
+            if r > radius + 0.75:
+                continue
+            if r > radius - 0.25:
+                rows[y][x] = "7" if dy < 0 and dx < 1 else "5" if dy < 1 else "0"
+                continue
+            if frame is None:
+                key = "y" if (dx < -1 and dy < -1) else "z" if abs(r - 2.5) < 0.45 else "x"
+            else:
+                angle = (math.atan2(dx, -dy) / (2 * math.pi)) % 1
+                behind = (frame / frames - angle) % 1
+                key = "J" if (abs(r - 2.5) < 0.45 or abs(dx) < 0.5 or abs(dy) < 0.5) else "F"
+                if behind < 0.04:
+                    key = "H"
+                elif behind < 0.10:
+                    key = "G"
+                elif behind < 0.2:
+                    key = "g"
+            rows[y][x] = key
+    if frame is not None:
+        for bx, by in ((ax + 6, ay + 2), (ax + 3, ay + 5)):
+            angle = (math.atan2(bx - cx, -(by - cy)) / (2 * math.pi)) % 1
+            behind = (frame / frames - angle) % 1
+            if behind < 0.4:
+                rows[by][bx] = "H" if behind < 0.15 else "G"
+    rows[ay + ah - 2][ax + aw - 2] = "G" if frame is not None else "i"
+    return ["".join(row) for row in rows]
+
+
+def radar_box(start, end, textures, rotation=None, uv=None):
+    """A model element. textures: one texture variable for every face, or a dict per face ("all" for the rest). Every
+    face gets an explicit UV (uv overrides it), moved inside the texture, so parts above y = 16 or longer than 16
+    never sample outside it."""
+    if isinstance(textures, str):
+        textures = {"all": textures}
+    faces = {}
+    for face in ("north", "south", "east", "west", "up", "down"):
+        texture = textures.get(face, textures.get("all"))
+        faces[face] = {"uv": (uv or {}).get(face) or radar_auto_uv(start, end, face), "texture": "#" + texture}
+    element = {"from": list(start), "to": list(end), "faces": faces}
+    if rotation:
+        element["rotation"] = rotation
+    return element
+
+
+def radar_fit(lo, hi):
+    """A UV span as long as the element (at most 16), where Minecraft's position-based UV would put it, moved inside
+    the texture."""
+    length = min(hi - lo, 16)
+    start = lo % 16
+    if start + length > 16:
+        start = 16 - length
+    return start, start + length
+
+
+def radar_auto_uv(start, end, face):
+    (x0, y0, z0), (x1, y1, z1) = start, end
+    if face in ("north", "south"):
+        u = radar_fit(16 - x1, 16 - x0) if face == "north" else radar_fit(x0, x1)
+        v = radar_fit(16 - y1, 16 - y0)
+    elif face in ("east", "west"):
+        u = radar_fit(16 - z1, 16 - z0) if face == "east" else radar_fit(z0, z1)
+        v = radar_fit(16 - y1, 16 - y0)
+    else:
+        u, v = radar_fit(x0, x1), radar_fit(z0, z1)
+    return [u[0], v[0], u[1], v[1]]
+
+
+def radar_station_base():
+    """The static model: plinth, console desk with the leaning screen, body with fins, deck, conduits and mast."""
+    return [
+        radar_box([0, 0, 0], [16, 3, 16], {"all": "foot", "up": "casing", "down": "casing"}),
+        # The console desk in front, with the screen leaning back on it like a lectern.
+        radar_box([1, 3, 0.5], [15, 6, 6], "casing"),
+        radar_box([2, 6, 1.5], [14, 16, 2.5], {"all": "casing", "north": "screen"},
+                  rotation={"origin": [8, 6, 1.5], "axis": "x", "angle": 22.5}, uv={"north": [2, 3, 14, 13]}),
+        # The body behind it, with cooling fins down both sides.
+        radar_box([1, 3, 6], [15, 12, 15], {"all": "casing", "east": "side", "west": "side"}),
+        *[radar_box([0, 4, 7 + 2 * i], [1, 11, 8 + 2 * i], "casing") for i in range(4)],
+        *[radar_box([15, 4, 7 + 2 * i], [16, 11, 8 + 2 * i], "casing") for i in range(4)],
+        # The deck and the turntable seat.
+        radar_box([2, 12, 6], [14, 14, 15], {"all": "casing", "up": "deck"}),
+        radar_box([5, 14, 7], [11, 15.5, 13], "copper"),
+        # Cable conduits down the back.
+        radar_box([3, 3, 15], [5, 13, 16], "copper"),
+        radar_box([11, 3, 15], [13, 13, 16], "copper"),
+        # The lattice mast with its collar.
+        radar_box([7, 15.5, 9], [9, 23, 11], "mast"),
+        radar_box([6.5, 20, 8.5], [9.5, 21, 11.5], "copper"),
+    ]
+
+
+def radar_station_head():
+    """The turning head, which RadarStationRenderer turns about the mast's axis at (8, 10)."""
+    dish = {"all": "casing", "north": "dish", "south": "dish_back"}
+    return [
+        radar_box([6, 23, 8], [10, 24, 12], "copper"),
+        radar_box([7.5, 24, 9.5], [8.5, 26, 10.5], "casing"),
+        # The reflector: a center panel and two wings angled forward, so the dish is concave toward the front.
+        radar_box([4, 24, 11], [12, 31.5, 12], dish),
+        radar_box([0.5, 24, 11], [4, 31.5, 12], dish, rotation={"origin": [4, 24, 11], "axis": "y", "angle": -22.5}),
+        radar_box([12, 24, 11], [15.5, 31.5, 12], dish, rotation={"origin": [12, 24, 11], "axis": "y", "angle": 22.5}),
+        # The feed: an arm out in front of the dish, with the horn at its end.
+        radar_box([7.5, 27, 5], [8.5, 28, 11], "casing"),
+        radar_box([6.5, 26, 3.5], [9.5, 29, 5], {"all": "copper", "north": "casing"}),
+        # The beacon on top of the reflector.
+        radar_box([7.5, 31.5, 11.25], [8.5, 32, 11.75], "beacon"),
+    ]
+
+
+def radar_station_textures(powered):
+    base = "seekerdrones:block/radar_station"
+    lit_suffix = "_powered" if powered else ""
+    return {
+        "particle": base + "_casing",
+        "casing": base + "_casing", "foot": base + "_foot", "deck": base + "_deck", "copper": base + "_copper",
+        "mast": base + "_mast", "dish": base + "_dish", "dish_back": base + "_dish_back",
+        "side": base + "_side" + lit_suffix, "beacon": base + "_beacon" + lit_suffix,
+        "screen": base + "_screen" + lit_suffix,
+    }
+
+
+def radar_station_model(elements, powered):
+    # No ambient occlusion: the parts above y = 16 would be shaded as if they were inside the block above.
+    return {"ambientocclusion": False, "textures": radar_station_textures(powered), "elements": elements}
+
+
+# The item shows the whole station (base and head), scaled so both blocks fit where one would.
+RADAR_STATION_ITEM_DISPLAY = {
+    "gui": {"rotation": [30, 225, 0], "translation": [0, -2.5, 0], "scale": [0.36, 0.36, 0.36]},
+    "fixed": {"rotation": [0, 0, 0], "translation": [0, -2.5, 0], "scale": [0.32, 0.32, 0.32]},
+    "ground": {"rotation": [0, 0, 0], "translation": [0, 1, 0], "scale": [0.18, 0.18, 0.18]},
+    "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 1.5, 0], "scale": [0.25, 0.25, 0.25]},
+    "firstperson_righthand": {"rotation": [0, 45, 0], "translation": [0, -1, 0], "scale": [0.25, 0.25, 0.25]},
+    "firstperson_lefthand": {"rotation": [0, 225, 0], "translation": [0, -1, 0], "scale": [0.25, 0.25, 0.25]},
+}
+
+
+def radar_station_models():
+    """Block model JSONs by name (under models/block). The blockstate comes from ModBlockStateProvider."""
+    item = radar_station_model(radar_station_base() + radar_station_head(), False)
+    item["display"] = RADAR_STATION_ITEM_DISPLAY
+    return {
+        "radar_station": radar_station_model(radar_station_base(), False),
+        "radar_station_powered": radar_station_model(radar_station_base(), True),
+        "radar_station_head": radar_station_model(radar_station_head(), False),
+        "radar_station_head_powered": radar_station_model(radar_station_head(), True),
+        # The upper half draws nothing (the lower half's models cover it); it only needs break particles.
+        "radar_station_upper": {"textures": {"particle": "seekerdrones:block/radar_station_casing"}},
+        "radar_station_item": item,
+    }
+
+
 MACHINES = {
     "machine_bottom": MACHINE_BOTTOM,
     "charging_station_side": CHARGING_STATION_SIDE,
@@ -1343,6 +1684,18 @@ MACHINES = {
     "programming_station_console": PROGRAMMING_STATION_CONSOLE,
     "programming_station_back": PROGRAMMING_STATION_BACK,
     "programming_station_top": PROGRAMMING_STATION_TOP,
+    "radar_station_casing": RADAR_STATION_CASING,
+    "radar_station_side": RADAR_STATION_SIDE,
+    "radar_station_side_powered": RADAR_STATION_SIDE_POWERED,
+    "radar_station_foot": RADAR_STATION_FOOT,
+    "radar_station_deck": RADAR_STATION_DECK,
+    "radar_station_copper": RADAR_STATION_COPPER,
+    "radar_station_mast": RADAR_STATION_MAST,
+    "radar_station_dish": RADAR_STATION_DISH,
+    "radar_station_dish_back": RADAR_STATION_DISH_BACK,
+    "radar_station_beacon": RADAR_STATION_BEACON,
+    "radar_station_beacon_powered": RADAR_STATION_BEACON_POWERED,
+    "radar_station_screen": radar_station_screen(),
 }
 # Animated faces: name -> (frames, game ticks per frame).
 ANIMATED_MACHINES = {
@@ -1354,6 +1707,8 @@ ANIMATED_MACHINES = {
     "drone_factory_drum_working": ([machine(drone_factory_drum(f)) for f in range(4)], 2),
     "drone_factory_fan_working": ([machine(drone_factory_fan(-math.pi / 2 * f / 6)) for f in range(6)], 1),
     **{f"programming_station_{face}_working": (frames, 2) for face, frames in programming_station_working().items()},
+    # One loop is 60 ticks, like the default sweep (a texture can't follow the configured one).
+    "radar_station_screen_powered": ([machine(radar_station_screen(f)) for f in range(30)], 2),
 }
 
 
@@ -1429,15 +1784,19 @@ def main():
         img.save(path)
         print(f"wrote {path.relative_to(ROOT)}")
         if "mcmeta" in img.info:
-            path.with_name(path.name + ".mcmeta").write_text(json.dumps(img.info["mcmeta"], indent=2) + "\n")
+            path.with_name(path.name + ".mcmeta").write_text(json.dumps(img.info["mcmeta"], indent=2) + "\n", newline="\n")
         if args.preview:
             preview = args.preview / name
             preview.parent.mkdir(parents=True, exist_ok=True)
             img.resize((img.width * 16, img.height * 16), Image.NEAREST).save(preview)
-    path = MODELS / "item/drone_remote_3d.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(remote_3d_model_json(), indent=2) + "\n")
-    print(f"wrote {path.relative_to(ROOT)}")
+    models = {"item/drone_remote_3d": remote_3d_model_json(),
+              **{f"block/{name}": model for name, model in radar_station_models().items()}}
+    for name, model in models.items():
+        path = MODELS / f"{name}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # LF like the rest of the repository (.gitattributes), also on Windows.
+        path.write_text(json.dumps(model, indent=2) + "\n", newline="\n")
+        print(f"wrote {path.relative_to(ROOT)}")
     if args.preview:
         contact_sheet(textures).save(args.preview / "sheet.png")
 
