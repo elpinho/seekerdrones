@@ -1,5 +1,6 @@
 package com.elpinho.seekerdrones.gametest;
 
+import static com.elpinho.seekerdrones.gametest.GameTestUtil.eachTick;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.placeChargingStation;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.removePlayer;
 import static com.elpinho.seekerdrones.gametest.GameTestUtil.spawnDrone;
@@ -85,7 +86,7 @@ public class PilotGameTests {
         ServerPlayer player = spawnPlayer(helper, UUID.randomUUID(), 4.5, 1, 0.5, 2);
         linkedRemote(player, drone);
         AtomicInteger ticks = new AtomicInteger();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             if (!drone.isPiloted()) {
                 if (drone.getSeekTarget() == zombie) {
                     helper.assertFalse(TargetClaims.canClaim(rival, zombie), "Sanity: the drone should hold a claim on the zombie");
@@ -291,7 +292,7 @@ public class PilotGameTests {
             FpvFeeds.pilotInput(p.player, PilotInput.NONE);
             AtomicInteger waited = new AtomicInteger();
             Vec3[] last = {p.drone.position()};
-            helper.onEachTick(() -> {
+            eachTick(helper, () -> {
                 Vec3 now = p.drone.position();
                 double step = now.distanceTo(last[0]);
                 last[0] = now;
@@ -363,7 +364,7 @@ public class PilotGameTests {
         linkedRemote(player, drone);
         FpvFeeds.startFromRemote(player, id, true);
         AtomicInteger ticks = new AtomicInteger();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             helper.assertTrue(drone.getSeekTarget() == null, "A piloted drone must not acquire a target, got " + drone.getSeekTarget());
             helper.assertValueEqual(drone.getState(), DroneState.PILOTED, "state");
             if (ticks.incrementAndGet() >= 50) {
@@ -383,7 +384,7 @@ public class PilotGameTests {
         linkedRemote(player, drone);
         FpvFeeds.startFromRemote(player, id, true);
         AtomicInteger ticks = new AtomicInteger();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             helper.assertFalse(drone.isRemoved(), "A piloted Explosive drone must not explode on its own");
             helper.assertTrue(drone.getSeekTarget() == null, "No target while piloted");
             if (ticks.incrementAndGet() >= 50) {
@@ -408,7 +409,7 @@ public class PilotGameTests {
         helper.assertTrue(drone.isPiloted(), "Sanity: piloted");
         helper.assertTrue(drone.isBelowReturnThreshold(), "Sanity: the drone is below its return threshold");
         AtomicInteger ticks = new AtomicInteger();
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             helper.assertValueEqual(drone.getState(), DroneState.PILOTED, "A piloted drone must not start returning");
             if (ticks.incrementAndGet() >= 30) {
                 helper.assertTrue(drone.isBelowReturnThreshold(), "Still below the threshold");
@@ -831,7 +832,7 @@ public class PilotGameTests {
         Vec3[] last = {drone.position()};
         double[] sum = {0};
         int[] samples = {0};
-        helper.onEachTick(() -> {
+        eachTick(helper, () -> {
             int t = tick.incrementAndGet();
             Vec3 now = drone.position();
             if (t > from) {
