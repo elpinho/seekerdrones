@@ -176,7 +176,7 @@ A handheld item for controlling one deployed drone without catching it. Upgrades
 
 ### 2.11 Drone Dashboard (replaced by the radar machines)
 
-The planned dashboard (a map of drone positions that can open a drone's FPV feed) became a line of machines: the **Drone Radar Station** (section 7.8), which shows the map, the **Drone Satellite Uplink** (section 7.9), which adds opening a drone's remote screen and FPV feed from the map, and the future **Drone Command Center** (section 11), which adds giving orders.
+The planned dashboard (a map of drone positions that can open a drone's FPV feed) became a line of machines: the **Drone Radar Station** (section 7.8), which shows the map, the **Drone Satellite Uplink** (section 7.9), which adds opening a drone's remote screen and FPV feed from the map, and the **Drone Command Center** (section 7.10), which adds giving orders.
 
 ### 2.12 FPV feed
 
@@ -464,6 +464,7 @@ Drone Operators control who can interact with drones. A drone's operators come f
 | Watch a drone's FPV feed from the Drone Remote | Yes (re-checked while watching, section 2.12) |
 | Pilot a drone from the Drone Remote | Yes (re-checked while piloting, section 2.13) |
 | See a drone on a Drone Radar Station's screen | Yes, per viewer (section 7.8). Anyone may open the screen. **No** server-operator bypass. |
+| Give a drone an order from a Drone Command Center | Yes, checked for each drone when the order is sent (section 7.10). **No** server-operator bypass. |
 | Receive Transmitter notifications | Yes (all online operators) |
 | Exempt from being targeted by Player Seek | Yes |
 | Insert/extract drones in machines (manually or by automation) | **No**. Machines never check permissions, so automation keeps working. |
@@ -694,7 +695,7 @@ Every screen (the machines, the drone status screen and the side tab panels: the
 
 ### 7.8 Drone Radar Station
 
-A machine whose screen shows a radar map of the terrain around it and the viewer's own drones on it. It's the first of three planned tiers. The second, the **Drone Satellite Uplink**, is section 7.9; the third, the **Drone Command Center**, is future work (section 11). It replaces the Drone Dashboard idea (section 2.11).
+A machine whose screen shows a radar map of the terrain around it and the viewer's own drones on it. It's the first of three planned tiers. The second, the **Drone Satellite Uplink**, is section 7.9; the third, the **Drone Command Center**, is section 7.10. It replaces the Drone Dashboard idea (section 2.11).
 
 - **Energy:** an FE buffer of `radarStation.energyCapacity`, filled on every side of the lower block (the upper block has no energy access). It uses `radarStation.energyPerTick` (300 FE/t) **all the time**, whether or not anyone has the screen open: it's always scanning. Higher tiers will use more. With less FE than one tick's use it is **unpowered**: it uses nothing, the screen shows **No power**, the sweep stops, the blips fade out and the server sends no drone data. It has no items and no other automation.
 - **Who can open it:** anyone. Each viewer only sees **their own drones**: the drones they are an operator of (section 6.3), worked out per viewer, so two players at the same station see different drones. Unowned drones and drones with an unknown group never show. There's **no** server-operator bypass (section 6.2): the radar is gameplay, not moderation.
@@ -761,7 +762,7 @@ The Advanced radar tier, after the Drone Radar Station (section 7.8): a wider ma
   - **Back:** the remote screen opened through the Uplink gets a **Back** side tab on top (a left arrow, `icon/back`), which does the same as Esc. Chosen from drafted variants on 2026-11-15.
   - **A check failing while only the remote screen is open** (the drone leaves the area, the Uplink loses power, the player stops being its operator): the remote screen closes back to the map, and the action bar says "Signal lost: <reason>". Clicking a drone that can't be reached doesn't open its remote and shows the same message. Decided 2026-11-15.
   - **Leaving a feed or piloting yourself** (the exit key, Stop Piloting, or Recall/Hold/Charge ending piloting) lands on that drone's remote screen, on top of the Uplink; Back or Esc from there returns to the map. A feed that ends with "Signal lost" goes back to the map. Decided 2026-11-15.
-  - **Center** still sets the patrol center to the player's eye position, as with the handheld remote, even though the player stands at the Uplink. Clicking a spot on the map is a Command Center order (section 11). Decided 2026-11-15.
+  - **Center** still sets the patrol center to the player's eye position, as with the handheld remote, even though the player stands at the Uplink. Clicking a spot on the map is a Command Center order (section 7.10). Decided 2026-11-15.
   - Through the Uplink, the remote screen's reach reasons add **Uplink has no power** and **Out of the Uplink's area** (new `RemoteReach` values, added at the end), and the distance shown is from the Uplink.
   - The FPV signal bars and static use the drone's distance from the station as a fraction of `uplink.radius`.
   - Unidentified drones can't be opened.
@@ -783,6 +784,68 @@ The Advanced radar tier, after the Drone Radar Station (section 7.8): a wider ma
 - **Jade:** a No power line.
 - **Recipe:** a placeholder until the art pass, with the Radar Station at its core.
 - **Config (`uplink.*`):** `energyCapacity`, `energyPerTick`, `radius`, `scanInterval`, `terrainChunksPerTick`, `terrainRefreshInterval`, `pulseTicks`.
+
+### 7.10 Drone Command Center
+
+The top radar tier, after the Drone Satellite Uplink (section 7.9): the widest map, every drone always shown with its color and label, richer tooltips, and **group orders** given by selecting drones on the map. It does everything the Uplink does (opening a drone's remote, FPV feed and piloting from the map, the My drones list, the intruder alarm), with its own numbers. The gameplay was agreed in section 11 earlier, and the user designed the rest and moved it here on 2026-11-15 to be implemented: radius 256, Move guards the spot, a 1 × 1 holotable, layout B, a horizontal mode picker and the terrain-disc hologram. Drafts: `build/command_center_draft/` (`mock_gui.py`, `cc_model_draft.py`; not committed). All numbers are placeholders in the server config under `commandCenter.*`.
+
+- **Block** (`seekerdrones:command_center`): 1 × 1 and 2 blocks tall, with the same placement, breaking, half, piston and Jade rules as the Radar Station (section 7.8), on the shared radar machine code (`TwoBlockMachineBlock`, `RadarMachineBlockEntity`, `RadarMachineMenu`, `TerrainBuilder`, `RadarMachineScreen`). It faces the player when placed (cosmetic only), records its placer's UUID (for the alarm) and has `powered`.
+  - **Shape:** the lower block follows the table (plinth, pedestal, top). The upper block holds only the hologram, so it has **no collision** (players can reach into it). Its selection outline is the hologram's volume, and right-clicking it opens the screen as usual.
+- **Energy:** an FE buffer of `commandCenter.energyCapacity` (500,000) on every side of the lower block, using `commandCenter.energyPerTick` (4,000 FE/t) all the time. Unpowered (less than one tick's worth): the screen shows **No power**, blips fade out, no drone data is sent, the alarm drops to 0, remote sessions through it end, and no orders can be given (orders already running carry on: they live on the drones).
+- **Who can open it:** anyone. Per viewer, a drone is **own** if the viewer is its operator (section 6.3), **another player's** if it has an owner group the viewer isn't in, and **unowned** if it has no owner or an unknown group. No server-operator bypass.
+- **Area:** a circle of radius `commandCenter.radius` (256) around the station, at any height, in its dimension.
+- **Terrain:** the Uplink's vanilla-map-color terrain, with all its rules (section 7.9), built at `commandCenter.terrainChunksPerTick` (16) and refreshed every `commandCenter.terrainRefreshInterval` (600) ticks while someone has the screen open. At radius 256 the map is 513 × 513 bytes (about 263 KB), so it's **sent in slices** of rows (each packet well under the payload limit). The client draws slices as they arrive; the status strip shows Downloading map until the last one is in.
+- **Snapshots:** while the screen is open, each viewer gets positions every `commandCenter.scanInterval` (5) ticks and details every `commandCenter.detailInterval` (20) ticks, all read from the drone index (no entity search).
+  - **Positions**, for every drone in the area: x/y/z and heading, plus the tracked entity (x/z, display name, entity type and, for a player, their name), if any. Own and other players' drones also carry their ID (the client keys details by it), label and color; unowned drones carry only a per-snapshot index.
+  - **Details**, own drones: health and max health, energy fraction, installed upgrades (type and count), state, the patrol center and radius (with Patrol), and the current order with its ticks left. Other players' drones: health and max health, and the patrol center and radius. Unowned drones: health and max health.
+  - **Charging Stations:** as in the Uplink (only stations whose placer the viewer is an operator of).
+- **Blips:** **always shown**, steady (no sweep, no pulse). Between snapshots each blip **moves smoothly** from its last position to the new one (client-side interpolation over `scanInterval`). Each keeps the Uplink's altitude cue and heading tail.
+  - **Own:** the Uplink's identified blip (a dye-colored square with the label).
+  - **Another player's:** a **diamond in the drone's dye color** with its label (the diamond means "not yours", as on the Uplink). Not clickable and not selectable.
+  - **Unowned:** the Uplink's gray diamond, no label.
+- **Tracking lines:** the Uplink's dashed line and target head (section 7.9), now for **every** drone in the area, in the drone's color (gray for unowned drones).
+- **Hovering a blip** shows its patrol ring (if it has Patrol), for own and other players' drones, and a tooltip:
+  - **Own:** `<label> - <ID>` in its color, then "Health 18/20   Energy 62%", "Upgrades: Patrol, Camera, Explosive" (with counts above one, e.g. "Patrol ×2"), "Tracking <name>" while it tracks something, the order in amber while it has one ("Order: Move (14 s left)", "Order: Guarding (25 s left)", "Order: Strike"), and "Click to open remote".
+  - **Another player's:** its label in its color, "Health 14/20", and "Tracking <name>" while it tracks something. Nothing else.
+  - **Unowned:** "Unowned drone", "Health 14/20", and the tracking line.
+- **Other markers, map and zoom:** as on the Uplink (station marker, Charging Stations, the player's arrow, the area's edge with the hatched outside, north marker, scale bar, the + and − buttons). The same steps (**FIT**, ×1, ×2, ×4), anchored on the mouse; FIT is about 0.38 px per block at radius 256. Right-drag pans. The screen opens at FIT.
+- **Opening a drone's remote:** exactly the Uplink's station reach rule and flow (section 7.9) with this station: clicking an own blip (or list row) opens its remote screen on top of the map, with Back, FPV feed and piloting, and the Command Center's menu stays open. Its reach reasons are new `RemoteReach` values added at the end: **Command Center has no power** and **Out of the Command Center's area**. The FPV signal uses the distance as a fraction of `commandCenter.radius`.
+- **Selecting drones:**
+  - **Left-drag** on the map (at least 3 px, starting anywhere, even on a blip) draws a selection box: a dashed teal outline with a faint teal fill. On release, every **own** drone whose blip is inside becomes the selection; other drones are ignored. A plain left click (no drag) on an own blip still opens its remote.
+  - **Shift**+drag adds to the selection. **Shift**+click on an own blip or list row adds or removes that one drone.
+  - Selected drones stay selected while they move, even out of the box, until the selection is cleared: a click on an empty spot of the map, a new box without Shift, or **Esc** (the first Esc clears the selection, the next one closes the screen). A drone that leaves the area or stops being the viewer's drops out of it.
+  - Selected blips get a white outline with a dark edge. Their list rows get a darker highlight and a white bar on the left edge. The list's last line says "N selected" in white, and the status strip adds ", N selected".
+  - The **selection outline** is the bounding box of the selected blips (so it follows them, and works for a list-only selection), drawn as the dashed teal outline without fill.
+- **Mode picker:** a row of six 13 × 13 display buttons in a dark display (80 × 15) under the selection outline's **bottom-right corner**, flipped above it or to its left when it would leave the map, and hidden while the corner is outside the zoomed view. Each has the existing icon and a tooltip with its name:
+  - **Move** (`icon/route`), **Patrol Here** (`icon/pin`), **Strike** (`icon/detonate`), **Hold** (`icon/hold`), **Return to Charge** (`icon/energy`), **Release** (`icon/stop`).
+  - A mode none of the selected drones can take is drawn at 40% and disabled (Strike without any Explosive drone; Patrol Here without any Patrol drone). When only some can, the tooltip says so in gray ("2 of 3 can strike").
+  - **Hold**, **Return to Charge** and **Release** are sent right away. **Move**, **Patrol Here** and **Strike** **aim**: dashed ghost lines run from each drone that can take it to the cursor, with a target marker at the cursor (a small teal ring, or a red crosshair for Strike) and a tooltip ("Move here", "Patrol here", "Strike here" in red, then "Right-click: cancel" in gray). A left click picks the spot; right-click or Esc cancels the aim (the selection stays). A spot outside the area shows the marker in red with "Out of range" and can't be picked.
+  - **Strike confirm:** the first click places the red crosshair with "Strike: N drones" in red and "Click again to confirm" in white. A second click on the crosshair confirms; a click anywhere else moves it there. Right-click or Esc cancels.
+  - After an order is sent, the selection stays (so the player can give the next order).
+- **Sending an order** (server side): each selected drone must pass the station reach checks (the viewer has this Command Center's menu open, it's powered, the drone is loaded, in its dimension and inside the area, and the viewer is its operator; no bypass) and be able to take the mode. The spot must be inside the area and in a **loaded chunk** (orders can't take drones into unloaded chunks, section 3.6). Drones that fail are skipped. The action bar reports it: "Order sent to 3 drones", with "(1 out of reach)" or "That spot isn't loaded" as needed.
+- **Orders** (a new drone helper, `DroneOrders`, owns them and their NBT):
+  - **Move:** the drone flies to the spot, `commandCenter.moveHeight` (8) blocks above the top block there, at **cruise pace**, steering like a chase (section 3.4). It's **passive** while flying (like Recall: no scanning, chasing or claiming). On arrival it **guards** the spot for `commandCenter.guardTicks` (600): it scans and fights as if the spot were its patrol center (hovering there between chases, without patrolling waypoints), and flies back to the spot after each chase. Then it goes back to normal behavior. New states, added at the end of `DroneState`: **MOVING** and **GUARDING**.
+  - **Patrol Here:** sets the patrol center's x/z to the spot and keeps its Y (the patrol height, section 3.2), or the drone's current Y if it has no center. It's a lasting setting, like the remote's Center, not an order. Only drones with Patrol.
+  - **Strike:** the drone rushes to the top block at the spot like an Explosive chase, with its top speed capped at `commandCenter.strikeSpeedFactor` × `drone.maxSpeed`, and detonates on arrival. It's passive on the way (it ignores targets) and follows `upgrades.explosive.blockDamage`. Only drones with Explosive. New state at the end of `DroneState`: **STRIKING**.
+  - **Hold** and **Return to Charge:** the remote's commands (section 2.10).
+  - **Release:** drops the order (Move, guarding, Strike, Hold or Recall) and the drone goes back to normal behavior at once.
+  - A Move or Strike that hasn't reached its spot after `commandCenter.moveTimeoutTicks` (1,200) is dropped, and the drone goes back to normal.
+  - **Like Hold and Recall:** orders are saved with the entity (they survive a chunk reload) but not in the drone data (picking the drone up clears them). The return threshold (section 5.2) overrides any order, and after charging the order isn't restored. Any order ends piloting (section 2.13). A newer order, from any Command Center or any operator's remote (Recall, Hold, Charge), replaces the current one; the last one sent wins.
+  - On the remote screen, the state pill shows MOVING and GUARDING (green) and STRIKING (red), each with a status reason ("Moving to 120, -48 (Command Center)", "Guarding 120, -48, 25 s left"). While one of them runs, the Hold button shows **Resume**, which works like Release.
+- **Intruder alarm:** the Uplink's (section 7.9), over this station's area, recounted every `commandCenter.scanInterval` ticks while powered.
+- **Screen** (the machine GUI kit, section 7.7; layout B in the drafts): the frame is **330 × 236**. From left to right: the energy gauge (12 × 198), the map (198 × 198, as on the Uplink) and a wider **My drones** list (**96 × 198**). A status strip runs under all three.
+  - **My drones** rows are two lines: a dye-colored square, the label (or ID) in its color and the distance in meters right-aligned, then a **health bar** (`fill/health_horizontal`) and an **energy bar** (`fill/energy_horizontal`) side by side, 3 px tall. Nearest first. Under the rows: "Others: N" in dim teal and "Unowned: N" in amber while N > 0, and "N selected" at the bottom in white while there's a selection. It scrolls with the wheel when it's too long. Hovering a row acts like hovering the blip, clicking opens the remote, and Shift+click toggles it in the selection.
+  - **Online**, green: "Online - N drones, M others, K unowned" (parts that are 0 are left out), plus ", N selected".
+  - **Downloading map**, amber, and **No power**, red.
+  - Side tabs: the energy unit, and Redstone (explains the alarm output).
+- **Visuals** (section 7.6):
+  - **Model** (written by `generate_textures.py`, reusing the Radar Station's part textures): a **holotable**. The Radar Station's hazard-band plinth, a narrower pedestal with lit vents on the sides and copper conduits at the back, and a table top (2 px thick) overhanging to the block's edge. The top is dark glass with a faint teal grid and an emitter well in the middle: a copper ring with a glowing lens. A raised lip along the front edge has a row of keys and two status lights (green and amber), and four short emitter pins stand at the corners with lit tips.
+  - **Hologram** (the terrain disc), drawn by the block entity renderer in the upper block's space, **translucent** and full-bright in teal: a thin beam from the lens up to a floating contour-map disc (13 px across), a few relief blocks on it, and four blips floating above it on thin stems, one of them red and blinking. The disc turns slowly (one turn per 20 s) and the blips bob gently, with a faint scanline flicker. It's generic, never the real map or real drones, and client-only.
+  - **While `powered`:** the hologram shows, and the table's grid, the lens, the emitter tips, the side vents and the front lights light up.
+  - **Unpowered:** no hologram, and the lens, tips and lights are dark.
+- **Jade:** a No power line.
+- **Recipe:** a placeholder until the art pass, with the Satellite Uplink at its core.
+- **Config (`commandCenter.*`):** `energyCapacity`, `energyPerTick`, `radius`, `scanInterval`, `detailInterval`, `terrainChunksPerTick`, `terrainRefreshInterval`, `moveHeight`, `guardTicks`, `moveTimeoutTicks`, `strikeSpeedFactor`.
 
 ---
 
@@ -843,7 +906,7 @@ The drone entity saves the same data in its entity NBT. Only the fields the clie
 - **Programming Station:** the mode, a progress bar and "Installing *X*" during an install step, and "Charging the drone" while it charges one (with no install step running). In Template mode with a drone in the slot: Complete, Waiting for upgrades, Waiting for energy to charge the drone (it matches the program but isn't full and the station has no FE), Drone has extra upgrades, or Re-insert the drone. A template over the limits is shown even without a drone.
 - **Deploying Station:** Auto-deploy On or Off, and a line for Not enough energy or Space above blocked.
 - **Charging Station:** with a drone docking or docked, its status (Drone docking, Charging, Repairing, Out of power) and the drone's label (or ID).
-- **Drone Radar Station** and **Drone Satellite Uplink:** a line for No power.
+- **Drone Radar Station**, **Drone Satellite Uplink** and **Drone Command Center:** a line for No power.
 
 ---
 
@@ -970,6 +1033,17 @@ All values below are placeholders.
 | `uplink.terrainChunksPerTick` | 8 | Chunks the terrain map reads per tick while it's being built |
 | `uplink.terrainRefreshInterval` | 600 ticks | How often the terrain map is rebuilt while someone has the screen open |
 | `uplink.pulseTicks` | 40 ticks | One pulse of the map's blips (client-side) |
+| `commandCenter.energyCapacity` | 500 000 FE | FE the Command Center can store (section 7.10) |
+| `commandCenter.energyPerTick` | 4 000 FE | Used every tick while it has enough, screen open or not |
+| `commandCenter.radius` | 256 blocks | Radius of the area it shows, gives orders in, opens remotes in and counts intruders in |
+| `commandCenter.scanInterval` | 5 ticks | How often viewers get position snapshots and the intruder alarm is recounted |
+| `commandCenter.detailInterval` | 20 ticks | How often viewers get the drones' details (health, energy, upgrades, order) |
+| `commandCenter.terrainChunksPerTick` | 16 | Chunks the terrain map reads per tick while it's being built |
+| `commandCenter.terrainRefreshInterval` | 600 ticks | How often the terrain map is rebuilt while someone has the screen open |
+| `commandCenter.moveHeight` | 8 blocks | How high above the top block at the spot a Move order holds |
+| `commandCenter.guardTicks` | 600 ticks | How long a drone guards the spot after a Move order before it goes back to normal |
+| `commandCenter.moveTimeoutTicks` | 1 200 ticks | A Move or Strike that hasn't reached its spot by then is dropped |
+| `commandCenter.strikeSpeedFactor` | 0.6 | A Strike's top speed, as a fraction of the drone's `drone.maxSpeed` |
 | `sounds.resortInterval` | 20 ticks | How often each client re-picks which drones play the loops (section 2.9) |
 | `sounds.flying.maxPlaying` | 8 | Nearest drones that play the flying loop; approaching Explosive drones go first |
 | `sounds.flying.fullSpeed` | 1.0 blocks/tick | Speed at which the flying loop reaches its max volume and pitch |
@@ -1005,18 +1079,6 @@ These are agreed ideas for later versions. **Do not implement, stub or scaffold 
 - **Chunk loading** by drones (in any form, including behind a config).
 - **Target Tagger** item to mark one specific entity as a target.
 - **Operator Group ownership transfer.**
-- **Higher radar tiers** (after the Drone Radar Station, section 7.8, and the Drone Satellite Uplink, section 7.9). Each tier uses more FE than the one before, covers a wider area and refreshes faster, and its recipe takes the tier below. Like the Radar Station, the map is drawn only in the screen, never on the block. The Command Center's gameplay is agreed, and its GUI, model, textures and numbers are still to be designed.
-  - **Drone Command Center** (model idea: a holotable with a generic animated hologram above it, not the real map):
-    - The widest area, and blips are **always shown**, updated faster than the Uplink.
-    - **Tooltips:** for the viewer's drones, health, energy, upgrades and targets. For other drones, health only.
-    - Other players' drones are drawn with their **color and label** (still no other details, and their remote screen doesn't open).
-    - A **line from each drone to the entity it's tracking** or rushing to explode. The Uplink already draws it for the viewer's own drones (section 7.9); the Command Center adds it for every drone.
-    - Hovering a drone shows its patrol ring.
-    - **Group orders:** click and drag a box to select drones. Every drone of the viewer's in the box when the mouse is released stays selected, even if it leaves the box. A mode picker sits at the selection outline's corner, and after picking a mode the player clicks a spot on the map. Modes:
-      - **Move:** fly to the spot at normal pace and hold there, with a timeout like Recall.
-      - **Patrol Here:** the spot becomes the patrol center.
-      - **Strike:** rush to the spot and detonate, like an Explosive chase but with a capped top speed to save energy. Only drones with the Explosive upgrade can take it, it asks for a confirm click, and it follows `upgrades.explosive.blockDamage`.
-      - **Hold**, **Return to Charge** and **Release** (drop the order and go back to normal behavior).
-    - Orders can't take drones into unloaded chunks (no chunk loading, section 3.6), and the return threshold (section 5.2) overrides any order.
+- **Radar tiers past the Drone Command Center** (section 7.10): none planned. The Command Center moved from here to section 7.10 on 2026-11-15, where its Move order was changed from "hold at the spot" to "guard the spot".
 
 Dropped: Charging Stations that charge more than one drone at a time. Players build more stations instead, and the charging queue (section 5.3) shares one station between drones.

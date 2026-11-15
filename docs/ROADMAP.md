@@ -78,7 +78,8 @@ Each milestone ends in something playable or testable. The drone and its AI come
 - FPV Camera Upgrade and FPV feed (DESIGN.md §2.12, §4): watch a drone's live first-person view from the Drone Remote, or with `/seekerdrones view` for server operators.
 - Remote piloting (DESIGN.md §2.13): fly a drone by hand from its FPV feed, from a PILOT button on the Drone Remote. Also moves the feed's exit from Sneak to its own key (Left Alt).
 - Drone Radar Station (DESIGN.md §7.8, replaces the planned drone dashboard, §2.11): a machine whose screen shows a green phosphor terrain map of the area around it, with the viewer's own drones revealed by a sweep.
-- Drone Satellite Uplink (DESIGN.md §7.9, the Advanced radar tier, added at the user's request): a wider map in vanilla map colors with every drone in the area (the viewer's identified, others unidentified), the viewer's Charging Stations, an intruder alarm on a comparator, and a drone's remote screen, FPV feed and piloting opened from the map while the Uplink's menu stays open. The Command Center is post-v1 (§11).
+- Drone Satellite Uplink (DESIGN.md §7.9, the Advanced radar tier, added at the user's request): a wider map in vanilla map colors with every drone in the area (the viewer's identified, others unidentified), the viewer's Charging Stations, an intruder alarm on a comparator, and a drone's remote screen, FPV feed and piloting opened from the map while the Uplink's menu stays open.
+- Drone Command Center (DESIGN.md §7.10, the top radar tier, designed and moved into v1 at the user's request on 2026-11-15): a holotable with a radius-256 map, every drone always shown with its color and label, richer tooltips, tracking lines for every drone, and group orders (box-select your drones, then Move, Patrol Here, Strike, Hold, Return to Charge or Release), on top of everything the Uplink does.
 - **Done when:** server admins can limit drones with the safety configs, and an operator can watch a drone's FPV feed from the Drone Remote.
 
 ### M10 — Art and polish
@@ -95,4 +96,4 @@ Each milestone ends in something playable or testable. The drone and its AI come
 ## Post-v1 — outlook only, DO NOT IMPLEMENT YET
 
 - **v1.x — Quality of life:** a record of Transmitter spottings that operators can read later (possibly a log machine), so spottings while they were offline aren't lost.
-- **v2 — Spectacle and depth:** 3×3×3 Drone Factory multiblock with animation, Target Tagger, Operator Group ownership transfer, chunk loading (to be decided), and the Drone Command Center (the top radar tier, DESIGN.md §11).
+- **v2 — Spectacle and depth:** 3×3×3 Drone Factory multiblock with animation, Target Tagger, Operator Group ownership transfer and chunk loading (to be decided).
