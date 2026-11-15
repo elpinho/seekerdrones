@@ -183,6 +183,8 @@ tasks.withType(ProcessResources).configureEach {
             mod_id                 : mod_id,
             mod_name               : mod_name,
             mod_license            : mod_license,
+            mod_url                : mod_url,
+            mod_issue_tracker_url  : mod_issue_tracker_url,
             mod_version            : mod_version,
             mod_authors            : mod_authors,
             mod_description        : mod_description
@@ -191,6 +193,14 @@ tasks.withType(ProcessResources).configureEach {
 
     filesMatching(['META-INF/neoforge.mods.toml']) {
         expand replaceProperties
+    }
+}
+
+// The licenses and credits ship inside the jar: the LGPL requires its text to go with every copy, and the CC BY
+// sounds require their credit. They go in a mod-specific folder so they don't collide with other mods' files.
+tasks.named('jar', Jar) {
+    from(['COPYING', 'COPYING.LESSER', 'ASSETS_LICENSE.md', 'SOUND_CREDITS.md']) {
+        into "META-INF/licenses/${mod_id}"
     }
 }
 

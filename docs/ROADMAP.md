@@ -84,6 +84,7 @@ Each milestone ends in something playable or testable. The drone and its AI come
 
 ### M10 — Art and polish
 - Commission an artist (paid) to remake the textures of every block, item and GUI.
+  - The art assets are licensed under CC BY-NC-SA 4.0 (`ASSETS_LICENSE.md`, decided 2026-11-15). The contract must give us the rights to release the commissioned art under that license (a copyright transfer, or a license that allows it), including reuse by forks and ports.
 - Remake the drone's 3D model and textures (same artist), including animations (e.g. rotors, idle and chase states).
 - Sounds, lang, and a balance pass on the config defaults.
 - Final upgrade and Charging Station recipes (materials and costs), replacing the placeholders. They follow DESIGN.md section 7.5: `c:` tags, and base and Mekanism variants where it makes sense. The Factory, component and drone assembly recipes are already decided.
