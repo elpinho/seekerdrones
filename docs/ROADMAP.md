@@ -83,14 +83,13 @@ Each milestone ends in something playable or testable. The drone and its AI come
 - **Done when:** server admins can limit drones with the safety configs, and an operator can watch a drone's FPV feed from the Drone Remote.
 
 ### M10 — Art and polish
-- Commission an artist (paid) to remake the textures of every block and item. The GUI art is optional (decided 2026-11-15): it may be commissioned later or kept as it is, depending on how the rest goes.
+- Commission an artist (paid, budget about $200, decided 2026-11-15) for the drone's 3D model, texture and simple animations (rotors and a hover bob; the rotors can spin in code) and the 15 item icons. The Drone Remote's 3D held model is an optional extra. The brief is a shared doc (Seeker Drones: Artist Brief).
   - The art assets are licensed under CC BY-NC-SA 4.0 (`ASSETS_LICENSE.md`, decided 2026-11-15). The contract must give us the rights to release the commissioned art under that license (a copyright transfer, or a license that allows it), including reuse by forks and ports.
-- Remake the drone's 3D model and textures (same artist), including animations (e.g. rotors, idle and chase states).
+- The seven machines and the GUI keep their generated art (`scripts/textures/`) for v1, improved there as needed. They may be commissioned in a later round.
 - Sounds, lang, and a balance pass on the config defaults.
 - Final upgrade and Charging Station recipes (materials and costs), replacing the placeholders. They follow DESIGN.md section 7.5: `c:` tags, and base and Mekanism variants where it makes sense. The Factory, component and drone assembly recipes are already decided.
-- Machine particles are done (DESIGN.md section 7.6). Tell the artist the machines have a `working` block state, so the textures can include lit "on" variants.
-- Give the artist the texture style rules (DESIGN.md section 7.7) and the machine faces (section 7.6), plus the GUI kit (section 7.7) if the GUI is commissioned. The layouts and faces are final, so only the art changes.
-- **Done when:** the commissioned art is in the game, and **v1.0** is tagged.
+- Machine particles are done (DESIGN.md section 7.6). If the machines are commissioned later, tell the artist they have a `working` block state (lit "on" variants), and give them the texture style rules and machine faces (sections 7.6 and 7.7), plus the GUI kit if the GUI is included.
+- **Done when:** the commissioned drone and item art is in the game, and **v1.0** is tagged.
 
 ---
 
