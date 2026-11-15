@@ -1,5 +1,8 @@
 package com.elpinho.seekerdrones.client;
 
+import com.elpinho.seekerdrones.network.RadarContactsPayload;
+import com.elpinho.seekerdrones.network.RadarTerrainPayload;
+
 import com.elpinho.seekerdrones.client.feed.FpvFeedClient;
 import com.elpinho.seekerdrones.drone.DroneEntity;
 import com.elpinho.seekerdrones.factory.DroneFactoryMenu;
@@ -79,5 +82,13 @@ public final class ClientPayloadHandlers {
                 && menu.containerId == payload.containerId()) {
             menu.setTemplate(payload.template());
         }
+    }
+
+    public static void handleRadarTerrain(RadarTerrainPayload payload) {
+        RadarStationScreen.onTerrain(payload);
+    }
+
+    public static void handleRadarContacts(RadarContactsPayload payload) {
+        RadarStationScreen.onContacts(payload);
     }
 }

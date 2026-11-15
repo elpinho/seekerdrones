@@ -108,6 +108,19 @@ public class ModRecipeProvider extends RecipeProvider {
                 .unlockedBy(getHasName(ModItems.DRONE_ROTOR.get()), has(ModItems.DRONE_ROTOR.get()))
                 .save(output);
 
+        // Placeholder Radar Station recipe until M10 (DESIGN.md section 7.8): a Compass and an Observer as its core.
+        ShapedRecipeBuilder.shaped(RecipeCategory.MISC, ModItems.RADAR_STATION.get())
+                .pattern("ICI")
+                .pattern("GOG")
+                .pattern("IRI")
+                .define('I', Items.IRON_INGOT)
+                .define('C', Items.COMPASS)
+                .define('G', Items.GLASS_PANE)
+                .define('O', Items.OBSERVER)
+                .define('R', Items.REDSTONE)
+                .unlockedBy(getHasName(Items.OBSERVER), has(Items.OBSERVER))
+                .save(output);
+
         buildBaseRecipes(output.withConditions(new NotCondition(new ModLoadedCondition(RepairFluid.MEKANISM))));
         buildMekanismAssembly(output.withConditions(new ModLoadedCondition(RepairFluid.MEKANISM)));
     }

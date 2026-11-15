@@ -13,6 +13,7 @@ import com.elpinho.seekerdrones.remote.DroneRemoteItem;
 import com.elpinho.seekerdrones.station.ChargingStationItem;
 
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.DoubleHighBlockItem;
 import net.minecraft.world.item.Item;
 import net.neoforged.neoforge.registries.DeferredItem;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -32,6 +33,9 @@ public class ModItems {
             () -> new ProgrammingStationItem(ModBlocks.PROGRAMMING_STATION.get(), new Item.Properties()));
     public static final DeferredItem<DeployingStationItem> DEPLOYING_STATION = ITEMS.register("deploying_station",
             () -> new DeployingStationItem(ModBlocks.DEPLOYING_STATION.get(), new Item.Properties()));
+    /** Two blocks tall: like a door's item, it clears the space above first, so a plant there can't break it (DESIGN.md 7.8). */
+    public static final DeferredItem<BlockItem> RADAR_STATION = ITEMS.registerItem("radar_station",
+            properties -> new DoubleHighBlockItem(ModBlocks.RADAR_STATION.get(), properties));
 
     // Intermediate components (DESIGN.md section 7.5).
     public static final DeferredItem<Item> DRONE_ROTOR = ITEMS.registerSimpleItem("drone_rotor");

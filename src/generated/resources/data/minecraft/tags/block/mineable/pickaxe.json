@@ -3,6 +3,7 @@
     "seekerdrones:charging_station",
     "seekerdrones:drone_factory",
     "seekerdrones:programming_station",
-    "seekerdrones:deploying_station"
+    "seekerdrones:deploying_station",
+    "seekerdrones:radar_station"
   ]
 }
