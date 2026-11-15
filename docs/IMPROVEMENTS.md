@@ -19,12 +19,6 @@ Status: `idea` | `decided`
 ## Upgrades and energy
 
 - **Antiprotonic Nucleosynthesizer for late-game recipes** (`idea`): the Mekanism variants of really late-game items (e.g. the most expensive upgrades) should require the Antiprotonic Nucleosynthesizer.
-- **Quiet upgrade** (`idea`, direction agreed; name TBD, e.g. "Stealth" or "Silencer"): a drone upgrade for silent watchers.
-  - It lowers the volume of the drone's own sounds (flying, low power and so on, DESIGN.md section 2.9).
-  - It **hides the drone's nameplate** (label), since a floating name tag defeats the point.
-  - It's **mutually exclusive with the Siren upgrade**: a drone is either a loud deterrent or a silent watcher. The Programming Station and the debug command must refuse to install one while the other is installed.
-  - **Still open:** how much each upgrade lowers the volume, the cap, whether it offsets the extra loudness from having many upgrades, and whether it also quiets the Explosive approach sound (a stealth kamikaze drone is fun but maybe harsh in PvP). All values would be config entries.
-- **Transparent drone upgrade** (`idea`): an upgrade that makes the drone (semi-)transparent or invisible. Could be part of the Quiet upgrade above as one "Stealth" upgrade, or separate.
 
 ## Drone GUI and visuals
 
@@ -34,9 +28,7 @@ Status: `idea` | `decided`
 ## Sounds
 
 - **More sounds** (`idea`): the drone and machine sounds are implemented (DESIGN.md section 2.9). Still open:
-  - **Explosive approach:** check in playtests whether the flying loop's rising pitch is enough. A non-Explosive drone chasing a fast target also flies fast, so pitch alone may not tell a kamikaze from a follower. If needed, give Explosive drones that are chasing a steeper pitch curve (the client already knows when one is approaching), or add a speeding-up beep layer.
   - Factory crafting sounds, a Programming Station completion chime, a Charging Station hum loop, a pickup sound, and sounds for the Jammer block and EMP grenade if those are made.
-  - The **Quiet upgrade** lowers the result of the upgrade loudness (see above).
 
 ## Items and interaction
 

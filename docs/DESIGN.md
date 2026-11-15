@@ -122,7 +122,8 @@ The sound files are in `assets/seekerdrones/sounds/`, with their sources and lic
   - returning (`drone/low_power.ogg`, a double beep every 1 s) while RETURNING, including while it waits by a busy station (section 5.3). It stops when the drone docks.
   - critical (`drone/low_power_critical.ogg`, every 0.62 s) while the drone is undocked and its energy would run out within `sounds.lowPower.criticalSeconds` of hovering, at its real hover cost (with its upgrade multiplier, section 5.1). This applies in any state: a drone with no usable station in range carries on until it drops at 0 (section 5.2), and an Explosive drone may keep chasing instead of returning. Both get the critical beep as a warning.
   - The level is re-derived on every state change, every batched energy drain (section 8.4) and whenever the drone's data is replaced.
-- **Nearest only:** sound channels are limited, so each client plays the flying loop only for the `sounds.flying.maxPlaying` nearest drones in earshot, and the low-power loop only for the `sounds.lowPower.maxPlaying` nearest low-power drones. The sets are re-picked every `sounds.resortInterval` ticks, and right away when a drone appears or its low-power level or Explosive approach changes. An Explosive drone that is chasing a target goes first for the flying loop, so a kamikaze is never silent in a swarm. Its rising pitch as it speeds up is its approach sound.
+- **Explosive approach** (`drone/explosive_approach.ogg`, a short 1.6 kHz beep): like a car parking sensor, an Explosive drone that is CHASING beeps on the client, slowly at the edge of `sounds.explosiveApproach.range` (48 blocks, every `slowInterval` = 8 ticks) and faster as it gets closer to the listener (down to every `fastInterval` = 2 ticks next to them, nearly a solid tone, linear in between). The first beep plays as soon as it starts chasing within range, or as soon as it comes into range: the client tracks approaching drones beyond the range too. Each beep is a one-shot at `volume`/`pitch` that fades out linearly over the range, computed by the client (vanilla would fade a sound this quiet out over 16 blocks, which a diving drone crosses in under a second). It's the warning that a kamikaze is coming, so it plays for every Explosive drone, with or without a Silencer, and neither the Silencer nor the upgrade loudness changes it. It stops when the drone stops chasing (lost target, return, detonation).
+- **Nearest only:** sound channels are limited, so each client plays the flying loop only for the `sounds.flying.maxPlaying` nearest drones in earshot, the low-power loop only for the `sounds.lowPower.maxPlaying` nearest low-power drones, and the approach beep only for the `sounds.explosiveApproach.maxPlaying` nearest approaching Explosive drones. The sets are re-picked every `sounds.resortInterval` ticks, and right away when a drone appears or its low-power level or Explosive approach changes. An Explosive drone that is chasing a target goes first for the flying loop, so a kamikaze is never silent in a swarm. The approach beep (above) also marks it.
 - **One-shots** (played by the server):
   - Deploy (`drone/deploy.ogg`): a propeller spin-up whenever a drone is deployed, by hand or by a Deploying Station.
   - Lock-on: a short, quiet beep (`drone/beep.ogg`) when a drone spots a target and starts chasing. Target lost: the same beep at a lower pitch when it drops its target (section 3.5). No beep when a returning drone drops its target, or when an Explosive drone explodes.
@@ -135,7 +136,8 @@ The sound files are in `assets/seekerdrones/sounds/`, with their sources and lic
   - The Charging Station plays it when a drone docks. A drone that re-docks after its chunk reloads plays nothing.
   - The Programming Station plays it as a click for each upgrade installed.
   - There's no Programming Station completion sound and no charging hum.
-- **Louder with more upgrades:** the flying loop and the drone's one-shots play at `volume × min(1 + volumePerUpgrade × totalUpgrades, maxVolumeMultiplier)` and `pitch × max(1 − pitchPerUpgrade × totalUpgrades, minPitchMultiplier)`, so a heavily upgraded drone is louder and deeper, matching its bigger model (section 3.7). The server computes both multipliers and syncs them, like the visual scale. The Siren and the low-power beeps don't use them.
+- **Louder with more upgrades:** the flying loop and the drone's one-shots play at `volume × min(1 + volumePerUpgrade × totalUpgrades, maxVolumeMultiplier)` and `pitch × max(1 − pitchPerUpgrade × totalUpgrades, minPitchMultiplier)`, so a heavily upgraded drone is louder and deeper, matching its bigger model (section 3.7). The server computes both multipliers and syncs them, like the visual scale. The Siren, the low-power beeps and the Explosive approach beep don't use them.
+- **Silencer:** the Silencer upgrade (section 4) quiets the flying loop, the deploy spin-up and the lock-on/lost beeps on top of this.
 
 ### 2.10 Drone Remote
 
@@ -380,6 +382,7 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
 | **Player Seek** | No | 1 | Allows player names as target entries. Player-name entries use target slots like any other entry. The drone's operators (section 6.3) are still exempt. Disabled by `drone.allowPlayerTargets` (below). | — (names go in the Targets list) |
 | **Solar** | Yes | 4 | Generates FE from sunlight while the drone is airborne (below). | — |
 | **FPV Camera** | No | 1 | Lets operators watch a live first-person feed from the drone through the Drone Remote (section 2.12). | — |
+| **Silencer** | Yes | 4 | Quiets the flying loop, the deploy spin-up and the lock-on/lost beeps, 25% per upgrade (silent with 4), and hides the nameplate (below). | — |
 
 - The default **total slot limit** is 20.
 - The caps are enforced when upgrades are installed (Programming Station, debug command). A flying drone uses its installed counts as they are, even if the config was lowered afterwards.
@@ -393,6 +396,12 @@ After losing the target, a drone with a Patrol upgrade goes back to patrolling. 
   - **Batched:** the output is sampled at the batched energy drain (section 8.4) and applied for the airborne ticks being billed (`solar × ticks`), subtracted from the cost. The result is clamped to max energy. No extra ticking.
   - **Return threshold and low-power sounds use the gross cost** (section 5.2), so a drone doesn't count on the sun for the trip home. Solar only extends how long the drone lasts.
   - **Display:** the energy rate next to the energy bar (drone status screen, Drone Remote, Jade for operators) shows the **net** rate, "-12 FE/t" while losing energy and "+3 FE/t" when the Solar output is larger. With Solar generating, the bar's tooltip also gives the use and the generation. The server reports the last sampled generation (`DroneStatusPayload.solarRate`). The FPV HUD (section 2.12) shows the net rate too.
+- **Silencer** (`seekerdrones:silencer_upgrade`), for silent watchers:
+  - **Volume:** the flying loop, the deploy spin-up and the lock-on and target-lost beeps play at `max(0, 1 − upgrades.silencer.volumePerUpgrade × count)` of their volume (default 0.25: 100%, 75%, 50%, 25%, 0% with 0 to 4 upgrades). It's a fraction of the **total** volume, applied after the upgrade loudness (section 2.9), so a big drone with a Silencer is still louder than a small one with the same count. Pitch is unchanged. A fully silenced flying loop isn't played at all.
+  - **Not quieted:** the low-power beeps (a warning for the owner), the Explosive approach beep (section 2.9, the counterweight to a silent kamikaze), the Siren, the Deploying Station's launch clunk (a machine sound), and the hurt, destroyed and "charged" one-shots.
+  - **Nameplate:** with at least one Silencer the drone's nameplate (its label, or a name tag) isn't drawn. The label is still shown everywhere else (GUIs, remote, Transmitter, radar).
+  - **Siren:** both can be installed together.
+  - The server syncs the Silencer count, like the upgrade loudness, so the client can quiet the flying loop and hide the nameplate. It has the usual energy factor (×1.3). Its recipe is a placeholder like the others, with white wool (which muffles vibrations in vanilla) as its core. Its item texture is the usual upgrade card with a crossed-out speaker.
 - **Upgrade items:** one item per type, `seekerdrones:<type>_upgrade` (e.g. `seekerdrones:player_seek_upgrade`), with placeholder recipes until the final ones (ROADMAP.md M10).
 - **Removed upgrades:** the X-ray and Multi-target upgrades were removed (line of sight is always required, and target slots are a config value). Saved drones and templates that still list them load with those entries dropped, without a refund.
 
@@ -1057,6 +1066,11 @@ All values below are placeholders.
 | `sounds.lowPower.maxPlaying` | 4 | Nearest low-power drones that play the beep loop |
 | `sounds.lowPower.criticalSeconds` | 30 s | Hover time left below which the critical beep plays |
 | `sounds.lowPower.volume` | 0.4 | |
+| `sounds.explosiveApproach.maxPlaying` | 4 | Nearest approaching Explosive drones that beep |
+| `sounds.explosiveApproach.volume` / `pitch` | 1.0 / 1.0 | Not affected by upgrade loudness or the Silencer |
+| `sounds.explosiveApproach.range` | 48 blocks | Distance the approach beep is heard from; it fades out linearly over it |
+| `sounds.explosiveApproach.slowInterval` / `fastInterval` | 8 / 2 ticks | Time between beeps at the edge of the range / right next to the listener |
+| `upgrades.silencer.volumePerUpgrade` | 0.25 | Fraction of the flying loop, deploy and lock-on/lost volume each Silencer removes (section 4) |
 | `sounds.upgrades.volumePerUpgrade` / `maxVolumeMultiplier` | 0.05 / 2.0 | Louder with more upgrades |
 | `sounds.upgrades.pitchPerUpgrade` / `minPitchMultiplier` | 0.01 / 0.85 | Deeper with more upgrades |
 | `sounds.drone.deployVolume` / `hurtVolume` / `destroyVolume` | 0.5 / 0.5 / 0.5 | |

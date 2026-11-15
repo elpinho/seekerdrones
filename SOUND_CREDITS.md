@@ -11,4 +11,5 @@ Sounds in `src/main/resources/assets/seekerdrones/sounds/` and their sources. Ev
 | `drone/destroy.ogg` | [Stepping on Plastic Case 1](https://freesound.org/s/572759/) | F.M.Audio | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | Layered with a delayed, slowed copy of itself, compressed and limited |
 | `drone/low_power.ogg`, `drone/low_power_critical.ogg` | [Low-battery](https://freesound.org/s/582986/) | oysterqueen | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | One double beep, padded to a 1 s / 0.62 s loop |
 | `drone/beep.ogg` | [scanner beep](https://freesound.org/s/202530/) | kalisemorrison | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | Time-stretched to twice the length, pitch kept |
+| `drone/explosive_approach.ogg` | Synthesized for this mod (a 90 ms 1.6 kHz sine beep) | — | Same as the mod | — |
 | `drone/siren.ogg` | Synthesized for this mod | — | Same as the mod | — |

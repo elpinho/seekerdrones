@@ -29,6 +29,12 @@
     ],
     "subtitle": "subtitles.seekerdrones.drone_destroy"
   },
+  "drone_explosive_approach": {
+    "sounds": [
+      "seekerdrones:drone/explosive_approach"
+    ],
+    "subtitle": "subtitles.seekerdrones.drone_explosive_approach"
+  },
   "drone_fly": {
     "sounds": [
       "seekerdrones:drone/fly"

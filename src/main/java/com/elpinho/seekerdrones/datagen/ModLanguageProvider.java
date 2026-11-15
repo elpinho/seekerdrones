@@ -256,6 +256,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.PLAYER_SEEK.getTranslationKey(), "Player Seek");
         add(UpgradeType.FPV_CAMERA.getTranslationKey(), "FPV Camera");
         add(UpgradeType.SOLAR.getTranslationKey(), "Solar");
+        add(UpgradeType.SILENCER.getTranslationKey(), "Silencer");
 
         addItem(ModItems.upgrade(UpgradeType.PATROL), "Patrol Upgrade");
         addItem(ModItems.upgrade(UpgradeType.SIGHT), "Sight Upgrade");
@@ -267,6 +268,7 @@ public class ModLanguageProvider extends LanguageProvider {
         addItem(ModItems.upgrade(UpgradeType.PLAYER_SEEK), "Player Seek Upgrade");
         addItem(ModItems.upgrade(UpgradeType.FPV_CAMERA), "FPV Camera Upgrade");
         addItem(ModItems.upgrade(UpgradeType.SOLAR), "Solar Upgrade");
+        addItem(ModItems.upgrade(UpgradeType.SILENCER), "Silencer Upgrade");
 
         add(UpgradeType.PATROL.getTranslationKey() + ".description", "Patrols in a circle around its patrol center.");
         add(UpgradeType.SIGHT.getTranslationKey() + ".description", "Increases the range at which targets are spotted.");
@@ -278,6 +280,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add(UpgradeType.PLAYER_SEEK.getTranslationKey() + ".description", "Allows setting players as targets.");
         add(UpgradeType.FPV_CAMERA.getTranslationKey() + ".description", "Streams a live first-person feed to the Drone Remote.");
         add(UpgradeType.SOLAR.getTranslationKey() + ".description", "Generates energy from sunlight while the drone flies under open sky. Less in rain, none at night.");
+        add(UpgradeType.SILENCER.getTranslationKey() + ".description", "Quiets the rotors, take-off and beeps, 25% each. Hides the nameplate.");
         add("tooltip.seekerdrones.upgrade.max_count", "Max per drone: %s");
         add("tooltip.seekerdrones.upgrade.disabled", "Disabled on this server");
 
@@ -291,6 +294,7 @@ public class ModLanguageProvider extends LanguageProvider {
         add("subtitles.seekerdrones.drone_lock_on", "Drone locks on");
         add("subtitles.seekerdrones.drone_target_lost", "Drone loses target");
         add("subtitles.seekerdrones.drone_charged", "Drone chirps");
+        add("subtitles.seekerdrones.drone_explosive_approach", "Explosive drone beeps rapidly");
         add("subtitles.seekerdrones.deploying_station_launch", "Deploying Station launches");
         add("subtitles.seekerdrones.charging_station_dock", "Drone docks");
         add("subtitles.seekerdrones.programming_station_install", "Upgrade clicks in");

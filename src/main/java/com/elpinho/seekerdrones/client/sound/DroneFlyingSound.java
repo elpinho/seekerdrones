@@ -8,6 +8,7 @@ import net.minecraft.util.Mth;
 
 /**
  * The rotor loop (DESIGN.md section 2.9): a low hum while hovering, higher and louder the faster the drone flies.
+ * Silencer upgrades quiet it (section 4).
  */
 class DroneFlyingSound extends DroneLoopSound {
     /** Fraction of the way the smoothed speed moves toward the measured one each tick, so the pitch glides. */
@@ -27,13 +28,14 @@ class DroneFlyingSound extends DroneLoopSound {
         smoothedSpeed = smoothedSpeed < 0 ? speed : smoothedSpeed + (speed - smoothedSpeed) * SPEED_SMOOTHING;
         double t = Mth.clamp(smoothedSpeed / ServerConfig.get(ServerConfig.SOUNDS_FLYING_FULL_SPEED), 0, 1);
         volume = (float) Mth.lerp(t, ServerConfig.get(ServerConfig.SOUNDS_FLYING_MIN_VOLUME), ServerConfig.get(ServerConfig.SOUNDS_FLYING_MAX_VOLUME))
-                * drone.getSoundVolumeMultiplier();
+                * drone.getSoundVolumeMultiplier() * drone.getSilencerVolumeMultiplier();
         pitch = (float) Mth.lerp(t, ServerConfig.get(ServerConfig.SOUNDS_FLYING_MIN_PITCH), ServerConfig.get(ServerConfig.SOUNDS_FLYING_MAX_PITCH))
                 * drone.getSoundPitchMultiplier();
     }
 
     /** The loudest this drone's loop gets, which sets how far away it can be heard. */
     static float maxVolume(DroneEntity drone) {
-        return ServerConfig.get(ServerConfig.SOUNDS_FLYING_MAX_VOLUME).floatValue() * drone.getSoundVolumeMultiplier();
+        return ServerConfig.get(ServerConfig.SOUNDS_FLYING_MAX_VOLUME).floatValue() * drone.getSoundVolumeMultiplier()
+                * drone.getSilencerVolumeMultiplier();
     }
 }

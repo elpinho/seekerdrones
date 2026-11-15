@@ -28,6 +28,8 @@ public class ModSounds {
     public static final DeferredHolder<SoundEvent, SoundEvent> DRONE_LOCK_ON = register("drone_lock_on");
     public static final DeferredHolder<SoundEvent, SoundEvent> DRONE_TARGET_LOST = register("drone_target_lost");
     public static final DeferredHolder<SoundEvent, SoundEvent> DRONE_CHARGED = register("drone_charged");
+    /** The fast beep loop of an Explosive drone chasing its target. */
+    public static final DeferredHolder<SoundEvent, SoundEvent> DRONE_EXPLOSIVE_APPROACH = register("drone_explosive_approach");
 
     public static final DeferredHolder<SoundEvent, SoundEvent> DEPLOYING_STATION_LAUNCH = register("deploying_station_launch");
     public static final DeferredHolder<SoundEvent, SoundEvent> CHARGING_STATION_DOCK = register("charging_station_dock");

@@ -79,8 +79,10 @@ public class DroneEntity extends PathfinderMob {
     private static final EntityDataAccessor<Boolean> DATA_EXPLOSIVE = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.BOOLEAN);
     private static final EntityDataAccessor<Float> DATA_SOUND_VOLUME = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
     private static final EntityDataAccessor<Float> DATA_SOUND_PITCH = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.FLOAT);
+    /** Installed Silencer upgrades (section 4): the client quiets the flying loop and hides the nameplate from it. */
+    private static final EntityDataAccessor<Byte> DATA_SILENCERS = SynchedEntityData.defineId(DroneEntity.class, EntityDataSerializers.BYTE);
 
-    /** Client side: told when a drone's low-power level or Explosive approach changes, so the loops are re-picked at once. */
+    /** Client side: told when a drone's low-power level, Explosive approach or Silencer count changes, so the loops are re-picked at once. */
     private static Runnable clientSoundListener = () -> {};
 
     private static final String TAG_DRONE_DATA = "DroneData";
@@ -214,6 +216,7 @@ public class DroneEntity extends PathfinderMob {
         builder.define(DATA_EXPLOSIVE, false);
         builder.define(DATA_SOUND_VOLUME, 1.0F);
         builder.define(DATA_SOUND_PITCH, 1.0F);
+        builder.define(DATA_SILENCERS, (byte) 0);
     }
 
     public static void setClientSoundListener(Runnable listener) {
@@ -223,7 +226,8 @@ public class DroneEntity extends PathfinderMob {
     @Override
     public void onSyncedDataUpdated(EntityDataAccessor<?> key) {
         super.onSyncedDataUpdated(key);
-        if (level().isClientSide() && (key == DATA_LOW_POWER || key == DATA_EXPLOSIVE || key == DATA_STATE && entityData.get(DATA_EXPLOSIVE))) {
+        if (level().isClientSide() && (key == DATA_LOW_POWER || key == DATA_EXPLOSIVE || key == DATA_SILENCERS
+                || key == DATA_STATE && entityData.get(DATA_EXPLOSIVE))) {
             clientSoundListener.run();
         }
     }
@@ -311,6 +315,7 @@ public class DroneEntity extends PathfinderMob {
         entityData.set(DATA_EXPLOSIVE, DroneStats.isExplosive(data));
         entityData.set(DATA_SOUND_VOLUME, DroneStats.soundVolume(data));
         entityData.set(DATA_SOUND_PITCH, DroneStats.soundPitch(data));
+        entityData.set(DATA_SILENCERS, (byte) Math.min(data.upgradeCount(UpgradeType.SILENCER), Byte.MAX_VALUE));
         updateLowPower();
     }
 
@@ -402,6 +407,16 @@ public class DroneEntity extends PathfinderMob {
         return entityData.get(DATA_SOUND_PITCH);
     }
 
+    /** Whether the drone has a Silencer upgrade, from the synced field, so it works on the client too. */
+    public boolean isSilenced() {
+        return entityData.get(DATA_SILENCERS) > 0;
+    }
+
+    /** The fraction of the flying loop, deploy and lock-on/lost volume its Silencers leave (section 4), on top of the upgrade loudness. */
+    public float getSilencerVolumeMultiplier() {
+        return DroneStats.silencerVolume(entityData.get(DATA_SILENCERS));
+    }
+
     /**
      * Re-derives the synced low-power level from the state and energy: none while docked, critical while undocked with
      * little energy left (in any state), else returning while RETURNING.
@@ -424,13 +439,43 @@ public class DroneEntity extends PathfinderMob {
 
     /** Plays one of the drone's own one-shot sounds, louder and lower with more upgrades. */
     void playDroneSound(SoundEvent sound, double volume, double pitch) {
-        level().playSound(null, getX(), getY(), getZ(), sound, SoundSource.NEUTRAL,
-                (float) volume * getSoundVolumeMultiplier(), (float) pitch * getSoundPitchMultiplier());
+        float played = (float) volume * getSoundVolumeMultiplier();
+        if (played <= 0) {
+            return;
+        }
+        level().playSound(null, getX(), getY(), getZ(), sound, SoundSource.NEUTRAL, played, (float) pitch * getSoundPitchMultiplier());
     }
 
-    /** The propeller spin-up, played whenever a drone is deployed by hand or by a Deploying Station. */
+    /** The propeller spin-up, played whenever a drone is deployed by hand or by a Deploying Station. Silencers quiet it. */
     public void playDeploySound() {
-        playDroneSound(ModSounds.DRONE_DEPLOY.get(), ServerConfig.get(ServerConfig.SOUNDS_DEPLOY_VOLUME), 1.0);
+        playSilencedSound(ModSounds.DRONE_DEPLOY.get(), deployVolume(), 1.0);
+    }
+
+    /** The volume the deploy spin-up plays at: its config volume with the upgrade loudness and the Silencers. */
+    public float deployVolume() {
+        return silencedVolume(ServerConfig.get(ServerConfig.SOUNDS_DEPLOY_VOLUME));
+    }
+
+    /** The volume the lock-on beep plays at: its config volume with the upgrade loudness and the Silencers. */
+    public float lockOnVolume() {
+        return silencedVolume(ServerConfig.get(ServerConfig.SOUNDS_LOCK_ON_VOLUME));
+    }
+
+    /** The volume the target-lost beep plays at: its config volume with the upgrade loudness and the Silencers. */
+    public float targetLostVolume() {
+        return silencedVolume(ServerConfig.get(ServerConfig.SOUNDS_TARGET_LOST_VOLUME));
+    }
+
+    private float silencedVolume(double volume) {
+        return (float) volume * getSoundVolumeMultiplier() * getSilencerVolumeMultiplier();
+    }
+
+    /** Plays a one-shot the Silencer quiets, at a volume that already includes the upgrade loudness and the Silencers. */
+    private void playSilencedSound(SoundEvent sound, float volume, double pitch) {
+        if (volume <= 0) {
+            return;
+        }
+        level().playSound(null, getX(), getY(), getZ(), sound, SoundSource.NEUTRAL, volume, (float) pitch * getSoundPitchMultiplier());
     }
 
     /** The entity being chased or followed, if any. Server side only. */
@@ -772,7 +817,7 @@ public class DroneEntity extends PathfinderMob {
         patrol.reset();
         charging.setHomeGoal(null);
         setState(DroneState.CHASING);
-        playDroneSound(ModSounds.DRONE_LOCK_ON.get(), ServerConfig.get(ServerConfig.SOUNDS_LOCK_ON_VOLUME), ServerConfig.get(ServerConfig.SOUNDS_LOCK_ON_PITCH));
+        playSilencedSound(ModSounds.DRONE_LOCK_ON.get(), lockOnVolume(), ServerConfig.get(ServerConfig.SOUNDS_LOCK_ON_PITCH));
         DroneData data = getDroneData();
         playSiren(data);
         transmit(data, entity);
@@ -840,8 +885,7 @@ public class DroneEntity extends PathfinderMob {
         pursuit.reset();
         stopNavigating();
         setState(DroneState.IDLE);
-        playDroneSound(ModSounds.DRONE_TARGET_LOST.get(), ServerConfig.get(ServerConfig.SOUNDS_TARGET_LOST_VOLUME),
-                ServerConfig.get(ServerConfig.SOUNDS_TARGET_LOST_PITCH));
+        playSilencedSound(ModSounds.DRONE_TARGET_LOST.get(), targetLostVolume(), ServerConfig.get(ServerConfig.SOUNDS_TARGET_LOST_PITCH));
     }
 
     void stopNavigating() {
@@ -1208,7 +1252,8 @@ public class DroneEntity extends PathfinderMob {
 
     @Override
     public boolean shouldShowName() {
-        return !getLabel().isEmpty() || super.shouldShowName();
+        // A Silencer hides the nameplate, label or name tag (section 4).
+        return !isSilenced() && (!getLabel().isEmpty() || super.shouldShowName());
     }
 
     @Override

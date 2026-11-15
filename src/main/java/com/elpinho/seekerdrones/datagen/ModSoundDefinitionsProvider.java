@@ -27,6 +27,7 @@ public class ModSoundDefinitionsProvider extends SoundDefinitionsProvider {
         add(ModSounds.DRONE_LOCK_ON, "drone/beep");
         add(ModSounds.DRONE_TARGET_LOST, "drone/beep");
         add(ModSounds.DRONE_CHARGED, "drone/beep");
+        add(ModSounds.DRONE_EXPLOSIVE_APPROACH, "drone/explosive_approach");
         add(ModSounds.DEPLOYING_STATION_LAUNCH, "machine/clunk");
         add(ModSounds.CHARGING_STATION_DOCK, "machine/clunk");
         add(ModSounds.PROGRAMMING_STATION_INSTALL, "machine/clunk");

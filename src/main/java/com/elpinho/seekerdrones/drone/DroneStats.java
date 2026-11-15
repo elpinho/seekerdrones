@@ -4,6 +4,7 @@ import java.util.Map;
 
 import com.elpinho.seekerdrones.config.ServerConfig;
 
+import net.minecraft.util.Mth;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 
@@ -107,6 +108,42 @@ public final class DroneStats {
     public static float soundVolume(DroneData data) {
         double volume = 1.0 + ServerConfig.get(ServerConfig.SOUNDS_UPGRADES_VOLUME_PER_UPGRADE) * totalUpgrades(data.upgrades());
         return (float) Math.min(volume, ServerConfig.get(ServerConfig.SOUNDS_UPGRADES_MAX_VOLUME_MULTIPLIER));
+    }
+
+    /**
+     * The fraction of the flying loop, deploy and lock-on/lost volume left by {@code silencers} Silencer upgrades (section 4):
+     * {@code max(0, 1 − volumePerUpgrade × count)}, applied on top of {@link #soundVolume}.
+     */
+    public static float silencerVolume(int silencers) {
+        return (float) Math.max(0.0, 1.0 - ServerConfig.get(ServerConfig.UPGRADES_SILENCER_VOLUME_PER_UPGRADE) * silencers);
+    }
+
+    /**
+     * How close a drone at {@code distance} blocks is, as a fraction of {@code sounds.explosiveApproach.range}: 1 right
+     * at the listener, 0 at the edge of the range and beyond (section 2.9).
+     */
+    private static double approachCloseness(double distance) {
+        return 1.0 - Math.min(1.0, distance / ServerConfig.get(ServerConfig.SOUNDS_EXPLOSIVE_APPROACH_RANGE));
+    }
+
+    /** Whether an approaching Explosive drone at {@code distance} blocks from the listener is close enough to beep. */
+    public static boolean inApproachBeepRange(double distance) {
+        return approachCloseness(distance) > 0;
+    }
+
+    /**
+     * Ticks between Explosive approach beeps for a drone at {@code distance} blocks from the listener (section 2.9):
+     * {@code slowInterval} at the edge of the range, shrinking linearly to {@code fastInterval} right at the listener.
+     */
+    public static int approachBeepInterval(double distance) {
+        double interval = Mth.lerp(approachCloseness(distance), ServerConfig.get(ServerConfig.SOUNDS_EXPLOSIVE_APPROACH_SLOW_INTERVAL),
+                ServerConfig.get(ServerConfig.SOUNDS_EXPLOSIVE_APPROACH_FAST_INTERVAL));
+        return Math.max(1, Mth.floor(interval));
+    }
+
+    /** The volume of an Explosive approach beep at {@code distance} blocks: fading linearly to 0 at the edge of the range. */
+    public static float approachBeepVolume(double distance) {
+        return (float) (ServerConfig.get(ServerConfig.SOUNDS_EXPLOSIVE_APPROACH_VOLUME) * approachCloseness(distance));
     }
 
     /** Pitch multiplier for the drone's own sounds, not the Siren (section 2.9): lower with more upgrades. */

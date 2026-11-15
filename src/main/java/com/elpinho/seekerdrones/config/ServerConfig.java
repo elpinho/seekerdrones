@@ -108,6 +108,8 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue UPGRADES_SOLAR_OUTPUT_FACTOR;
     public static final ModConfigSpec.DoubleValue UPGRADES_SOLAR_RAIN_MULTIPLIER;
     public static final ModConfigSpec.DoubleValue UPGRADES_SOLAR_THUNDER_MULTIPLIER;
+    public static final ModConfigSpec.IntValue UPGRADES_SILENCER_MAX_COUNT;
+    public static final ModConfigSpec.DoubleValue UPGRADES_SILENCER_VOLUME_PER_UPGRADE;
 
     public static final ModConfigSpec.DoubleValue UPGRADES_PATROL_ENERGY_FACTOR;
     public static final ModConfigSpec.DoubleValue UPGRADES_SIGHT_ENERGY_FACTOR;
@@ -119,6 +121,7 @@ public class ServerConfig {
     public static final ModConfigSpec.DoubleValue UPGRADES_PLAYER_SEEK_ENERGY_FACTOR;
     public static final ModConfigSpec.DoubleValue UPGRADES_FPV_CAMERA_ENERGY_FACTOR;
     public static final ModConfigSpec.DoubleValue UPGRADES_SOLAR_ENERGY_FACTOR;
+    public static final ModConfigSpec.DoubleValue UPGRADES_SILENCER_ENERGY_FACTOR;
 
 
     // === programmingStation ===
@@ -132,6 +135,7 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_FPV_CAMERA;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_SOLAR;
+    public static final ModConfigSpec.IntValue PROGRAMMING_STATION_BASE_COST_SILENCER;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_ENERGY_CAPACITY;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_INSTALL_TIME;
     public static final ModConfigSpec.IntValue PROGRAMMING_STATION_CHARGE_RATE;
@@ -213,6 +217,12 @@ public class ServerConfig {
     public static final ModConfigSpec.IntValue SOUNDS_LOW_POWER_MAX_PLAYING;
     public static final ModConfigSpec.IntValue SOUNDS_LOW_POWER_CRITICAL_SECONDS;
     public static final ModConfigSpec.DoubleValue SOUNDS_LOW_POWER_VOLUME;
+    public static final ModConfigSpec.IntValue SOUNDS_EXPLOSIVE_APPROACH_MAX_PLAYING;
+    public static final ModConfigSpec.DoubleValue SOUNDS_EXPLOSIVE_APPROACH_VOLUME;
+    public static final ModConfigSpec.DoubleValue SOUNDS_EXPLOSIVE_APPROACH_PITCH;
+    public static final ModConfigSpec.DoubleValue SOUNDS_EXPLOSIVE_APPROACH_RANGE;
+    public static final ModConfigSpec.IntValue SOUNDS_EXPLOSIVE_APPROACH_SLOW_INTERVAL;
+    public static final ModConfigSpec.IntValue SOUNDS_EXPLOSIVE_APPROACH_FAST_INTERVAL;
     public static final ModConfigSpec.DoubleValue SOUNDS_UPGRADES_VOLUME_PER_UPGRADE;
     public static final ModConfigSpec.DoubleValue SOUNDS_UPGRADES_MAX_VOLUME_MULTIPLIER;
     public static final ModConfigSpec.DoubleValue SOUNDS_UPGRADES_PITCH_PER_UPGRADE;
@@ -478,6 +488,15 @@ public class ServerConfig {
         UPGRADES_SOLAR_THUNDER_MULTIPLIER = BUILDER.comment("Fraction of the output left during a thunderstorm.").defineInRange("thunderMultiplier", 0.2, 0.0, 1.0);
         BUILDER.pop();
 
+        BUILDER.push("silencer");
+        UPGRADES_SILENCER_MAX_COUNT = BUILDER.comment("Per-type cap.").defineInRange("maxCount", 4, 0, 64);
+        UPGRADES_SILENCER_ENERGY_FACTOR = BUILDER.comment("Energy usage multiplier per upgrade of this type (compounds).").defineInRange("energyFactor", 1.3, 0.0, 100.0);
+        UPGRADES_SILENCER_VOLUME_PER_UPGRADE = BUILDER
+                .comment("Fraction of the flying loop, deploy spin-up and lock-on/lost beep volume each Silencer removes: they play at max(0, 1 - volumePerUpgrade x count)",
+                        "of their total volume (100%, 75%, 50%, 25%, 0% with the defaults).")
+                .defineInRange("volumePerUpgrade", 0.25, 0.0, 1.0);
+        BUILDER.pop();
+
         BUILDER.pop(); // upgrades
 
         BUILDER.push("programmingStation");
@@ -492,6 +511,7 @@ public class ServerConfig {
         PROGRAMMING_STATION_BASE_COST_PLAYER_SEEK = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("playerSeek", 10_000, 0, Integer.MAX_VALUE);
         PROGRAMMING_STATION_BASE_COST_FPV_CAMERA = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("fpvCamera", 10_000, 0, Integer.MAX_VALUE);
         PROGRAMMING_STATION_BASE_COST_SOLAR = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("solar", 10_000, 0, Integer.MAX_VALUE);
+        PROGRAMMING_STATION_BASE_COST_SILENCER = BUILDER.comment("Base FE cost, multiplied by the upgrade's install index.").defineInRange("silencer", 10_000, 0, Integer.MAX_VALUE);
         BUILDER.pop();
         PROGRAMMING_STATION_ENERGY_CAPACITY = BUILDER
                 .comment("FE a Programming Station can store.")
@@ -729,6 +749,24 @@ public class ServerConfig {
                         "faster critical beep instead of the returning one.")
                 .defineInRange("criticalSeconds", 30, 0, 3600);
         SOUNDS_LOW_POWER_VOLUME = BUILDER.comment("Low-power beep loop volume.").defineInRange("volume", 0.4, 0.0, 4.0);
+        BUILDER.pop();
+        BUILDER.push("explosiveApproach");
+        SOUNDS_EXPLOSIVE_APPROACH_MAX_PLAYING = BUILDER
+                .comment("Only this many chasing Explosive drones nearest to each player beep.")
+                .defineInRange("maxPlaying", 4, 0, 64);
+        SOUNDS_EXPLOSIVE_APPROACH_VOLUME = BUILDER
+                .comment("Approach beep volume right next to the listener (the game plays at most 1.0). Not changed by upgrade loudness or the Silencer.")
+                .defineInRange("volume", 1.0, 0.0, 1.0);
+        SOUNDS_EXPLOSIVE_APPROACH_PITCH = BUILDER.comment("Approach beep pitch.").defineInRange("pitch", 1.0, 0.5, 2.0);
+        SOUNDS_EXPLOSIVE_APPROACH_RANGE = BUILDER
+                .comment("Distance in blocks the approach beep is heard from. It fades linearly to silence at this distance.")
+                .defineInRange("range", 48.0, 1.0, 256.0);
+        SOUNDS_EXPLOSIVE_APPROACH_SLOW_INTERVAL = BUILDER
+                .comment("Ticks between approach beeps at the edge of the range. It shrinks linearly to fastInterval as the drone gets closer.")
+                .defineInRange("slowInterval", 8, 1, 200);
+        SOUNDS_EXPLOSIVE_APPROACH_FAST_INTERVAL = BUILDER
+                .comment("Ticks between approach beeps right next to the listener. Each beep is about 2 ticks long, so 2 is nearly a solid tone.")
+                .defineInRange("fastInterval", 2, 1, 200);
         BUILDER.pop();
         BUILDER.push("upgrades");
         SOUNDS_UPGRADES_VOLUME_PER_UPGRADE = BUILDER

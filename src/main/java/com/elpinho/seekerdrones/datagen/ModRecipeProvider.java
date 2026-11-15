@@ -36,17 +36,18 @@ import net.neoforged.neoforge.fluids.crafting.SizedFluidIngredient;
  */
 public class ModRecipeProvider extends RecipeProvider {
     /** Placeholder upgrade recipes (DESIGN.md section 4): a type-specific core ringed by iron and redstone. */
-    private static final Map<UpgradeType, Item> UPGRADE_CORES = Map.of(
-            UpgradeType.PATROL, Items.COMPASS,
-            UpgradeType.SIGHT, Items.SPYGLASS,
-            UpgradeType.EXPLOSIVE, Items.TNT,
-            UpgradeType.SIREN, Items.NOTE_BLOCK,
-            UpgradeType.TRANSMITTER, Items.LIGHTNING_ROD,
-            UpgradeType.ENERGY, Items.REDSTONE_BLOCK,
-            UpgradeType.HEALTH, Items.GOLDEN_APPLE,
-            UpgradeType.PLAYER_SEEK, Items.ENDER_EYE,
-            UpgradeType.FPV_CAMERA, Items.OBSERVER,
-            UpgradeType.SOLAR, Items.DAYLIGHT_DETECTOR);
+    private static final Map<UpgradeType, Item> UPGRADE_CORES = Map.ofEntries(
+            Map.entry(UpgradeType.PATROL, Items.COMPASS),
+            Map.entry(UpgradeType.SIGHT, Items.SPYGLASS),
+            Map.entry(UpgradeType.EXPLOSIVE, Items.TNT),
+            Map.entry(UpgradeType.SIREN, Items.NOTE_BLOCK),
+            Map.entry(UpgradeType.TRANSMITTER, Items.LIGHTNING_ROD),
+            Map.entry(UpgradeType.ENERGY, Items.REDSTONE_BLOCK),
+            Map.entry(UpgradeType.HEALTH, Items.GOLDEN_APPLE),
+            Map.entry(UpgradeType.PLAYER_SEEK, Items.ENDER_EYE),
+            Map.entry(UpgradeType.FPV_CAMERA, Items.OBSERVER),
+            Map.entry(UpgradeType.SOLAR, Items.DAYLIGHT_DETECTOR),
+            Map.entry(UpgradeType.SILENCER, Items.WHITE_WOOL));
 
     static final TagKey<Item> INGOTS_STEEL = TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "ingots/steel"));
     static final TagKey<Item> ALLOYS_ULTIMATE = TagKey.create(Registries.ITEM, ResourceLocation.fromNamespaceAndPath("c", "alloys/ultimate"));

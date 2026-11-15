@@ -551,6 +551,22 @@ UPGRADES["solar"] = {
 }
 
 
+# The Silencer: a speaker with a red X, muted.
+UPGRADES["silencer"] = {
+    "colors": {"1": (40, 38, 54), "2": (190, 196, 206), "3": (232, 72, 68)},
+    "symbol": [
+        "..2.....",
+        ".22.....",
+        "222.3..3",
+        "222..33.",
+        "222..33.",
+        "222.3..3",
+        ".22.....",
+        "..2.....",
+    ],
+}
+
+
 def upgrade(name):
     spec = UPGRADES[name]
     colors = {k: v + (255,) for k, v in spec["colors"].items()} | {"y": (222, 178, 60, 255)}
