@@ -317,7 +317,7 @@ public class ServerConfig {
         DRONE_MAX_DEPLOYED_PER_PLAYER = BUILDER
                 .comment("Max deployed drones per player, including drones in unloaded chunks. A drone counts against its owner, or its",
                         "Operator Group's owner if it has a group; unowned drones count against nobody. 0 = no limit.")
-                .defineInRange("maxDeployedPerPlayer", 0, 0, Integer.MAX_VALUE);
+                .defineInRange("maxDeployedPerPlayer", 64, 0, Integer.MAX_VALUE);
         DRONE_MAX_EXPLOSIVE_DRONES_PER_TARGET = BUILDER
                 .comment("Max Explosive drones of one team (Operator Group, else owner) going after the same entity. 0 = no limit.",
                         "Non-Explosive drones are always limited to one per entity and team.")

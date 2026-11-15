@@ -412,18 +412,25 @@ public class ServerSafetyGameTests {
         });
     }
 
-    @GameTest(template = "empty", timeoutTicks = 10)
-    public static void noLimitByDefaultAndZeroMeansUnlimited(GameTestHelper helper) {
+    @GameTest(template = "empty", timeoutTicks = 10, batch = "config_limit_zero")
+    public static void defaultLimitIs64AndZeroMeansUnlimited(GameTestHelper helper) {
+        int original = ServerConfig.get(ServerConfig.DRONE_MAX_DEPLOYED_PER_PLAYER);
         MinecraftServer server = helper.getLevel().getServer();
         DeployedDrones deployed = DeployedDrones.get(server);
-        helper.assertTrue(ServerConfig.get(ServerConfig.DRONE_MAX_DEPLOYED_PER_PLAYER) == 0, "default is 0");
-        UUID owner = UUID.randomUUID();
-        for (int i = 0; i < 4; i++) {
-            spawnDrone(helper, new BlockPos(1 + 2 * (i % 3), 3, 1 + 2 * (i / 3)), ownedData(owner));
+        try {
+            helper.assertTrue(ServerConfig.DRONE_MAX_DEPLOYED_PER_PLAYER.getDefault() == 64,
+                    "default is 64, was " + ServerConfig.DRONE_MAX_DEPLOYED_PER_PLAYER.getDefault());
+            ServerConfig.DRONE_MAX_DEPLOYED_PER_PLAYER.set(0);
+            UUID owner = UUID.randomUUID();
+            for (int i = 0; i < 4; i++) {
+                spawnDrone(helper, new BlockPos(1 + 2 * (i % 3), 3, 1 + 2 * (i / 3)), ownedData(owner));
+            }
+            helper.assertTrue(deployed.count(owner) == 4, "all 4 counted, was " + deployed.count(owner));
+            helper.assertFalse(deployed.wouldExceedLimit(server, ownedData(owner)), "limit 0 is unlimited");
+            helper.succeed();
+        } finally {
+            ServerConfig.DRONE_MAX_DEPLOYED_PER_PLAYER.set(original);
         }
-        helper.assertTrue(deployed.count(owner) == 4, "all 4 counted, was " + deployed.count(owner));
-        helper.assertFalse(deployed.wouldExceedLimit(server, ownedData(owner)), "limit 0 is unlimited");
-        helper.succeed();
     }
 
     @GameTest(template = "empty", timeoutTicks = 5)

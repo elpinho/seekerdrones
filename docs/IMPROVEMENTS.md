@@ -38,6 +38,14 @@ Status: `idea` | `decided`
   - **Needs:** a server-side registry of drone ID → last known position and form (a `SavedData`, like the Charging Station registry, §8.3). It's updated at the moments a drone changes form or is saved (deploy, pickup, drop at 0 energy, destruction, chunk unload), not every tick. Positions of deployed drones in loaded chunks can be read live when the list is opened.
   - **Still open:** whether an item in a chest or another player's inventory is tracked (hard to keep current), how long destroyed drones stay in the list, and whether non-operators can see a drone in the list at all (probably not, §6.3).
 
+## Performance
+
+- **Scale to 50+ drones per player** (`idea`, requested 2026-11-15): on the target server size of 6–10 players, players should be able to have 50+ drones deployed each without thinking about it, so a full server runs about **400–640 drones**. The `drone.maxDeployedPerPlayer` default is **64** (DESIGN.md §2.2), set to fit this target.
+  - **Baseline:** the 100-drone profiles (2026-11-15, `scripts/profile-drones.ps1`) cost about 4–13 µs per drone per tick for idle, open patrol, following and charging, and about 24 µs for patrolling through obstacles. Scaled linearly, 640 drones would cost about 6.5 ms typical and 15 ms worst case, out of 50 ms. That's extrapolated and not measured.
+  - **First step:** profile at 400–640 drones (`-Drones 600`) across the existing scenarios, to see which costs stop scaling linearly.
+  - **Places to watch:** entity collisions (`push`) when drones cluster at a base or in a Charging Station queue, target scans with many drones and mobs in the same area (§3.3), pathfinding when many drones chase through obstacles, Charging Station search and queueing (§8.3), and the radar machines going over a much bigger drone index for snapshots, intruder alarms and Command Center orders (§7.8–§7.10).
+  - **Open:** the TPS budget to aim for at 640 drones, and whether a profiling scenario with all drones clustered at one base is needed (probably the worst case on a real server).
+
 ## Mod compatibility
 
 - **Defuser upgrade and Industrial Foregoing's Infinity Nuke** (`idea`, direction agreed): a **Defuser** upgrade (not stackable) lets a drone defuse bombs. A Defuser drone that reaches a defusable entity defuses it (e.g. removes it, and primed TNT drops a TNT item) instead of following it. The main use case is defusing IF's Infinity Nuke.
